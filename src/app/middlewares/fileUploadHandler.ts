@@ -6,20 +6,17 @@ import multer, { FileFilterCallback } from "multer";
 import path from "path";
 
 const fileUploadHandler = () => {
-  //create upload folder
   const baseUploadDir = path.join(process.cwd(), "uploads");
   if (!fs.existsSync(baseUploadDir)) {
     fs.mkdirSync(baseUploadDir);
   }
 
-  //folder create for different file
   const createDir = (dirPath: string) => {
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath);
     }
   };
 
-  //create filename
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
       let uploadDir;
@@ -53,7 +50,6 @@ const fileUploadHandler = () => {
     },
   });
 
-  //file filter
   const filterFilter = (req: Request, file: any, cb: FileFilterCallback) => {
     if (file.fieldname === "image") {
       if (
@@ -83,10 +79,16 @@ const fileUploadHandler = () => {
         );
       }
     } else if (file.fieldname === "doc") {
-      if (file.mimetype === "application/pdf") {
+      const ext = path.extname(file.originalname).toLowerCase();
+      if (
+        file.mimetype === "application/pdf" ||
+        file.mimetype === "text/csv" ||
+        file.mimetype === "application/vnd.ms-excel" ||
+        ext === ".csv"
+      ) {
         cb(null, true);
       } else {
-        cb(new ApiError(StatusCodes.BAD_REQUEST, "Only pdf supported"));
+        cb(new ApiError(StatusCodes.BAD_REQUEST, "Only PDF and CSV files supported"));
       }
     } else {
       cb(new ApiError(StatusCodes.BAD_REQUEST, "This file is not supported"));
