@@ -8,6 +8,7 @@ export default {
   port: process.env.PORT,
   ip_address: process.env.IP_ADDRESS,
   database_url: process.env.DATABASE_URL,
+  redis_url: process.env.REDIS_URL,
   bcrypt_salt_round: Number(process.env.BCRYPT_SALT_ROUND),
   cors_origin: process.env.CORS_ORIGIN,
   frontend_url: process.env.FRONTEND_URL,
@@ -29,5 +30,14 @@ export default {
     phone: process.env.PHONE,
     password: process.env.PASSWORD,
     avatar: process.env.AVATAR,
+  },
+  stripe: {
+    secret_key: process.env.STRIPE_SECRET_KEY,
+    webhook_secret: process.env.STRIPE_WEBHOOK_SECRET,
+    currency: process.env.STRIPE_CURRENCY || "ILS",
+  },
+  fees: {
+    apartment_listing_fee: Number(process.env.APARTMENT_LISTING_FEE || 100),
+    report_rented_fee: Number(process.env.REPORT_RENTED_FEE || 50),
   },
 };

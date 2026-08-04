@@ -1,7 +1,6 @@
 export enum Role {
   USER = "USER",
-  WORKSHOP = "WORKSHOP",
-  ADMIN = "ADMIN",
+  SUPER_ADMIN = "SUPER_ADMIN",
 }
 
 export enum UserStatus {
@@ -42,64 +41,4 @@ export enum PaymentStatus {
   FAILED = "FAILED",
   REFUNDED = "REFUNDED",
   PARTIALLY_PAID = "PARTIALLY_PAID",
-}
-
-export enum WorkshopApprovalStatus {
-  PENDING = "PENDING",
-  APPROVED = "APPROVED",
-  REJECTED = "REJECTED",
-  SUSPENDED = "SUSPENDED",
-}
-
-export enum PriceType {
-  FIXED = "FIXED",
-  HOURLY = "HOURLY",
-  ESTIMATE = "ESTIMATE",
-  NEGOTIABLE = "NEGOTIABLE",
-}
-
-export enum InvoiceStatus {
-  DRAFT = "DRAFT",
-  SENT = "SENT",
-  PAID = "PAID",
-  OVERDUE = "OVERDUE",
-  CANCELLED = "CANCELLED",
-}
-
-export enum ReadStatus {
-  READ = "READ",
-  UNREAD = "UNREAD",
-}
-
-export enum Urgency {
-  LOW = "LOW",
-  MEDIUM = "MEDIUM",
-  HIGH = "HIGH",
-}
-
-export enum BikeType {
-  ROAD = "ROAD",
-  MOUNTAIN = "MOUNTAIN",
-  HYBRID = "HYBRID",
-  ELECTRIC = "ELECTRIC",
-  BMX = "BMX",
-  GRAVEL = "GRAVEL",
-  CRUISER = "CRUISER",
-  OTHER = "OTHER",
-}
-
-export enum WeekDay {
-  MONDAY = "MONDAY",
-  TUESDAY = "TUESDAY",
-  WEDNESDAY = "WEDNESDAY",
-  THURSDAY = "THURSDAY",
-  FRIDAY = "FRIDAY",
-  SATURDAY = "SATURDAY",
-  SUNDAY = "SUNDAY",
-}
-
-export enum MessageType {
-  TEXT = "TEXT",
-  IMAGE = "IMAGE",
-  FILE = "FILE",
 }
