@@ -1,16 +1,67 @@
 enum UserRole {
-    PATIENT
-    DOCTOR
-    ADMIN
+  USER
+  SUPER_ADMIN
 }
 
 enum UserStatus {
-    ACTIVE
-    INACTIVE
-    DELETED
+  ACTIVE
+  BLOCKED
+  SUSPENDED
 }
 
-enum Gender {
-    MALE
-    FEMALE
+enum ApartmentStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  SUSPENDED
+}
+
+enum PropertyType {
+  APARTMENT
+  VILLA
+  PENTHOUSE
+  STUDIO
+}
+
+enum HowToContact {
+  PHONE
+  WHATSAPP
+  BOTH
+}
+
+enum SwapStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentMethod {
+  CASH
+  STRIPE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
 }

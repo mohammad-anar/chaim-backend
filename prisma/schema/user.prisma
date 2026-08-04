@@ -1,72 +1,75 @@
 model User {
-    id                 String     @id @default(cuid())
-    name               String?
-    email              String     @unique
-    phone              String?
-    password           String
-    avatar             String?
-    role               UserRole   @default(PATIENT)
-    isVerified         Boolean    @default(false)
-    needPasswordChange Boolean    @default(true)
-    status             UserStatus @default(ACTIVE)
-    createdAt          DateTime   @default(now())
-    updatedAt          DateTime   @updatedAt
-    admin              Admin?
-    doctor             Doctor?
-    patient            Patient?
+  id           String     @id @default(uuid())
+  username     String     @unique
+  role         UserRole   @default(USER)
+  email        String?    @unique
+  phone        String?    @unique
+  password     String
+  profileImage String?    @map("profile_image")
+  status       UserStatus @default(ACTIVE)
+  isDeleted    Boolean    @default(false)
+  isVerified   Boolean    @default(false)
+  otp          Int?       @map("otp")
+  otpExpiry    DateTime?  @map("otp_expiry")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
 
-    @@map("users")
+  marketingEmail         MarketingEmail?
+  apartment              Apartment?
+  notifyRequestsSent     NotifyRequest[]           @relation("NotifyRequestUser")
+  notifyRequestsRecv     NotifyRequest[]           @relation("NotifyRequestOwner")
+  interestedRequestsSent InterestedRequest[]       @relation("InterestedRequestUser")
+  interestedRequestsRecv InterestedRequest[]       @relation("InterestedRequestOwner")
+  offers                 Offer[]                   @relation("UserOffers")
+  reviews                Review[]
+  wishlists              Wishlist[]
+  bookings               Booking[]                 @relation("UserBookings")
+  wallet                 Wallet?
+  listingPayment         ApartmentListingPayment?
+  bookingPaymentsMade    ApartmentBookingPayment[] @relation("PaymentsGiven")
+  bookingPaymentsRecv    ApartmentBookingPayment[] @relation("PaymentsReceived")
+  reportRentedPayments   ReportRentedPayment[]     @relation("ReportRentedPayer")
+
+  @@map("users")
 }
 
-model Admin {
-    id            String   @id @default(cuid())
-    name          String
-    email         String   @unique
-    profilePhoto  String?
-    contactNumber String
-    isDeleted     Boolean  @default(false)
-    createdAt     DateTime @default(now())
-    updatedAt     DateTime @updatedAt
+model MarketingEmail {
+  id           String   @id @default(uuid())
+  userId       String   @unique @map("user_id")
+  email        String   @unique
+  isSubscribed Boolean  @default(true) @map("is_subscribed")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-    user User @relation(fields: [email], references: [email])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@map("admins")
+  @@map("marketing_emails")
 }
 
-model Doctor {
-    id                  String   @id @default(cuid())
-    name                String
-    email               String   @unique
-    profilePhoto        String?
-    contactNumber       String
-    address             String
-    registrationNumber  String
-    experience          Int      @default(0)
-    gender              Gender
-    appointmentFee      Int
-    qualification       String
-    currentWorkingPlace String
-    designation         String
-    isDeleted           Boolean  @default(false)
-    createdAt           DateTime @default(now())
-    updatedAt           DateTime @updatedAt
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  balance   Float    @default(0.0)
+  currency  String   @default("ILS")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    user User @relation(fields: [email], references: [email])
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
 
-    @@map("doctors")
+  @@map("wallets")
 }
 
-model Patient {
-    id           String   @id @default(cuid())
-    email        String   @unique
-    name         String
-    profilePhoto String?
-    address      String
-    isDeleted    Boolean  @default(false)
-    createdAt    DateTime @default(now())
-    updatedAt    DateTime @updatedAt
+model WalletTransaction {
+  id          String          @id @default(uuid())
+  walletId    String          @map("wallet_id")
+  amount      Float
+  type        TransactionType
+  description String?
+  referenceId String?         @map("reference_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
 
-    user User @relation(fields: [email], references: [email])
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
-    @@map("patients")
+  @@map("wallet_transactions")
 }

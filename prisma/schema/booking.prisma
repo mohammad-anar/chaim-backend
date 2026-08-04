@@ -1,0 +1,37 @@
+model Booking {
+  id          String        @id @default(uuid())
+  userId      String        @map("user_id")
+  apartmentId String        @map("apartment_id")
+  weekendId   String        @map("weekend_id")
+  totalAmount Float         @map("total_amount")
+  status      BookingStatus @default(PENDING)
+  isReviewed  Boolean       @default(false) @map("is_reviewed")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  user                User                     @relation("UserBookings", fields: [userId], references: [id], onDelete: Cascade)
+  apartment           Apartment                @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  weekend             WeekendCalendar          @relation(fields: [weekendId], references: [id], onDelete: Cascade)
+  review              Review?
+  bookingPayment      ApartmentBookingPayment?
+  reportRented        ReportRented?
+  reportRentedPayment ReportRentedPayment?
+
+  @@map("bookings")
+}
+
+model ReportRented {
+  id          String    @id @default(uuid())
+  apartmentId String    @map("apartment_id")
+  bookingId   String?   @unique @map("booking_id")
+  weekend     DateTime
+  paidAt      DateTime? @map("paid_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  apartment Apartment            @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  booking   Booking?             @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  payment   ReportRentedPayment?
+
+  @@map("report_rented")
+}

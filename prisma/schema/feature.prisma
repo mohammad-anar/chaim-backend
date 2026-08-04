@@ -1,0 +1,65 @@
+model Review {
+  id          String   @id @default(uuid())
+  apartmentId String   @map("apartment_id")
+  userId      String   @map("user_id")
+  bookingId   String?  @unique @map("booking_id")
+  title       String?
+  message     String
+  rating      Float
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking   Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@map("reviews")
+}
+
+model SwapPreference {
+  id           String    @id @default(uuid())
+  apartmentId  String    @unique @map("apartment_id")
+  isEnabled    Boolean   @default(true) @map("is_enabled")
+  city         String?
+  neighborhood String?
+  rooms        Int?
+  beds         Int?
+  weekend      DateTime?
+  whatsApp     String?   @map("whats_app")
+  email        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@map("swap_preferences")
+}
+
+model Swap {
+  id        String     @id @default(uuid())
+  fromAppId String     @map("from_app_id")
+  toAppId   String     @map("to_app_id")
+  status    SwapStatus @default(PENDING)
+  swapCode  String     @unique @map("swap_code")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  fromApartment Apartment @relation("FromApartment", fields: [fromAppId], references: [id], onDelete: Cascade)
+  toApartment   Apartment @relation("ToApartment", fields: [toAppId], references: [id], onDelete: Cascade)
+
+  @@map("swaps")
+}
+
+model Wishlist {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  apartmentId String   @map("apartment_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, apartmentId])
+  @@map("wishlists")
+}

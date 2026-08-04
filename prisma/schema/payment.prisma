@@ -1,0 +1,67 @@
+// 1. One-time payment model for listing an apartment (Payment goes directly to Admin via Stripe in ILS)
+model ApartmentListingPayment {
+  id                    String        @id @default(uuid())
+  apartmentId           String        @unique @map("apartment_id") // One-time payment per apartment
+  userId                String        @unique @map("user_id")      // One listing payment per user
+  amount                Float
+  currency              String        @default("ILS")
+  paymentMethod         PaymentMethod @default(STRIPE) @map("payment_method")
+  stripePaymentIntentId String?       @unique @map("stripe_payment_intent_id")
+  stripeSessionId       String?       @unique @map("stripe_session_id")
+  status                PaymentStatus @default(PENDING)
+  paidAt                DateTime?     @map("paid_at")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("apartment_listing_payments")
+}
+
+// 2. Payment model for booking an apartment (Handled via CASH between guest and host in ILS)
+model ApartmentBookingPayment {
+  id            String        @id @default(uuid())
+  bookingId     String        @unique @map("booking_id")
+  payerId       String        @map("payer_id") // Guest paying cash
+  hostId        String        @map("host_id")  // Host receiving cash
+  amount        Float
+  currency      String        @default("ILS")
+  paymentMethod PaymentMethod @default(CASH) @map("payment_method")
+  status        PaymentStatus @default(PENDING)
+  notes         String?
+  paidAt        DateTime?     @map("paid_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  payer   User    @relation("PaymentsGiven", fields: [payerId], references: [id], onDelete: Cascade)
+  host    User    @relation("PaymentsReceived", fields: [hostId], references: [id], onDelete: Cascade)
+
+  @@map("apartment_booking_payments")
+}
+
+// 3. Payment model for report-rented (50 ILS fee per booking paid directly to Admin via Stripe)
+model ReportRentedPayment {
+  id                    String        @id @default(uuid())
+  reportRentedId        String?       @unique @map("report_rented_id")
+  bookingId             String?       @unique @map("booking_id")
+  apartmentId           String        @map("apartment_id")
+  payerId               String        @map("payer_id") // Host/Owner paying 50 ILS admin fee via Stripe
+  amount                Float         @default(50.0)
+  currency              String        @default("ILS")
+  paymentMethod         PaymentMethod @default(STRIPE) @map("payment_method")
+  stripePaymentIntentId String?       @unique @map("stripe_payment_intent_id")
+  stripeSessionId       String?       @unique @map("stripe_session_id")
+  status                PaymentStatus @default(PENDING)
+  paidAt                DateTime?     @map("paid_at")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  reportRented ReportRented? @relation(fields: [reportRentedId], references: [id], onDelete: SetNull)
+  booking      Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  apartment    Apartment     @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  payer        User          @relation("ReportRentedPayer", fields: [payerId], references: [id], onDelete: Cascade)
+
+  @@map("report_rented_payments")
+}

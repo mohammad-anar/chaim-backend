@@ -1,0 +1,73 @@
+model WeekendCalendar {
+  id        String   @id @default(uuid())
+  title     String   @unique
+  date      DateTime @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  availabilities ApartmentAvailability[]
+  offers         Offer[]
+  bookings       Booking[]
+
+  @@map("weekend_calendars")
+}
+
+model Apartment {
+  id                      String          @id @default(uuid())
+  userId                  String          @unique @map("user_id") // One user can list only one apartment
+  title                   String
+  description             String?
+  city                    String
+  neighborhood            String          @map("neithborhood")
+  street1                 String?
+  street2                 String?
+  lat                     Float?
+  lng                     Float?
+  propertyType            PropertyType    @map("property_type")
+  bedrooms                Int
+  bathrooms               Int
+  maxGuest                Int             @map("max_guest")
+  pricePerShabbat         Float           @map("price_per_shabbat")
+  neighborhoodWalkingTime DateTime?       @map("neighborhood_wolking_time")
+  amenities               String[]
+  coverImage              String?         @map("cover_image")
+  images                  String[]
+  phoneNumber             String?         @map("phone_number")
+  whatsApp                String?         @map("whats_app")
+  howToContact            HowToContact    @default(BOTH) @map("how_to_contact")
+  additionalDetails       String?         @map("additional_details")
+  status                  ApartmentStatus @default(PENDING) @map("status")
+  createdAt               DateTime        @default(now()) @map("created_at")
+  updatedAt               DateTime        @updatedAt @map("updated_at")
+
+  user                 User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilities       ApartmentAvailability[]
+  notifyRequests       NotifyRequest[]
+  interestedRequests   InterestedRequest[]
+  offers               Offer[]
+  reviews              Review[]
+  reportRented         ReportRented[]
+  swapPreference       SwapPreference?
+  swapsFrom            Swap[]                   @relation("FromApartment")
+  swapsTo              Swap[]                   @relation("ToApartment")
+  wishlists            Wishlist[]
+  bookings             Booking[]
+  listingPayment       ApartmentListingPayment?
+  reportRentedPayments ReportRentedPayment[]
+
+  @@map("apartments")
+}
+
+model ApartmentAvailability {
+  id          String   @id @default(uuid())
+  apartmentId String   @map("apartment_id")
+  weekendId   String   @map("weekend_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  apartment Apartment       @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  weekend   WeekendCalendar @relation(fields: [weekendId], references: [id], onDelete: Cascade)
+
+  @@unique([apartmentId, weekendId])
+  @@map("apartment_availabilities")
+}

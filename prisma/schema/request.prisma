@@ -1,0 +1,46 @@
+model NotifyRequest {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  ownerId     String   @map("owner_id")
+  apartmentId String   @map("apartment_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user      User      @relation("NotifyRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  owner     User      @relation("NotifyRequestOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@map("notify_requests")
+}
+
+model InterestedRequest {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  ownerId     String   @map("owner_id")
+  apartmentId String   @map("apartment_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user      User      @relation("InterestedRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  owner     User      @relation("InterestedRequestOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@map("interested_requests")
+}
+
+model Offer {
+  id            String      @id @default(uuid())
+  shabbosId     String?     @map("shabbos_id")
+  apartmentId   String      @map("appartment_id")
+  ownerId       String      @map("owner_id")
+  originalPrice Float       @map("original_price")
+  offerPrice    Float       @map("offer_price")
+  message       String?
+  status        OfferStatus @default(PENDING)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  shabbos   WeekendCalendar? @relation(fields: [shabbosId], references: [id], onDelete: SetNull)
+  apartment Apartment        @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  owner     User             @relation("UserOffers", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("offers")
+}
