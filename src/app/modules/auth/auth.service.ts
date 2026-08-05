@@ -7,6 +7,8 @@ import ApiError from "../../../errors/ApiError.js";
 import generateOTP from "../../../helpers/generateOTP.js";
 import { jwtHelper } from "../../../helpers/jwtHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
+import { emailHelper } from "../../../helpers/emailHelper.js";
+import { emailTemplate } from "../../shared/emailTemplate.js";
 import {
   IChangePassword,
   IForgotPassword,
@@ -46,6 +48,9 @@ const registerUser = async (payload: IRegisterUser) => {
   const saltRound = config.bcrypt_salt_round || 10;
   const hashedPassword = await bcrypt.hash(payload.password, saltRound);
 
+  const otp = generateOTP();
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+
   const result = await prisma.$transaction(async (tx) => {
     const newUser = await tx.user.create({
       data: {
@@ -55,6 +60,8 @@ const registerUser = async (payload: IRegisterUser) => {
         password: hashedPassword,
         profileImage: payload.profileImage,
         role: UserRole.USER,
+        otp,
+        otpExpiry,
       },
       select: {
         id: true,
@@ -80,6 +87,19 @@ const registerUser = async (payload: IRegisterUser) => {
 
     return newUser;
   });
+
+  if (payload.email) {
+    try {
+      const template = emailTemplate.createAccount({
+        name: result.username,
+        email: payload.email,
+        otp,
+      });
+      await emailHelper.sendEmail(template);
+    } catch (err: any) {
+      console.error("Failed to send registration OTP email:", err?.message || err);
+    }
+  }
 
   return result;
 };
@@ -232,8 +252,19 @@ const forgotPassword = async (payload: IForgotPassword) => {
     },
   });
 
+  if (user.email) {
+    try {
+      const template = emailTemplate.resetPassword({
+        email: user.email,
+        otp,
+      });
+      await emailHelper.sendEmail(template);
+    } catch (err: any) {
+      console.error("Failed to send reset password OTP email:", err?.message || err);
+    }
+  }
+
   return {
-    otp,
     message: "OTP sent to user email and stored in database successfully",
   };
 };
@@ -254,6 +285,15 @@ const verifyOtp = async (payload: IVerifyOtp) => {
   if (!user.otpExpiry || user.otpExpiry < new Date()) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "OTP has expired");
   }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      isVerified: true,
+      otp: null,
+      otpExpiry: null,
+    },
+  });
 
   return { message: "OTP verified successfully" };
 };
@@ -290,6 +330,44 @@ const resetPassword = async (payload: IResetPassword) => {
   return { message: "Password reset successfully" };
 };
 
+const resendOtp = async (payload: { email: string }) => {
+  const user = await prisma.user.findUnique({
+    where: { email: payload.email },
+  });
+
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found with this email");
+  }
+
+  const otp = generateOTP();
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      otp,
+      otpExpiry,
+    },
+  });
+
+  if (user.email) {
+    try {
+      const template = emailTemplate.createAccount({
+        name: user.username,
+        email: user.email,
+        otp,
+      });
+      await emailHelper.sendEmail(template);
+    } catch (err: any) {
+      console.error("Failed to resend OTP email:", err?.message || err);
+    }
+  }
+
+  return {
+    message: "OTP resent successfully",
+  };
+};
+
 export const AuthServices = {
   registerUser,
   loginUser,
@@ -297,5 +375,6 @@ export const AuthServices = {
   changePassword,
   forgotPassword,
   verifyOtp,
+  resendOtp,
   resetPassword,
 };

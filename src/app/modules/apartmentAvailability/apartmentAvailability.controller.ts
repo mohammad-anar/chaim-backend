@@ -38,7 +38,7 @@ const bulkSetAvailability = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getApartmentAvailabilities = catchAsync(async (req: Request, res: Response) => {
-  const { apartmentId } = req.params;
+  const apartmentId = req.params.apartmentId as string;
   const result = await ApartmentAvailabilityServices.getApartmentAvailabilities(apartmentId);
   sendResponse(res, {
     statusCode: StatusCodes.OK,

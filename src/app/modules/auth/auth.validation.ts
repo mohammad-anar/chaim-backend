@@ -36,12 +36,17 @@ const refreshTokenZodSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token is required"),
 });
 
+const resendOtpZodSchema = z.object({
+  email: z.string().email("Valid email is required"),
+});
+
 export const AuthValidation = {
   registerZodSchema,
   loginZodSchema,
   changePasswordZodSchema,
   forgotPasswordZodSchema,
   verifyOtpZodSchema,
+  resendOtpZodSchema,
   resetPasswordZodSchema,
   refreshTokenZodSchema,
 };

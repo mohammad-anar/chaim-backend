@@ -1,6 +1,7 @@
-import { ApartmentStatus, Prisma } from "@prisma/client";
+import { ApartmentStatus, PropertyType, Prisma } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiError.js";
+import { getCache, setCache, deleteCacheByPattern } from "../../../helpers/redis.js";
 import { paginationHelper } from "../../../helpers/paginationHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
 import { IPaginationOptions } from "../../../types/pagination.js";
@@ -101,7 +102,15 @@ const getMyAppartment = async (userId: string) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "You have not listed an apartment yet");
   }
 
+  await deleteCacheByPattern("apartment:*");
+
   return apartment;
+};
+
+const isAnyOrEmpty = (val: any): boolean => {
+  if (val === undefined || val === null || val === "") return true;
+  const str = String(val).trim().toLowerCase();
+  return str === "any" || str === "all";
 };
 
 const getAllApartments = async (
@@ -109,6 +118,11 @@ const getAllApartments = async (
   options: IPaginationOptions,
   isUserAdmin: boolean = false,
 ) => {
+  const cacheKey = `apartment:list:${JSON.stringify(filters)}:${JSON.stringify(options)}:${isUserAdmin}`;
+  const cachedData = await getCache<any>(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
   const { limit, page, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(options);
   const {
@@ -121,6 +135,10 @@ const getAllApartments = async (
     bedrooms,
     bathrooms,
     maxGuest,
+    guestCount,
+    weekendId,
+    amenities,
+    maxWalkingMinutes,
     status,
   } = filters;
 
@@ -128,52 +146,118 @@ const getAllApartments = async (
 
   if (!isUserAdmin) {
     andConditions.push({ status: "CONFIRMED" });
-  } else if (status) {
-    andConditions.push({ status });
+  } else if (!isAnyOrEmpty(status)) {
+    andConditions.push({ status: status as ApartmentStatus });
   }
 
-  if (searchTerm) {
+  if (!isAnyOrEmpty(searchTerm)) {
     andConditions.push({
       OR: [
-        { title: { contains: searchTerm, mode: "insensitive" } },
-        { description: { contains: searchTerm, mode: "insensitive" } },
-        { city: { contains: searchTerm, mode: "insensitive" } },
-        { neighborhood: { contains: searchTerm, mode: "insensitive" } },
+        { title: { contains: String(searchTerm), mode: "insensitive" } },
+        { description: { contains: String(searchTerm), mode: "insensitive" } },
+        { city: { contains: String(searchTerm), mode: "insensitive" } },
+        { neighborhood: { contains: String(searchTerm), mode: "insensitive" } },
       ],
     });
   }
 
-  if (city) {
-    andConditions.push({ city: { contains: city, mode: "insensitive" } });
+  if (!isAnyOrEmpty(city)) {
+    andConditions.push({ city: { contains: String(city).trim(), mode: "insensitive" } });
   }
 
-  if (neighborhood) {
-    andConditions.push({ neighborhood: { contains: neighborhood, mode: "insensitive" } });
+  if (!isAnyOrEmpty(neighborhood)) {
+    andConditions.push({ neighborhood: { contains: String(neighborhood).trim(), mode: "insensitive" } });
   }
 
-  if (propertyType) {
-    andConditions.push({ propertyType });
+  if (!isAnyOrEmpty(propertyType)) {
+    if (Array.isArray(propertyType)) {
+      const validTypes = propertyType.filter((pt) => !isAnyOrEmpty(pt)) as PropertyType[];
+      if (validTypes.length > 0) {
+        andConditions.push({ propertyType: { in: validTypes } });
+      }
+    } else {
+      const typeStr = String(propertyType).trim();
+      if (typeStr.includes(",")) {
+        const typesList = typeStr
+          .split(",")
+          .map((t) => t.trim().toUpperCase())
+          .filter((t) => Object.values(PropertyType).includes(t as PropertyType)) as PropertyType[];
+        if (typesList.length > 0) {
+          andConditions.push({ propertyType: { in: typesList } });
+        }
+      } else {
+        const uppercaseType = typeStr.toUpperCase();
+        if (Object.values(PropertyType).includes(uppercaseType as PropertyType)) {
+          andConditions.push({ propertyType: uppercaseType as PropertyType });
+        }
+      }
+    }
   }
 
-  if (minPrice !== undefined || maxPrice !== undefined) {
+  const parsedMinPrice = !isAnyOrEmpty(minPrice) ? Number(minPrice) : undefined;
+  const parsedMaxPrice = !isAnyOrEmpty(maxPrice) ? Number(maxPrice) : undefined;
+
+  if (
+    (parsedMinPrice !== undefined && !isNaN(parsedMinPrice)) ||
+    (parsedMaxPrice !== undefined && !isNaN(parsedMaxPrice))
+  ) {
     andConditions.push({
       pricePerShabbat: {
-        ...(minPrice !== undefined && { gte: Number(minPrice) }),
-        ...(maxPrice !== undefined && { lte: Number(maxPrice) }),
+        ...(parsedMinPrice !== undefined && !isNaN(parsedMinPrice) && { gte: parsedMinPrice }),
+        ...(parsedMaxPrice !== undefined && !isNaN(parsedMaxPrice) && { lte: parsedMaxPrice }),
       },
     });
   }
 
-  if (bedrooms !== undefined) {
+  if (!isAnyOrEmpty(bedrooms) && !isNaN(Number(bedrooms))) {
     andConditions.push({ bedrooms: { gte: Number(bedrooms) } });
   }
 
-  if (bathrooms !== undefined) {
+  if (!isAnyOrEmpty(bathrooms) && !isNaN(Number(bathrooms))) {
     andConditions.push({ bathrooms: { gte: Number(bathrooms) } });
   }
 
-  if (maxGuest !== undefined) {
-    andConditions.push({ maxGuest: { gte: Number(maxGuest) } });
+  const effectiveGuestCount = !isAnyOrEmpty(guestCount) ? guestCount : maxGuest;
+  if (!isAnyOrEmpty(effectiveGuestCount) && !isNaN(Number(effectiveGuestCount))) {
+    andConditions.push({ maxGuest: { gte: Number(effectiveGuestCount) } });
+  }
+
+  if (!isAnyOrEmpty(weekendId)) {
+    andConditions.push({
+      availabilities: {
+        some: {
+          weekendId: String(weekendId).trim(),
+        },
+      },
+    });
+  }
+
+  if (!isAnyOrEmpty(amenities)) {
+    let amenitiesList: string[] = [];
+    if (Array.isArray(amenities)) {
+      amenitiesList = amenities.map((a) => String(a).trim()).filter((a) => !isAnyOrEmpty(a));
+    } else {
+      amenitiesList = String(amenities)
+        .split(",")
+        .map((a) => a.trim())
+        .filter((a) => !isAnyOrEmpty(a));
+    }
+
+    if (amenitiesList.length > 0) {
+      andConditions.push({
+        amenities: {
+          hasEvery: amenitiesList,
+        },
+      });
+    }
+  }
+
+  if (!isAnyOrEmpty(maxWalkingMinutes)) {
+    andConditions.push({
+      neighborhoodWalkingTime: {
+        not: null,
+      },
+    });
   }
 
   const whereConditions: Prisma.ApartmentWhereInput =
@@ -225,7 +309,7 @@ const getAllApartments = async (
     };
   });
 
-  return {
+  const responseData = {
     meta: {
       page,
       limit,
@@ -233,9 +317,18 @@ const getAllApartments = async (
     },
     data: dataWithRating,
   };
+
+  await setCache(cacheKey, responseData, 300);
+
+  return responseData;
 };
 
 const getApartmentById = async (id: string) => {
+  const cacheKey = `apartment:detail:${id}`;
+  const cached = await getCache<any>(cacheKey);
+  if (cached) {
+    return cached;
+  }
   const apartment = await prisma.apartment.findUnique({
     where: { id },
     include: {
@@ -284,11 +377,15 @@ const getApartmentById = async (id: string) => {
       ? apartment.reviews.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews
       : 0;
 
-  return {
+  const result = {
     ...apartment,
     averageRating: Number(avgRating.toFixed(1)),
     totalReviews,
   };
+
+  await setCache(cacheKey, result, 600);
+
+  return result;
 };
 
 const updateApartment = async (
@@ -332,6 +429,8 @@ const updateApartment = async (
     },
   });
 
+  await deleteCacheByPattern("apartment:*");
+
   return result;
 };
 
@@ -351,6 +450,8 @@ const updateApartmentStatus = async (
     where: { id },
     data: { status },
   });
+
+  await deleteCacheByPattern("apartment:*");
 
   return result;
 };
@@ -375,6 +476,8 @@ const deleteApartment = async (
   await prisma.apartment.delete({
     where: { id: apartmentId },
   });
+
+  await deleteCacheByPattern("apartment:*");
 
   return { message: "Apartment deleted successfully" };
 };

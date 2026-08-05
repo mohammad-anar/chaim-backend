@@ -51,6 +51,10 @@ const getAllApartments = catchAsync(async (req: Request, res: Response) => {
     "bedrooms",
     "bathrooms",
     "maxGuest",
+    "guestCount",
+    "weekendId",
+    "amenities",
+    "maxWalkingMinutes",
     "status",
   ]);
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
@@ -72,7 +76,7 @@ const getAllApartments = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getApartmentById = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const result = await ApartmentServices.getApartmentById(id);
 
   sendResponse(res, {
@@ -85,7 +89,7 @@ const getApartmentById = catchAsync(async (req: Request, res: Response) => {
 
 const updateApartment = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
-  const { id } = req.params;
+  const id = req.params.id as string;
 
   const coverImage = getSingleFilePath(req.files, "image");
   const newImages = getMultipleFilesPath(req.files, "image");
@@ -107,7 +111,7 @@ const updateApartment = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updateApartmentStatus = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const { status } = req.body;
   const result = await ApartmentServices.updateApartmentStatus(id, status);
 
@@ -121,7 +125,7 @@ const updateApartmentStatus = catchAsync(async (req: Request, res: Response) => 
 
 const deleteApartment = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
-  const { id } = req.params;
+  const id = req.params.id as string;
   const isUserAdmin = req.user?.role === "SUPER_ADMIN";
 
   const result = await ApartmentServices.deleteApartment(userId, id, isUserAdmin);

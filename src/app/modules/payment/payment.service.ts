@@ -207,8 +207,91 @@ const handleStripeWebhook = async (signature: string, rawBody: Buffer) => {
   return { received: true };
 };
 
+const verifyAndConfirmPaymentIntent = async (paymentIntentId: string) => {
+  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+  if (paymentIntent.status !== "succeeded") {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `Payment has not succeeded yet. Current status: ${paymentIntent.status}`,
+    );
+  }
+
+  const metadata = paymentIntent.metadata;
+
+  if (metadata?.paymentType === "APARTMENT_LISTING") {
+    const { apartmentId, listingPaymentId } = metadata;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.apartmentListingPayment.update({
+        where: { id: listingPaymentId },
+        data: {
+          status: "COMPLETED",
+          paidAt: new Date(),
+          stripePaymentIntentId: paymentIntent.id,
+        },
+      });
+
+      await tx.apartment.update({
+        where: { id: apartmentId },
+        data: {
+          status: "CONFIRMED",
+        },
+      });
+    });
+
+    return {
+      success: true,
+      message: "Apartment listing payment confirmed and apartment activated",
+      apartmentId,
+    };
+  } else if (metadata?.paymentType === "REPORT_RENTED") {
+    const { bookingId, apartmentId, reportRentedPaymentId } = metadata;
+
+    await prisma.$transaction(async (tx) => {
+      if (reportRentedPaymentId) {
+        await tx.reportRentedPayment.update({
+          where: { id: reportRentedPaymentId },
+          data: {
+            status: "COMPLETED",
+            paidAt: new Date(),
+            stripePaymentIntentId: paymentIntent.id,
+          },
+        });
+      }
+
+      if (bookingId) {
+        const booking = await tx.booking.findUnique({
+          where: { id: bookingId },
+        });
+
+        await tx.reportRented.upsert({
+          where: { bookingId },
+          create: {
+            apartmentId,
+            bookingId,
+            weekend: booking?.createdAt || new Date(),
+            paidAt: new Date(),
+          },
+          update: {
+            paidAt: new Date(),
+          },
+        });
+      }
+    });
+
+    return {
+      success: true,
+      message: "Report rented payment confirmed successfully",
+    };
+  }
+
+  return { success: true, message: "Payment verified successfully" };
+};
+
 export const PaymentServices = {
   createListingPaymentIntent,
   createReportRentedIntent,
   handleStripeWebhook,
+  verifyAndConfirmPaymentIntent,
 };

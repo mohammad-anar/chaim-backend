@@ -49,7 +49,7 @@ const getAllWeekendCalendars = catchAsync(async (req: Request, res: Response) =>
 });
 
 const getWeekendCalendarById = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const result = await WeekendCalendarServices.getWeekendCalendarById(id);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -60,7 +60,7 @@ const getWeekendCalendarById = catchAsync(async (req: Request, res: Response) =>
 });
 
 const updateWeekendCalendar = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const result = await WeekendCalendarServices.updateWeekendCalendar(id, req.body);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -71,7 +71,7 @@ const updateWeekendCalendar = catchAsync(async (req: Request, res: Response) => 
 });
 
 const deleteWeekendCalendar = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const result = await WeekendCalendarServices.deleteWeekendCalendar(id);
   sendResponse(res, {
     statusCode: StatusCodes.OK,

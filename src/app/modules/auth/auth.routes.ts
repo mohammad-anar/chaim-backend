@@ -46,6 +46,12 @@ router.post(
 );
 
 router.post(
+  "/resend-otp",
+  validateRequest(AuthValidation.resendOtpZodSchema),
+  AuthController.resendOtp,
+);
+
+router.post(
   "/reset-password",
   validateRequest(AuthValidation.resetPasswordZodSchema),
   AuthController.resetPassword,

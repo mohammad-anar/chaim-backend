@@ -37,8 +37,21 @@ const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
   res.status(StatusCodes.OK).json(result);
 });
 
+const confirmPaymentIntent = catchAsync(async (req: Request, res: Response) => {
+  const { paymentIntentId } = req.body;
+  const result = await PaymentServices.verifyAndConfirmPaymentIntent(paymentIntentId);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.message,
+    data: result,
+  });
+});
+
 export const PaymentController = {
   createListingPaymentIntent,
   createReportRentedIntent,
   handleStripeWebhook,
+  confirmPaymentIntent,
 };

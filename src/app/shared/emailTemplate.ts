@@ -1,7 +1,7 @@
 import config from "../../config/index.js";
 import { IContact, ICreateAccount, IResetPassword, IWorkshopContact } from "../../types/emailTamplate.js";
 
-const PRIMARY_COLOR = "#00C6CF";
+const PRIMARY_COLOR = "#4C55A4";
 
 const baseTemplate = (content: string) => `
 <body style="margin:0; padding:0; background-color:#f4f6f8; font-family:Arial, Helvetica, sans-serif;">
@@ -15,8 +15,8 @@ const baseTemplate = (content: string) => `
           <!-- Brand Header -->
           <tr>
             <td align="center" style="padding-bottom:20px;">
-              <h1 style="margin:0; font-size:22px; color:${PRIMARY_COLOR}; font-weight:700;">
-                FixMinCykel
+              <h1 style="margin:0; font-size:24px; color:${PRIMARY_COLOR}; font-weight:700; letter-spacing: 1px;">
+                Chaim
               </h1>
             </td>
           </tr>
@@ -24,7 +24,7 @@ const baseTemplate = (content: string) => `
           <!-- Divider -->
           <tr>
             <td>
-              <hr style="border:none; border-top:1px solid #eeeeee; margin:20px 0;">
+              <hr style="border:none; border-top:2px solid ${PRIMARY_COLOR}22; margin:20px 0;">
             </td>
           </tr>
 
@@ -43,7 +43,7 @@ const baseTemplate = (content: string) => `
                 If you have any questions, contact our support team.
               </p>
               <p style="font-size:12px; color:#bbbbbb; margin-top:10px;">
-                © ${new Date().getFullYear()} FixMinCykel. All rights reserved.
+                © ${new Date().getFullYear()} Chaim. All rights reserved.
               </p>
             </td>
           </tr>
@@ -65,7 +65,7 @@ const createAccount = (values: ICreateAccount) => {
     </h2>
 
     <p style="font-size:15px; line-height:1.7; color:#555; margin-bottom:25px;">
-      Thank you for creating an account with FixMinCykel.
+      Thank you for creating an account with Chaim.
       Please use the verification code below to activate your account.
     </p>
 
@@ -78,7 +78,8 @@ const createAccount = (values: ICreateAccount) => {
         border-radius:8px;
         font-size:24px;
         letter-spacing:4px;
-        font-weight:600;">
+        font-weight:600;
+        box-shadow: 0 4px 12px ${PRIMARY_COLOR}44;">
         ${values.otp}
       </span>
     </div>
@@ -94,7 +95,7 @@ const createAccount = (values: ICreateAccount) => {
 
   return {
     to: values.email,
-    subject: "Verify your FixMinCykel account",
+    subject: "Verify your Chaim account",
     html: baseTemplate(content),
   };
 };
@@ -121,7 +122,8 @@ const resetPassword = (values: IResetPassword) => {
         border-radius:8px;
         font-size:24px;
         letter-spacing:4px;
-        font-weight:600;">
+        font-weight:600;
+        box-shadow: 0 4px 12px ${PRIMARY_COLOR}44;">
         ${values.otp}
       </span>
     </div>
@@ -137,7 +139,7 @@ const resetPassword = (values: IResetPassword) => {
 
   return {
     to: values.email,
-    subject: "Reset your FixMinCykel password",
+    subject: "Reset your Chaim password",
     html: baseTemplate(content),
   };
 };
@@ -165,7 +167,8 @@ const forgetPassword = (values: { email: string; token: string }) => {
            border-radius:8px;
            font-size:15px;
            font-weight:600;
-           display:inline-block;">
+           display:inline-block;
+           box-shadow: 0 4px 12px ${PRIMARY_COLOR}44;">
          Reset Password
       </a>
     </div>
@@ -181,7 +184,7 @@ const forgetPassword = (values: { email: string; token: string }) => {
 
   return {
     to: values.email,
-    subject: "Password Reset Request",
+    subject: "Password Reset Request - Chaim",
     html: baseTemplate(content),
   };
 };
@@ -205,7 +208,8 @@ const forgetPasswordWorkshop = (values: { email: string; token: string }) => {
            border-radius:8px;
            font-size:15px;
            font-weight:600;
-           display:inline-block;">
+           display:inline-block;
+           box-shadow: 0 4px 12px ${PRIMARY_COLOR}44;">
          Reset Password
       </a>
     </div>
@@ -221,7 +225,7 @@ const forgetPasswordWorkshop = (values: { email: string; token: string }) => {
 
   return {
     to: values.email,
-    subject: "Password Reset Request",
+    subject: "Password Reset Request - Chaim",
     html: baseTemplate(content),
   };
 };
@@ -257,7 +261,7 @@ const contactAdmin = (values: IContact) => {
     </div>
 
     <p style="font-size:13px; color:#999; margin-top:25px;">
-      This email was sent from the website contact form.
+      This email was sent from the Chaim website contact form.
     </p>
   `;
 
@@ -296,7 +300,7 @@ const workshopContactAdmin = (values: IWorkshopContact) => {
     </div>
 
     <p style="font-size:13px; color:#999; margin-top:25px;">
-      This email was sent from the workshop contact form.
+      This email was sent from the Chaim workshop contact form.
     </p>
   `;
 

@@ -25,15 +25,15 @@ const transporter = nodemailer.createTransport({
 const sendEmail = async (values: ISendEmail) => {
   try {
     const info = await transporter.sendMail({
-      from: `"FixMinCykel" <${config.email.from}>`,
+      from: config.email.from || config.email.user,
       to: values.to,
       subject: values.subject,
       html: values.html,
     });
-
-
+    return info;
   } catch (error) {
-    console.error("Email", error);
+    console.error("Email sending error:", error);
+    throw error;
   }
 };
 

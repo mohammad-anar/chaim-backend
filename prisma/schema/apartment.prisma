@@ -54,6 +54,7 @@ model Apartment {
   bookings             Booking[]
   listingPayment       ApartmentListingPayment?
   reportRentedPayments ReportRentedPayment[]
+  callLogs             CallLog[]
 
   @@map("apartments")
 }

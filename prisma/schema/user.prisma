@@ -29,6 +29,8 @@ model User {
   bookingPaymentsMade    ApartmentBookingPayment[] @relation("PaymentsGiven")
   bookingPaymentsRecv    ApartmentBookingPayment[] @relation("PaymentsReceived")
   reportRentedPayments   ReportRentedPayment[]     @relation("ReportRentedPayer")
+  callsMade              CallLog[]                 @relation("CallsMade")
+  callsReceived          CallLog[]                 @relation("CallsReceived")
 
   @@map("users")
 }

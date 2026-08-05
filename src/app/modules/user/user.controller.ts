@@ -42,7 +42,7 @@ const getAllUsers = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getUserById = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const result = await UserServices.getUserById(id);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -53,7 +53,7 @@ const getUserById = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const result = await UserServices.updateUserStatus(id, req.body);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -64,7 +64,7 @@ const updateUserStatus = catchAsync(async (req: Request, res: Response) => {
 });
 
 const deleteUser = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const result = await UserServices.deleteUser(id);
   sendResponse(res, {
     statusCode: StatusCodes.OK,

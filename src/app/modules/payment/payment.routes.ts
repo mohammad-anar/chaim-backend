@@ -17,6 +17,12 @@ router.post(
 );
 
 router.post(
+  "/verify-intent",
+  auth(),
+  PaymentController.confirmPaymentIntent,
+);
+
+router.post(
   "/webhook",
   express.raw({ type: "application/json" }),
   PaymentController.handleStripeWebhook,
