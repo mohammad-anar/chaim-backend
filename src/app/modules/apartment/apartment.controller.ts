@@ -87,6 +87,18 @@ const getApartmentById = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAdminApartmentDetails = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const result = await ApartmentServices.getAdminApartmentDetails(id);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Admin apartment and owner details retrieved successfully",
+    data: result,
+  });
+});
+
 const updateApartment = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
   const id = req.params.id as string;
@@ -143,6 +155,7 @@ export const ApartmentController = {
   getMyAppartment,
   getAllApartments,
   getApartmentById,
+  getAdminApartmentDetails,
   updateApartment,
   updateApartmentStatus,
   deleteApartment,

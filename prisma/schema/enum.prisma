@@ -41,13 +41,6 @@ enum OfferStatus {
   REJECTED
 }
 
-enum BookingStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
-}
-
 enum PaymentMethod {
   CASH
   STRIPE
@@ -65,3 +58,9 @@ enum TransactionType {
   CREDIT
   DEBIT
 }
+
+enum ReportType {
+  RENT
+  SWAP
+}
+

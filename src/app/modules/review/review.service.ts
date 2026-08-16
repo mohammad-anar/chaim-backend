@@ -12,20 +12,10 @@ const createReview = async (userId: string, payload: ICreateReview) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Apartment not found");
   }
 
-  if (payload.bookingId) {
-    const booking = await prisma.booking.findUnique({
-      where: { id: payload.bookingId },
-    });
-    if (!booking) {
-      throw new ApiError(StatusCodes.NOT_FOUND, "Booking not found");
-    }
-  }
-
   const result = await prisma.review.create({
     data: {
       userId,
       apartmentId: payload.apartmentId,
-      bookingId: payload.bookingId,
       title: payload.title,
       message: payload.message,
       rating: payload.rating,

@@ -7,7 +7,7 @@ export type IRegisterUser = {
 };
 
 export type ILoginUser = {
-  identity: string; // username, email, or phone
+  email: string;
   password: string;
 };
 

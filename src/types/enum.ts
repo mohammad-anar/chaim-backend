@@ -27,14 +27,6 @@ export enum OfferStatus {
   EXPIRED = "EXPIRED",
 }
 
-export enum BookingStatus {
-  PENDING = "PENDING",
-  CONFIRMED = "CONFIRMED",
-  IN_PROGRESS = "IN_PROGRESS",
-  COMPLETED = "COMPLETED",
-  CANCELLED = "CANCELLED",
-}
-
 export enum PaymentStatus {
   PENDING = "PENDING",
   PAID = "PAID",

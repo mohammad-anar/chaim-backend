@@ -23,6 +23,12 @@ router.get(
 );
 
 router.get(
+  "/admin-details/:id",
+  auth(UserRole.SUPER_ADMIN),
+  ApartmentController.getAdminApartmentDetails,
+);
+
+router.get(
   "/",
   ApartmentController.getAllApartments,
 );

@@ -2,7 +2,6 @@ import express from "express";
 import { ApartmentRoutes } from "../modules/apartment/apartment.routes.js";
 import { ApartmentAvailabilityRoutes } from "../modules/apartmentAvailability/apartmentAvailability.routes.js";
 import { AuthRoutes } from "../modules/auth/auth.routes.js";
-import { BookingRoutes } from "../modules/booking/booking.routes.js";
 import { CallLogRoutes } from "../modules/callLog/callLog.routes.js";
 import { ContactRoutes } from "../modules/contact/contact.routes.js";
 import { InterestedRequestRoutes } from "../modules/interestedRequest/interestedRequest.routes.js";
@@ -59,10 +58,6 @@ const moduleRoutes = [
   {
     path: "/swap",
     route: SwapRoutes,
-  },
-  {
-    path: "/booking",
-    route: BookingRoutes,
   },
   {
     path: "/contact",

@@ -7,13 +7,13 @@ model WeekendCalendar {
 
   availabilities ApartmentAvailability[]
   offers         Offer[]
-  bookings       Booking[]
 
   @@map("weekend_calendars")
 }
 
 model Apartment {
   id                      String          @id @default(uuid())
+  propertyId              String?         @unique @map("property_id")
   userId                  String          @unique @map("user_id") // One user can list only one apartment
   title                   String
   description             String?
@@ -46,12 +46,12 @@ model Apartment {
   interestedRequests   InterestedRequest[]
   offers               Offer[]
   reviews              Review[]
-  reportRented         ReportRented[]
+  reportRented         ReportRented[]           @relation("ApartmentReportRented")
+  swappedReportRented  ReportRented[]           @relation("SwappedApartment")
   swapPreference       SwapPreference?
   swapsFrom            Swap[]                   @relation("FromApartment")
   swapsTo              Swap[]                   @relation("ToApartment")
   wishlists            Wishlist[]
-  bookings             Booking[]
   listingPayment       ApartmentListingPayment?
   reportRentedPayments ReportRentedPayment[]
   callLogs             CallLog[]

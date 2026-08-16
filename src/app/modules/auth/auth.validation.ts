@@ -8,7 +8,7 @@ const registerZodSchema = z.object({
 });
 
 const loginZodSchema = z.object({
-  identity: z.string().min(1, "Username, email or phone is required"),
+  email: z.email("Valid email is required"),
   password: z.string().min(1, "Password is required"),
 });
 

@@ -2,7 +2,6 @@ model Review {
   id          String   @id @default(uuid())
   apartmentId String   @map("apartment_id")
   userId      String   @map("user_id")
-  bookingId   String?  @unique @map("booking_id")
   title       String?
   message     String
   rating      Float
@@ -11,7 +10,6 @@ model Review {
 
   apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  booking   Booking?  @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
   @@map("reviews")
 }

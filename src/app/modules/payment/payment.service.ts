@@ -67,74 +67,6 @@ const createListingPaymentIntent = async (userId: string, apartmentId: string) =
   };
 };
 
-const createReportRentedIntent = async (userId: string, bookingId: string) => {
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    include: {
-      apartment: true,
-    },
-  });
-
-  if (!booking) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "Booking not found");
-  }
-
-  if (booking.apartment.userId !== userId) {
-    throw new ApiError(StatusCodes.FORBIDDEN, "You are not the host for this booking");
-  }
-
-  const feeAmount = config.fees.report_rented_fee || 50;
-  const currency = (config.stripe.currency || "ILS").toLowerCase();
-
-  let reportRentedPayment = await prisma.reportRentedPayment.findUnique({
-    where: { bookingId },
-  });
-
-  if (reportRentedPayment && reportRentedPayment.status === "COMPLETED") {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Report-rented fee has already been paid for this booking");
-  }
-
-  if (!reportRentedPayment) {
-    reportRentedPayment = await prisma.reportRentedPayment.create({
-      data: {
-        bookingId,
-        apartmentId: booking.apartmentId,
-        payerId: userId,
-        amount: feeAmount,
-        currency: config.stripe.currency || "ILS",
-        paymentMethod: "STRIPE",
-        status: "PENDING",
-      },
-    });
-  }
-
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: Math.round(feeAmount * 100),
-    currency,
-    metadata: {
-      paymentType: "REPORT_RENTED",
-      bookingId,
-      apartmentId: booking.apartmentId,
-      userId,
-      reportRentedPaymentId: reportRentedPayment.id,
-    },
-  });
-
-  await prisma.reportRentedPayment.update({
-    where: { id: reportRentedPayment.id },
-    data: {
-      stripePaymentIntentId: paymentIntent.id,
-    },
-  });
-
-  return {
-    clientSecret: paymentIntent.client_secret,
-    paymentIntentId: paymentIntent.id,
-    amount: feeAmount,
-    currency: config.stripe.currency || "ILS",
-  };
-};
-
 const handleStripeWebhook = async (signature: string, rawBody: Buffer) => {
   let event;
   try {
@@ -171,35 +103,29 @@ const handleStripeWebhook = async (signature: string, rawBody: Buffer) => {
           },
         });
       });
-    } else if (metadata?.paymentType === "REPORT_RENTED") {
-      const { bookingId, apartmentId, reportRentedPaymentId } = metadata;
+    } else if (metadata?.paymentType === "REPORT_RENTED" || metadata?.paymentType === "REPORT_RENTED_FEE") {
+      const { reportRentedId, reportRentedPaymentId } = metadata;
 
       await prisma.$transaction(async (tx) => {
-        await tx.reportRentedPayment.update({
-          where: { id: reportRentedPaymentId },
-          data: {
-            status: "COMPLETED",
-            paidAt: new Date(),
-            stripePaymentIntentId: paymentIntent.id,
-          },
-        });
+        if (reportRentedPaymentId) {
+          await tx.reportRentedPayment.update({
+            where: { id: reportRentedPaymentId },
+            data: {
+              status: "COMPLETED",
+              paidAt: new Date(),
+              stripePaymentIntentId: paymentIntent.id,
+            },
+          });
+        }
 
-        const booking = await tx.booking.findUnique({
-          where: { id: bookingId },
-        });
-
-        await tx.reportRented.upsert({
-          where: { bookingId },
-          create: {
-            apartmentId,
-            bookingId,
-            weekend: booking?.createdAt || new Date(),
-            paidAt: new Date(),
-          },
-          update: {
-            paidAt: new Date(),
-          },
-        });
+        if (reportRentedId) {
+          await tx.reportRented.update({
+            where: { id: reportRentedId },
+            data: {
+              paidAt: new Date(),
+            },
+          });
+        }
       });
     }
   }
@@ -245,8 +171,8 @@ const verifyAndConfirmPaymentIntent = async (paymentIntentId: string) => {
       message: "Apartment listing payment confirmed and apartment activated",
       apartmentId,
     };
-  } else if (metadata?.paymentType === "REPORT_RENTED") {
-    const { bookingId, apartmentId, reportRentedPaymentId } = metadata;
+  } else if (metadata?.paymentType === "REPORT_RENTED" || metadata?.paymentType === "REPORT_RENTED_FEE") {
+    const { reportRentedId, reportRentedPaymentId } = metadata;
 
     await prisma.$transaction(async (tx) => {
       if (reportRentedPaymentId) {
@@ -260,20 +186,10 @@ const verifyAndConfirmPaymentIntent = async (paymentIntentId: string) => {
         });
       }
 
-      if (bookingId) {
-        const booking = await tx.booking.findUnique({
-          where: { id: bookingId },
-        });
-
-        await tx.reportRented.upsert({
-          where: { bookingId },
-          create: {
-            apartmentId,
-            bookingId,
-            weekend: booking?.createdAt || new Date(),
-            paidAt: new Date(),
-          },
-          update: {
+      if (reportRentedId) {
+        await tx.reportRented.update({
+          where: { id: reportRentedId },
+          data: {
             paidAt: new Date(),
           },
         });
@@ -291,7 +207,6 @@ const verifyAndConfirmPaymentIntent = async (paymentIntentId: string) => {
 
 export const PaymentServices = {
   createListingPaymentIntent,
-  createReportRentedIntent,
   handleStripeWebhook,
   verifyAndConfirmPaymentIntent,
 };

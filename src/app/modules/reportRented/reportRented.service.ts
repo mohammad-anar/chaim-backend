@@ -17,6 +17,28 @@ const createReportRentedIntent = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "You do not have an active apartment listing");
   }
 
+  let resolvedTargetApartmentId: string | null = null;
+  if (payload.targetApartmentId) {
+    const targetApt = await prisma.apartment.findFirst({
+      where: {
+        OR: [
+          { id: payload.targetApartmentId },
+          { propertyId: payload.targetApartmentId },
+        ],
+      },
+    });
+
+    if (!targetApt) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "Target apartment for swap not found");
+    }
+
+    if (targetApt.id === apartment.id) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "You cannot swap an apartment with itself");
+    }
+
+    resolvedTargetApartmentId = targetApt.id;
+  }
+
   let weekendDate = new Date();
   if (payload.weekend) {
     const d = new Date(payload.weekend);
@@ -28,8 +50,19 @@ const createReportRentedIntent = async (
   const reportRented = await prisma.reportRented.create({
     data: {
       apartmentId: apartment.id,
-      bookingId: payload.bookingId,
+      targetApartmentId: resolvedTargetApartmentId,
+      reportType: payload.reportType || "RENT",
       weekend: weekendDate,
+    },
+    include: {
+      targetApartment: {
+        select: {
+          id: true,
+          propertyId: true,
+          title: true,
+          city: true,
+        },
+      },
     },
   });
 
@@ -58,7 +91,6 @@ const createReportRentedIntent = async (
   const paymentRecord = await prisma.reportRentedPayment.create({
     data: {
       reportRentedId: reportRented.id,
-      bookingId: payload.bookingId,
       apartmentId: apartment.id,
       payerId: userId,
       amount: amountInILS,
@@ -72,6 +104,8 @@ const createReportRentedIntent = async (
   return {
     reportRentedId: reportRented.id,
     paymentId: paymentRecord.id,
+    reportType: reportRented.reportType,
+    targetApartment: reportRented.targetApartment,
     amount: amountInILS,
     currency: config.stripe.currency || "ILS",
     clientSecret,
@@ -90,7 +124,23 @@ const getMyReportedRented = async (userId: string) => {
   const reports = await prisma.reportRented.findMany({
     where: { apartmentId: apartment.id },
     include: {
-      booking: true,
+      targetApartment: {
+        select: {
+          id: true,
+          propertyId: true,
+          title: true,
+          city: true,
+          coverImage: true,
+          user: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              phone: true,
+            },
+          },
+        },
+      },
       payment: true,
     },
     orderBy: { createdAt: "desc" },

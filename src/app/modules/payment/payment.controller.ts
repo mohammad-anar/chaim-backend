@@ -17,19 +17,6 @@ const createListingPaymentIntent = catchAsync(async (req: Request, res: Response
   });
 });
 
-const createReportRentedIntent = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user.id;
-  const { bookingId } = req.body;
-  const result = await PaymentServices.createReportRentedIntent(userId, bookingId);
-
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: "Report-Rented PaymentIntent created successfully",
-    data: result,
-  });
-});
-
 const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
   const signature = req.headers["stripe-signature"] as string;
   const result = await PaymentServices.handleStripeWebhook(signature, req.body);
@@ -51,7 +38,6 @@ const confirmPaymentIntent = catchAsync(async (req: Request, res: Response) => {
 
 export const PaymentController = {
   createListingPaymentIntent,
-  createReportRentedIntent,
   handleStripeWebhook,
   confirmPaymentIntent,
 };

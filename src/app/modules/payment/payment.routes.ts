@@ -11,12 +11,6 @@ router.post(
 );
 
 router.post(
-  "/create-report-rented-intent",
-  auth(),
-  PaymentController.createReportRentedIntent,
-);
-
-router.post(
   "/verify-intent",
   auth(),
   PaymentController.confirmPaymentIntent,

@@ -11,6 +11,26 @@ import {
   IUpdateApartment,
 } from "./apartment.interface.js";
 
+const generatePropertyId = async (): Promise<string> => {
+  const count = await prisma.apartment.count();
+  let nextNum = count + 1;
+  let propertyId = `apart-${String(nextNum).padStart(3, "0")}`;
+
+  let existing = await prisma.apartment.findUnique({
+    where: { propertyId },
+  });
+
+  while (existing) {
+    nextNum++;
+    propertyId = `apart-${String(nextNum).padStart(3, "0")}`;
+    existing = await prisma.apartment.findUnique({
+      where: { propertyId },
+    });
+  }
+
+  return propertyId;
+};
+
 const createApartment = async (
   userId: string,
   payload: ICreateApartment,
@@ -31,9 +51,12 @@ const createApartment = async (
     }
   }
 
+  const propertyId = await generatePropertyId();
+
   const apartment = await prisma.apartment.create({
     data: {
       userId,
+      propertyId,
       title: payload.title,
       description: payload.description,
       city: payload.city,
@@ -153,6 +176,7 @@ const getAllApartments = async (
   if (!isAnyOrEmpty(searchTerm)) {
     andConditions.push({
       OR: [
+        { propertyId: { contains: String(searchTerm), mode: "insensitive" } },
         { title: { contains: String(searchTerm), mode: "insensitive" } },
         { description: { contains: String(searchTerm), mode: "insensitive" } },
         { city: { contains: String(searchTerm), mode: "insensitive" } },
@@ -323,14 +347,19 @@ const getAllApartments = async (
   return responseData;
 };
 
-const getApartmentById = async (id: string) => {
-  const cacheKey = `apartment:detail:${id}`;
+const getApartmentById = async (idOrPropertyId: string) => {
+  const cacheKey = `apartment:detail:${idOrPropertyId}`;
   const cached = await getCache<any>(cacheKey);
   if (cached) {
     return cached;
   }
-  const apartment = await prisma.apartment.findUnique({
-    where: { id },
+  const apartment = await prisma.apartment.findFirst({
+    where: {
+      OR: [
+        { id: idOrPropertyId },
+        { propertyId: idOrPropertyId },
+      ],
+    },
     include: {
       user: {
         select: {
@@ -482,11 +511,124 @@ const deleteApartment = async (
   return { message: "Apartment deleted successfully" };
 };
 
+const getAdminApartmentDetails = async (idOrPropertyId: string) => {
+  const apartment = await prisma.apartment.findFirst({
+    where: {
+      OR: [
+        { id: idOrPropertyId },
+        { propertyId: idOrPropertyId },
+      ],
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          phone: true,
+          role: true,
+          status: true,
+          profileImage: true,
+          createdAt: true,
+        },
+      },
+      availabilities: {
+        include: {
+          weekend: true,
+        },
+      },
+      swapPreference: true,
+      listingPayment: true,
+      reportRented: {
+        include: {
+          payment: true,
+          targetApartment: {
+            select: {
+              id: true,
+              propertyId: true,
+              title: true,
+              city: true,
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  phone: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      swappedReportRented: {
+        include: {
+          apartment: {
+            select: {
+              id: true,
+              propertyId: true,
+              title: true,
+              city: true,
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                  phone: true,
+                },
+              },
+            },
+          },
+          payment: true,
+        },
+      },
+      reviews: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              profileImage: true,
+            },
+          },
+        },
+      },
+      callLogs: {
+        include: {
+          caller: {
+            select: {
+              id: true,
+              username: true,
+              phone: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!apartment) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Apartment not found");
+  }
+
+  const totalReviews = apartment.reviews.length;
+  const avgRating =
+    totalReviews > 0
+      ? apartment.reviews.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews
+      : 0;
+
+  return {
+    ...apartment,
+    averageRating: Number(avgRating.toFixed(1)),
+    totalReviews,
+  };
+};
+
 export const ApartmentServices = {
   createApartment,
   getMyAppartment,
   getAllApartments,
   getApartmentById,
+  getAdminApartmentDetails,
   updateApartment,
   updateApartmentStatus,
   deleteApartment,

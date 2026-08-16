@@ -105,17 +105,9 @@ const registerUser = async (payload: IRegisterUser) => {
 };
 
 const loginUser = async (payload: ILoginUser) => {
-  const { identity, password } = payload;
+  const { email, password } = payload;
 
-  const user = await prisma.user.findFirst({
-    where: {
-      OR: [
-        { username: identity },
-        { email: identity },
-        { phone: identity },
-      ],
-    },
-  });
+  const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User does not exist");

@@ -23,11 +23,8 @@ model User {
   offers                 Offer[]                   @relation("UserOffers")
   reviews                Review[]
   wishlists              Wishlist[]
-  bookings               Booking[]                 @relation("UserBookings")
   wallet                 Wallet?
   listingPayment         ApartmentListingPayment?
-  bookingPaymentsMade    ApartmentBookingPayment[] @relation("PaymentsGiven")
-  bookingPaymentsRecv    ApartmentBookingPayment[] @relation("PaymentsReceived")
   reportRentedPayments   ReportRentedPayment[]     @relation("ReportRentedPayer")
   callsMade              CallLog[]                 @relation("CallsMade")
   callsReceived          CallLog[]                 @relation("CallsReceived")
