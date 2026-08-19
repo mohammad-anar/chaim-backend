@@ -116,6 +116,20 @@ const handleStripeWebhook = async (signature: string, rawBody: Buffer) => {
               stripePaymentIntentId: paymentIntent.id,
             },
           });
+        } else if (reportRentedId) {
+          const pRec = await tx.reportRentedPayment.findFirst({
+            where: { reportRentedId },
+          });
+          if (pRec) {
+            await tx.reportRentedPayment.update({
+              where: { id: pRec.id },
+              data: {
+                status: "COMPLETED",
+                paidAt: new Date(),
+                stripePaymentIntentId: paymentIntent.id,
+              },
+            });
+          }
         }
 
         if (reportRentedId) {
@@ -184,6 +198,20 @@ const verifyAndConfirmPaymentIntent = async (paymentIntentId: string) => {
             stripePaymentIntentId: paymentIntent.id,
           },
         });
+      } else if (reportRentedId) {
+        const pRec = await tx.reportRentedPayment.findFirst({
+          where: { reportRentedId },
+        });
+        if (pRec) {
+          await tx.reportRentedPayment.update({
+            where: { id: pRec.id },
+            data: {
+              status: "COMPLETED",
+              paidAt: new Date(),
+              stripePaymentIntentId: paymentIntent.id,
+            },
+          });
+        }
       }
 
       if (reportRentedId) {

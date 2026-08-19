@@ -17,6 +17,6 @@ router.get("/my-preference", auth(), SwapPreferenceController.getMySwapPreferenc
 
 router.get("/matched-swaps", auth(), SwapPreferenceController.getMatchedSwapableProperties);
 
-router.get("/all", SwapPreferenceController.getAllSwapPreferences);
+router.get("/all", auth(), SwapPreferenceController.getAllSwapPreferences);
 
 export const SwapPreferenceRoutes = router;

@@ -1,6 +1,8 @@
+import { SwapStatus } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import config from "../../../config/index.js";
 import ApiError from "../../../errors/ApiError.js";
+import { parseFlexibleDate } from "../../../helpers/parseDate.js";
 import { prisma } from "../../../helpers/prisma.js";
 import { stripe } from "../../../helpers/stripe.js";
 import { ICreateReportRentedIntent } from "./reportRented.interface.js";
@@ -17,9 +19,19 @@ const createReportRentedIntent = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "You do not have an active apartment listing");
   }
 
+  const reportType = payload.reportType || "RENT";
   let resolvedTargetApartmentId: string | null = null;
-  if (payload.targetApartmentId) {
-    const targetApt = await prisma.apartment.findFirst({
+  let targetApartment: any = null;
+
+  if (reportType === "SWAP") {
+    if (!payload.targetApartmentId) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Target apartment must be specified when reporting rented against a swap",
+      );
+    }
+
+    targetApartment = await prisma.apartment.findFirst({
       where: {
         OR: [
           { id: payload.targetApartmentId },
@@ -28,78 +40,224 @@ const createReportRentedIntent = async (
       },
     });
 
-    if (!targetApt) {
+    if (!targetApartment) {
       throw new ApiError(StatusCodes.NOT_FOUND, "Target apartment for swap not found");
     }
 
-    if (targetApt.id === apartment.id) {
+    if (targetApartment.id === apartment.id) {
       throw new ApiError(StatusCodes.BAD_REQUEST, "You cannot swap an apartment with itself");
     }
 
-    resolvedTargetApartmentId = targetApt.id;
+    resolvedTargetApartmentId = targetApartment.id;
+  } else if (payload.targetApartmentId) {
+    targetApartment = await prisma.apartment.findFirst({
+      where: {
+        OR: [
+          { id: payload.targetApartmentId },
+          { propertyId: payload.targetApartmentId },
+        ],
+      },
+    });
+    if (targetApartment) {
+      resolvedTargetApartmentId = targetApartment.id;
+    }
   }
 
   let weekendDate = new Date();
   if (payload.weekend) {
-    const d = new Date(payload.weekend);
-    if (!isNaN(d.getTime())) {
+    const d = parseFlexibleDate(payload.weekend);
+    if (d) {
       weekendDate = d;
     }
   }
 
-  const reportRented = await prisma.reportRented.create({
-    data: {
-      apartmentId: apartment.id,
-      targetApartmentId: resolvedTargetApartmentId,
-      reportType: payload.reportType || "RENT",
-      weekend: weekendDate,
-    },
-    include: {
-      targetApartment: {
-        select: {
-          id: true,
-          propertyId: true,
-          title: true,
-          city: true,
-        },
-      },
-    },
-  });
-
   const amountInILS = config.fees.report_rented_fee || 50; // 50 ILS
   const amountInCents = Math.round(amountInILS * 100);
 
-  let clientSecret: string | null = null;
-  let paymentIntentId: string | null = null;
+  let reportRented: any = null;
+  let paymentRecord: any = null;
 
-  if (process.env.STRIPE_SECRET_KEY) {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: (config.stripe.currency || "ils").toLowerCase(),
-      metadata: {
-        paymentType: "REPORT_RENTED_FEE",
-        reportRentedId: reportRented.id,
+  if (reportType === "SWAP" && resolvedTargetApartmentId) {
+    // Check if a report for this user's apartment already exists for this swap
+    const existingReport = await prisma.reportRented.findFirst({
+      where: {
         apartmentId: apartment.id,
-        userId,
+        targetApartmentId: resolvedTargetApartmentId,
+        reportType: "SWAP",
+      },
+      include: {
+        payment: true,
+        targetApartment: {
+          select: {
+            id: true,
+            propertyId: true,
+            title: true,
+            city: true,
+          },
+        },
       },
     });
 
-    clientSecret = paymentIntent.client_secret;
-    paymentIntentId = paymentIntent.id;
+    if (existingReport) {
+      reportRented = existingReport;
+      if (existingReport.payment) {
+        paymentRecord = existingReport.payment;
+      }
+    } else {
+      // Create user's swap report
+      reportRented = await prisma.reportRented.create({
+        data: {
+          apartmentId: apartment.id,
+          targetApartmentId: resolvedTargetApartmentId,
+          reportType: "SWAP",
+          weekend: weekendDate,
+        },
+        include: {
+          targetApartment: {
+            select: {
+              id: true,
+              propertyId: true,
+              title: true,
+              city: true,
+            },
+          },
+        },
+      });
+    }
+
+    // Ensure a mirrored report and pending payment exist for the counterpart owner (target apartment)
+    const counterpartExistingReport = await prisma.reportRented.findFirst({
+      where: {
+        apartmentId: resolvedTargetApartmentId,
+        targetApartmentId: apartment.id,
+        reportType: "SWAP",
+      },
+      include: { payment: true },
+    });
+
+    if (!counterpartExistingReport) {
+      const counterpartReport = await prisma.reportRented.create({
+        data: {
+          apartmentId: resolvedTargetApartmentId,
+          targetApartmentId: apartment.id,
+          reportType: "SWAP",
+          weekend: weekendDate,
+        },
+      });
+
+      await prisma.reportRentedPayment.create({
+        data: {
+          reportRentedId: counterpartReport.id,
+          apartmentId: resolvedTargetApartmentId,
+          payerId: targetApartment.userId,
+          amount: amountInILS,
+          currency: config.stripe.currency || "ILS",
+          paymentMethod: "STRIPE",
+          status: "PENDING",
+        },
+      });
+    } else if (!counterpartExistingReport.payment) {
+      await prisma.reportRentedPayment.create({
+        data: {
+          reportRentedId: counterpartExistingReport.id,
+          apartmentId: resolvedTargetApartmentId,
+          payerId: targetApartment.userId,
+          amount: amountInILS,
+          currency: config.stripe.currency || "ILS",
+          paymentMethod: "STRIPE",
+          status: "PENDING",
+        },
+      });
+    }
+
+    // Update any existing pending Swap requests between these two apartments to APPROVED
+    await prisma.swap.updateMany({
+      where: {
+        OR: [
+          { fromAppId: apartment.id, toAppId: resolvedTargetApartmentId },
+          { fromAppId: resolvedTargetApartmentId, toAppId: apartment.id },
+        ],
+        status: SwapStatus.PENDING,
+      },
+      data: {
+        status: SwapStatus.APPROVED,
+      },
+    });
+  } else {
+    // Standard RENT report
+    reportRented = await prisma.reportRented.create({
+      data: {
+        apartmentId: apartment.id,
+        targetApartmentId: resolvedTargetApartmentId,
+        reportType: "RENT",
+        weekend: weekendDate,
+      },
+      include: {
+        targetApartment: {
+          select: {
+            id: true,
+            propertyId: true,
+            title: true,
+            city: true,
+          },
+        },
+      },
+    });
   }
 
-  const paymentRecord = await prisma.reportRentedPayment.create({
-    data: {
-      reportRentedId: reportRented.id,
-      apartmentId: apartment.id,
-      payerId: userId,
-      amount: amountInILS,
-      currency: config.stripe.currency || "ILS",
-      paymentMethod: "STRIPE",
-      stripePaymentIntentId: paymentIntentId,
-      status: "PENDING",
-    },
-  });
+  // Create payment record for the current user if not present
+  if (!paymentRecord) {
+    paymentRecord = await prisma.reportRentedPayment.create({
+      data: {
+        reportRentedId: reportRented.id,
+        apartmentId: apartment.id,
+        payerId: userId,
+        amount: amountInILS,
+        currency: config.stripe.currency || "ILS",
+        paymentMethod: "STRIPE",
+        status: "PENDING",
+      },
+    });
+  }
+
+  // Generate Stripe payment intent for the requesting user
+  let clientSecret: string | null = null;
+  let paymentIntentId: string | null = paymentRecord.stripePaymentIntentId || null;
+
+  if (process.env.STRIPE_SECRET_KEY) {
+    if (paymentIntentId) {
+      try {
+        const existingIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        clientSecret = existingIntent.client_secret;
+      } catch (err) {
+        paymentIntentId = null;
+      }
+    }
+
+    if (!clientSecret) {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: (config.stripe.currency || "ils").toLowerCase(),
+        metadata: {
+          paymentType: "REPORT_RENTED_FEE",
+          reportRentedId: reportRented.id,
+          reportRentedPaymentId: paymentRecord.id,
+          apartmentId: apartment.id,
+          userId,
+        },
+      });
+
+      clientSecret = paymentIntent.client_secret;
+      paymentIntentId = paymentIntent.id;
+
+      await prisma.reportRentedPayment.update({
+        where: { id: paymentRecord.id },
+        data: {
+          stripePaymentIntentId: paymentIntentId,
+        },
+      });
+    }
+  }
 
   return {
     reportRentedId: reportRented.id,
@@ -108,6 +266,7 @@ const createReportRentedIntent = async (
     targetApartment: reportRented.targetApartment,
     amount: amountInILS,
     currency: config.stripe.currency || "ILS",
+    paymentStatus: paymentRecord.status,
     clientSecret,
   };
 };
@@ -124,6 +283,15 @@ const getMyReportedRented = async (userId: string) => {
   const reports = await prisma.reportRented.findMany({
     where: { apartmentId: apartment.id },
     include: {
+      apartment: {
+        select: {
+          id: true,
+          propertyId: true,
+          title: true,
+          city: true,
+          coverImage: true,
+        },
+      },
       targetApartment: {
         select: {
           id: true,
@@ -146,7 +314,28 @@ const getMyReportedRented = async (userId: string) => {
     orderBy: { createdAt: "desc" },
   });
 
-  return reports;
+  const enrichedReports = await Promise.all(
+    reports.map(async (report) => {
+      if (report.reportType === "SWAP" && report.targetApartmentId) {
+        const counterpartReport = await prisma.reportRented.findFirst({
+          where: {
+            apartmentId: report.targetApartmentId,
+            targetApartmentId: report.apartmentId,
+            reportType: "SWAP",
+          },
+          include: { payment: true },
+        });
+
+        return {
+          ...report,
+          counterpartPayment: counterpartReport?.payment || null,
+        };
+      }
+      return report;
+    }),
+  );
+
+  return enrichedReports;
 };
 
 export const ReportRentedServices = {

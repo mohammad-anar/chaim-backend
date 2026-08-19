@@ -17,8 +17,32 @@ const createWeekendCalendar = catchAsync(async (req: Request, res: Response) => 
   });
 });
 
+const uploadExcel = catchAsync(async (req: Request, res: Response) => {
+  const filePath =
+    getSingleFilePath(req.files, "doc") ||
+    getSingleFilePath(req.files, "file") ||
+    getSingleFilePath(req.files, "csv");
+
+  if (!filePath) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Excel or CSV file is required");
+  }
+
+  const isSync = req.query.sync === "true" || req.query.direct === "true";
+  const result = await WeekendCalendarServices.uploadExcel(filePath, isSync);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.message || "Weekend calendar Excel processed successfully",
+    data: result,
+  });
+});
+
 const uploadCsv = catchAsync(async (req: Request, res: Response) => {
-  const filePath = getSingleFilePath(req.files, "doc");
+  const filePath =
+    getSingleFilePath(req.files, "doc") ||
+    getSingleFilePath(req.files, "file") ||
+    getSingleFilePath(req.files, "csv");
 
   if (!filePath) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "CSV file is required");
@@ -83,9 +107,11 @@ const deleteWeekendCalendar = catchAsync(async (req: Request, res: Response) => 
 
 export const WeekendCalendarController = {
   createWeekendCalendar,
+  uploadExcel,
   uploadCsv,
   getAllWeekendCalendars,
   getWeekendCalendarById,
   updateWeekendCalendar,
   deleteWeekendCalendar,
 };
+

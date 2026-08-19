@@ -7,10 +7,18 @@ import { ICreateSwapRequest } from "./swap.interface.js";
 const createSwapRequest = async (userId: string, payload: ICreateSwapRequest) => {
   const fromApartment = await prisma.apartment.findUnique({
     where: { userId },
+    include: { swapPreference: true },
   });
 
   if (!fromApartment) {
     throw new ApiError(StatusCodes.NOT_FOUND, "You have not listed an apartment to swap");
+  }
+
+  if (!fromApartment.swapPreference || !fromApartment.swapPreference.isEnabled) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "You must enable swap on your apartment before sending a swap request",
+    );
   }
 
   if (fromApartment.id === payload.toAppId) {
@@ -19,10 +27,15 @@ const createSwapRequest = async (userId: string, payload: ICreateSwapRequest) =>
 
   const toApartment = await prisma.apartment.findUnique({
     where: { id: payload.toAppId },
+    include: { swapPreference: true },
   });
 
   if (!toApartment) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Target apartment for swap not found");
+  }
+
+  if (!toApartment.swapPreference || !toApartment.swapPreference.isEnabled) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "The target apartment has not enabled swap");
   }
 
   const existingSwap = await prisma.swap.findFirst({

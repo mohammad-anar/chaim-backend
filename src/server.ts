@@ -2,6 +2,7 @@ import app from "./app.js";
 import config from "./config/index.js";
 import { seedSuperAdmin } from "./db/seedSuperAdmin.js";
 import { initSocket } from "./helpers/socketHelper.js";
+import "./helpers/bullQueue.js";
 
 let server: any;
 

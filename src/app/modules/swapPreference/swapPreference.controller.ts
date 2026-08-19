@@ -30,10 +30,12 @@ const getMySwapPreference = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllSwapPreferences = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
   const filters = pick(req.query, ["city", "neighborhood", "rooms", "beds", "isEnabled"]);
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
 
   const result = await SwapPreferenceServices.getAllSwapPreferences(
+    userId,
     filters as any,
     options as any,
   );
@@ -49,12 +51,14 @@ const getAllSwapPreferences = catchAsync(async (req: Request, res: Response) => 
 
 const getMatchedSwapableProperties = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
-  const result = await SwapPreferenceServices.getMatchedSwapableProperties(userId);
+  const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
+  const result = await SwapPreferenceServices.getMatchedSwapableProperties(userId, options as any);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: "Swappable properties retrieved and sorted by user preference",
+    message: result.message,
+    meta: result.meta,
     data: result,
   });
 });

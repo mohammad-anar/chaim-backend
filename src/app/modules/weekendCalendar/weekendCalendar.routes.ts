@@ -16,6 +16,13 @@ router.post(
 );
 
 router.post(
+  "/upload-excel",
+  auth(UserRole.SUPER_ADMIN),
+  fileUploadHandler(),
+  WeekendCalendarController.uploadExcel,
+);
+
+router.post(
   "/upload-csv",
   auth(UserRole.SUPER_ADMIN),
   fileUploadHandler(),

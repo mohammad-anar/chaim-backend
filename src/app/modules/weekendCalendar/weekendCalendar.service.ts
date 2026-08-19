@@ -2,8 +2,11 @@ import fs from "fs";
 import path from "path";
 import { Prisma } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
+import XLSX from "xlsx";
 import ApiError from "../../../errors/ApiError.js";
+import { excelImportQueue } from "../../../helpers/bullQueue.js";
 import { paginationHelper } from "../../../helpers/paginationHelper.js";
+import { parseFlexibleDate } from "../../../helpers/parseDate.js";
 import { prisma } from "../../../helpers/prisma.js";
 import { IPaginationOptions } from "../../../types/pagination.js";
 import {
@@ -13,8 +16,8 @@ import {
 } from "./weekendCalendar.interface.js";
 
 const createWeekendCalendar = async (payload: ICreateWeekendCalendar) => {
-  const dateObj = new Date(payload.date);
-  if (isNaN(dateObj.getTime())) {
+  const dateObj = parseFlexibleDate(payload.date);
+  if (!dateObj) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid date format");
   }
 
@@ -42,63 +45,148 @@ const createWeekendCalendar = async (payload: ICreateWeekendCalendar) => {
   return result;
 };
 
-const uploadCsv = async (filePath: string) => {
+const processExcelFile = async (filePath: string) => {
   const relativePath = filePath.startsWith("/") ? filePath.slice(1) : filePath;
   const absolutePath = path.join(process.cwd(), "uploads", relativePath);
 
   if (!fs.existsSync(absolutePath)) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "Uploaded CSV file not found");
+    throw new ApiError(StatusCodes.NOT_FOUND, "Uploaded Excel file not found");
   }
 
-  const fileContent = fs.readFileSync(absolutePath, "utf-8");
-  const lines = fileContent.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-
-  if (lines.length <= 1) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "CSV file is empty or missing data");
-  }
-
-  const header = lines[0].toLowerCase().split(",");
-  const titleIndex = header.indexOf("title");
-  const dateIndex = header.indexOf("date");
-
-  if (titleIndex === -1 || dateIndex === -1) {
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = XLSX.readFile(absolutePath, { cellDates: true, raw: false });
+  } catch (err: any) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "CSV header must contain 'title' and 'date' columns",
+      `Failed to parse Excel file: ${err.message || err}`,
     );
   }
 
-  let processedCount = 0;
+  const sheetNames = workbook.SheetNames;
+  if (!sheetNames || sheetNames.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Excel file contains no sheets");
+  }
 
-  for (let i = 1; i < lines.length; i++) {
-    const columns = lines[i].split(",").map((c) => c.trim().replace(/^["']|["']$/g, ""));
-    const title = columns[titleIndex];
-    const dateStr = columns[dateIndex];
+  const sheet = workbook.Sheets[sheetNames[0]];
+  const rows: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, {
+    defval: "",
+    raw: false,
+  });
 
-    if (!title || !dateStr) continue;
+  console.log(`[ExcelImport] Found ${rows.length} rows in sheet: "${sheetNames[0]}"`);
 
-    const dateObj = new Date(dateStr);
-    if (isNaN(dateObj.getTime())) continue;
+  if (rows.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Excel sheet is empty");
+  }
 
-    await prisma.weekendCalendar.upsert({
+  let insertedCount = 0;
+  let skippedCount = 0;
+
+  for (const row of rows) {
+    let titleVal: string | undefined;
+    let dateVal: any;
+
+    for (const key of Object.keys(row)) {
+      const lowerKey = key.trim().toLowerCase();
+      if (lowerKey === "title") {
+        titleVal = String(row[key]).trim();
+      } else if (lowerKey === "date") {
+        dateVal = row[key];
+      }
+    }
+
+    if (!titleVal || !dateVal) {
+      console.log(`[ExcelImport] Skipping row due to missing title or date:`, row);
+      continue;
+    }
+
+    const dateObj = parseFlexibleDate(dateVal);
+    if (!dateObj) {
+      console.log(`[ExcelImport] Skipping row due to unparseable date: dateVal=${dateVal}`);
+      continue;
+    }
+
+    // CHECK IF DATE ALREADY EXISTS IN WEEKEND CALENDAR
+    const existingDate = await prisma.weekendCalendar.findUnique({
       where: { date: dateObj },
-      update: { title },
-      create: { title, date: dateObj },
     });
 
-    processedCount++;
+    if (existingDate) {
+      console.log(
+        `[ExcelImport] Skipping date ${dateObj.toISOString()} - already exists as "${existingDate.title}"`,
+      );
+      skippedCount++;
+      continue;
+    }
+
+    let finalTitle = titleVal;
+    const existingTitle = await prisma.weekendCalendar.findUnique({
+      where: { title: titleVal },
+    });
+    if (existingTitle) {
+      const formattedDateStr = dateObj.toISOString().split("T")[0];
+      finalTitle = `${titleVal} (${formattedDateStr})`;
+    }
+
+    const created = await prisma.weekendCalendar.create({
+      data: {
+        title: finalTitle,
+        date: dateObj,
+      },
+    });
+
+    console.log(`[ExcelImport] Created new weekend: ID=${created.id}, Title="${created.title}", Date=${created.date.toISOString()}`);
+    insertedCount++;
   }
 
   try {
-    fs.unlinkSync(absolutePath);
+    if (fs.existsSync(absolutePath)) {
+      fs.unlinkSync(absolutePath);
+    }
   } catch (err) {
-    console.error("Failed to delete temp CSV file:", err);
+    console.error("Failed to delete temp Excel file:", err);
   }
 
+  console.log(`[ExcelImport] Complete. Total: ${rows.length}, Inserted: ${insertedCount}, Skipped: ${skippedCount}`);
+
   return {
-    message: "CSV processed successfully",
-    processedCount,
+    totalRows: rows.length,
+    insertedCount,
+    skippedCount,
   };
+};
+
+const uploadExcel = async (filePath: string, isSync: boolean = false) => {
+  if (isSync) {
+    const result = await processExcelFile(filePath);
+    return {
+      queued: false,
+      message: `Excel file processed directly. Total: ${result.totalRows}, Inserted: ${result.insertedCount}, Skipped: ${result.skippedCount}`,
+      ...result,
+    };
+  }
+
+  try {
+    const job = await excelImportQueue.add("processWeekendCalendarExcel", { filePath });
+    return {
+      queued: true,
+      jobId: job.id,
+      message: "Excel file import queued successfully for background processing",
+    };
+  } catch (queueErr) {
+    console.warn("BullMQ queue add failed, falling back to direct processing:", queueErr);
+    const result = await processExcelFile(filePath);
+    return {
+      queued: false,
+      message: `Excel file processed directly. Total: ${result.totalRows}, Inserted: ${result.insertedCount}, Skipped: ${result.skippedCount}`,
+      ...result,
+    };
+  }
+};
+
+const uploadCsv = async (filePath: string) => {
+  return await processExcelFile(filePath);
 };
 
 const getAllWeekendCalendars = async (
@@ -118,15 +206,21 @@ const getAllWeekendCalendars = async (
   }
 
   if (startDate) {
-    andConditions.push({
-      date: { gte: new Date(startDate) },
-    });
+    const parsedStart = parseFlexibleDate(startDate);
+    if (parsedStart) {
+      andConditions.push({
+        date: { gte: parsedStart },
+      });
+    }
   }
 
   if (endDate) {
-    andConditions.push({
-      date: { lte: new Date(endDate) },
-    });
+    const parsedEnd = parseFlexibleDate(endDate);
+    if (parsedEnd) {
+      andConditions.push({
+        date: { lte: parsedEnd },
+      });
+    }
   }
 
   const whereConditions: Prisma.WeekendCalendarWhereInput =
@@ -194,7 +288,13 @@ const updateWeekendCalendar = async (
 
   const updateData: any = {};
   if (payload.title) updateData.title = payload.title;
-  if (payload.date) updateData.date = new Date(payload.date);
+  if (payload.date) {
+    const parsed = parseFlexibleDate(payload.date);
+    if (!parsed) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid date format");
+    }
+    updateData.date = parsed;
+  }
 
   const result = await prisma.weekendCalendar.update({
     where: { id },
@@ -222,9 +322,12 @@ const deleteWeekendCalendar = async (id: string) => {
 
 export const WeekendCalendarServices = {
   createWeekendCalendar,
+  processExcelFile,
+  uploadExcel,
   uploadCsv,
   getAllWeekendCalendars,
   getWeekendCalendarById,
   updateWeekendCalendar,
   deleteWeekendCalendar,
 };
+

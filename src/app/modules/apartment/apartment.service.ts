@@ -97,43 +97,160 @@ const createApartment = async (
 };
 
 const getMyAppartment = async (userId: string) => {
-  const apartment = await prisma.apartment.findUnique({
-    where: { userId },
-    include: {
-      availabilities: {
-        include: {
-          weekend: true,
+  const [apartment, upcomingWeekends] = await Promise.all([
+    prisma.apartment.findUnique({
+      where: { userId },
+      include: {
+        availabilities: {
+          include: {
+            weekend: true,
+          },
         },
-      },
-      listingPayment: true,
-      swapPreference: true,
-      reviews: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              profileImage: true,
+        listingPayment: true,
+        swapPreference: true,
+        reviews: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                profileImage: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    }),
+    getUpcomingWeekends(),
+  ]);
 
   if (!apartment) {
     throw new ApiError(StatusCodes.NOT_FOUND, "You have not listed an apartment yet");
   }
 
-  await deleteCacheByPattern("apartment:*");
+  const upcomingAvailability = computeUpcomingAvailability(
+    apartment.availabilities,
+    upcomingWeekends,
+  );
 
-  return apartment;
+  return {
+    ...apartment,
+    upcomingAvailability,
+    availabilityMessage: upcomingAvailability.availabilityMessage,
+  };
 };
 
 const isAnyOrEmpty = (val: any): boolean => {
   if (val === undefined || val === null || val === "") return true;
   const str = String(val).trim().toLowerCase();
   return str === "any" || str === "all";
+};
+
+const getUpcomingWeekends = async () => {
+  const now = new Date();
+  const todayStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
+  );
+
+  return await prisma.weekendCalendar.findMany({
+    where: {
+      date: {
+        gte: todayStart,
+      },
+    },
+    orderBy: {
+      date: "asc",
+    },
+    take: 2,
+    select: {
+      id: true,
+      title: true,
+      date: true,
+    },
+  });
+};
+
+const computeUpcomingAvailability = (
+  availabilities: any[] = [],
+  upcomingWeekends: Array<{ id: string; title: string; date: Date }>,
+  filteredWeekendId?: string,
+) => {
+  if (!upcomingWeekends || upcomingWeekends.length === 0) {
+    return {
+      upcomingWeekends: [],
+      isAvailableNextWeekend: false,
+      isAvailableSecondWeekend: false,
+      isAvailableNextTwoWeekends: false,
+      availabilityMessage: "No upcoming weekend scheduled in calendar",
+      canNotify: true,
+      canMakeOffer: true,
+    };
+  }
+
+  const nextWeekend = upcomingWeekends[0];
+  const secondWeekend = upcomingWeekends[1] || null;
+
+  const isNextAvail = availabilities.some(
+    (a) =>
+      a.weekendId === nextWeekend.id ||
+      (a.weekend && a.weekend.id === nextWeekend.id),
+  );
+
+  const isSecondAvail = secondWeekend
+    ? availabilities.some(
+        (a) =>
+          a.weekendId === secondWeekend.id ||
+          (a.weekend && a.weekend.id === secondWeekend.id),
+      )
+    : false;
+
+  let isFilteredWeekendAvail: boolean | undefined = undefined;
+  if (filteredWeekendId) {
+    isFilteredWeekendAvail = availabilities.some(
+      (a) =>
+        a.weekendId === filteredWeekendId ||
+        (a.weekend && a.weekend.id === filteredWeekendId),
+    );
+  }
+
+  let availabilityMessage = "";
+  if (upcomingWeekends.length === 1) {
+    availabilityMessage = isNextAvail
+      ? `Available for next weekend (${nextWeekend.title})`
+      : `Unavailable for next weekend (${nextWeekend.title})`;
+  } else {
+    if (isNextAvail && isSecondAvail) {
+      availabilityMessage = "Available for the next two weekends";
+    } else if (isNextAvail && !isSecondAvail) {
+      availabilityMessage = `Available for next weekend (${nextWeekend.title}), unavailable for next two weekends`;
+    } else if (!isNextAvail && isSecondAvail) {
+      availabilityMessage = `Unavailable for next weekend (${nextWeekend.title}), available for following weekend (${secondWeekend?.title})`;
+    } else {
+      availabilityMessage = "Unavailable for next weekend and next two weekends";
+    }
+  }
+
+  return {
+    nextWeekend: {
+      ...nextWeekend,
+      isAvailable: isNextAvail,
+    },
+    followingWeekend: secondWeekend
+      ? {
+          ...secondWeekend,
+          isAvailable: isSecondAvail,
+        }
+      : null,
+    isAvailableNextWeekend: isNextAvail,
+    isAvailableSecondWeekend: isSecondAvail,
+    isAvailableNextTwoWeekends: isNextAvail && isSecondAvail,
+    ...(isFilteredWeekendAvail !== undefined && {
+      isAvailableForFilteredWeekend: isFilteredWeekendAvail,
+    }),
+    availabilityMessage,
+    canNotify: !isNextAvail || !isSecondAvail,
+    canMakeOffer: true,
+  };
 };
 
 const getAllApartments = async (
@@ -287,33 +404,36 @@ const getAllApartments = async (
   const whereConditions: Prisma.ApartmentWhereInput =
     andConditions.length > 0 ? { AND: andConditions } : {};
 
-  const result = await prisma.apartment.findMany({
-    where: whereConditions,
-    skip,
-    take: limit,
-    orderBy: { [sortBy]: sortOrder },
-    include: {
-      user: {
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          phone: true,
-          profileImage: true,
+  const [result, upcomingWeekends] = await Promise.all([
+    prisma.apartment.findMany({
+      where: whereConditions,
+      skip,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            phone: true,
+            profileImage: true,
+          },
+        },
+        availabilities: {
+          include: {
+            weekend: true,
+          },
+        },
+        reviews: {
+          select: {
+            rating: true,
+          },
         },
       },
-      availabilities: {
-        include: {
-          weekend: true,
-        },
-      },
-      reviews: {
-        select: {
-          rating: true,
-        },
-      },
-    },
-  });
+    }),
+    getUpcomingWeekends(),
+  ]);
 
   const total = await prisma.apartment.count({
     where: whereConditions,
@@ -326,10 +446,18 @@ const getAllApartments = async (
         ? apt.reviews.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews
         : 0;
 
+    const upcomingAvailability = computeUpcomingAvailability(
+      apt.availabilities,
+      upcomingWeekends,
+      weekendId as string,
+    );
+
     return {
       ...apt,
       averageRating: Number(avgRating.toFixed(1)),
       totalReviews,
+      upcomingAvailability,
+      availabilityMessage: upcomingAvailability.availabilityMessage,
     };
   });
 
@@ -353,48 +481,51 @@ const getApartmentById = async (idOrPropertyId: string) => {
   if (cached) {
     return cached;
   }
-  const apartment = await prisma.apartment.findFirst({
-    where: {
-      OR: [
-        { id: idOrPropertyId },
-        { propertyId: idOrPropertyId },
-      ],
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          phone: true,
-          profileImage: true,
-        },
+  const [apartment, upcomingWeekends] = await Promise.all([
+    prisma.apartment.findFirst({
+      where: {
+        OR: [
+          { id: idOrPropertyId },
+          { propertyId: idOrPropertyId },
+        ],
       },
-      availabilities: {
-        include: {
-          weekend: true,
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            phone: true,
+            profileImage: true,
+          },
         },
-      },
-      swapPreference: true,
-      reviews: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              profileImage: true,
+        availabilities: {
+          include: {
+            weekend: true,
+          },
+        },
+        swapPreference: true,
+        reviews: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                profileImage: true,
+              },
             },
           },
         },
-      },
-      listingPayment: {
-        select: {
-          status: true,
-          paidAt: true,
+        listingPayment: {
+          select: {
+            status: true,
+            paidAt: true,
+          },
         },
       },
-    },
-  });
+    }),
+    getUpcomingWeekends(),
+  ]);
 
   if (!apartment) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Apartment not found");
@@ -406,10 +537,17 @@ const getApartmentById = async (idOrPropertyId: string) => {
       ? apartment.reviews.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews
       : 0;
 
+  const upcomingAvailability = computeUpcomingAvailability(
+    apartment.availabilities,
+    upcomingWeekends,
+  );
+
   const result = {
     ...apartment,
     averageRating: Number(avgRating.toFixed(1)),
     totalReviews,
+    upcomingAvailability,
+    availabilityMessage: upcomingAvailability.availabilityMessage,
   };
 
   await setCache(cacheKey, result, 600);

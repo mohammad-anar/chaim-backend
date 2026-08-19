@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "chaim-backend-api-collection",
     "name": "Chaim Backend API Collection",
-    "description": "Complete Postman collection for Chaim Backend API covering all 17 feature modules with dynamic variables, authentication, search/filters, and sample payloads.",
+    "description": "Complete Postman collection for Chaim Backend API covering all feature modules with dynamic variables, authentication, search/filters, swap gating, dual-fee swap report rented, and sample payloads.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -27,12 +27,27 @@
       "type": "string"
     },
     {
-      "key": "bookingId",
+      "key": "targetApartmentId",
       "value": "",
       "type": "string"
     },
     {
       "key": "shabbosId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "swapId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "offerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "reviewId",
       "value": "",
       "type": "string"
     }
@@ -101,7 +116,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"david@example.com\",\n  \"password\": \"Password123!\"\n}"
+              "raw": "{\n  \"email\": \"admin@gmail.com\",\n  \"password\": \"12345678\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
           }
@@ -160,15 +175,15 @@
       "name": "2. User",
       "item": [
         {
-          "name": "Get Profile",
+          "name": "Get My Profile",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/user/profile", "host": ["{{baseUrl}}"], "path": ["user", "profile"] }
+            "url": { "raw": "{{baseUrl}}/user/me", "host": ["{{baseUrl}}"], "path": ["user", "me"] }
           }
         },
         {
-          "name": "Update Profile",
+          "name": "Update My Profile",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "PATCH",
@@ -177,7 +192,15 @@
               "mode": "raw",
               "raw": "{\n  \"username\": \"david_cohen_updated\",\n  \"phone\": \"+972509876543\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/user/profile", "host": ["{{baseUrl}}"], "path": ["user", "profile"] }
+            "url": { "raw": "{{baseUrl}}/user/update-me", "host": ["{{baseUrl}}"], "path": ["user", "update-me"] }
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/user/user-id-here", "host": ["{{baseUrl}}"], "path": ["user", "user-id-here"] }
           }
         },
         {
@@ -185,7 +208,28 @@
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/user/all-users?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["user", "all-users"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] }
+            "url": { "raw": "{{baseUrl}}/user?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["user"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] }
+          }
+        },
+        {
+          "name": "Admin: Update User Status",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/user/status/user-id-here", "host": ["{{baseUrl}}"], "path": ["user", "status", "user-id-here"] }
+          }
+        },
+        {
+          "name": "Admin: Delete User",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/user/user-id-here", "host": ["{{baseUrl}}"], "path": ["user", "user-id-here"] }
           }
         }
       ]
@@ -215,7 +259,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Luxury Penthouse in Jerusalem\",\n  \"description\": \"Beautiful 3-bedroom apartment close to the Western Wall with city view.\",\n  \"city\": \"Jerusalem\",\n  \"neighborhood\": \"Rehavia\",\n  \"propertyType\": \"Penthouse\",\n  \"bedrooms\": 3,\n  \"bathrooms\": 2,\n  \"maxWalkingMinutes\": 15,\n  \"pricePerShabbat\": 450,\n  \"coverImage\": \"https://images.unsplash.com/photo-1512917774080-9991f1c4c750\"\n}"
+              "raw": "{\n  \"title\": \"Luxury Penthouse in Jerusalem\",\n  \"description\": \"Beautiful 3-bedroom apartment close to the Western Wall with city view.\",\n  \"city\": \"Jerusalem\",\n  \"neighborhood\": \"Rehavia\",\n  \"street1\": \"King George St 12\",\n  \"propertyType\": \"PENTHOUSE\",\n  \"bedrooms\": 3,\n  \"bathrooms\": 2,\n  \"maxGuest\": 6,\n  \"pricePerShabbat\": 450,\n  \"amenities\": [\"WIFI\", \"KOSHER_KITCHEN\", \"AIR_CONDITIONING\", \"SHABBAT_ELEVATOR\"],\n  \"howToContact\": \"BOTH\",\n  \"phoneNumber\": \"+972501234567\",\n  \"whatsApp\": \"+972501234567\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/apartment", "host": ["{{baseUrl}}"], "path": ["apartment"] }
           }
@@ -225,9 +269,9 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/apartment/all?city=Jerusalem&neighborhood=Rehavia&bedrooms=3&bathrooms=2&minPrice=100&maxPrice=1000&propertyType=Penthouse&page=1&limit=10",
+              "raw": "{{baseUrl}}/apartment?city=Jerusalem&neighborhood=Rehavia&bedrooms=3&bathrooms=2&minPrice=100&maxPrice=1000&propertyType=PENTHOUSE&page=1&limit=10",
               "host": ["{{baseUrl}}"],
-              "path": ["apartment", "all"],
+              "path": ["apartment"],
               "query": [
                 { "key": "city", "value": "Jerusalem" },
                 { "key": "neighborhood", "value": "Rehavia" },
@@ -235,7 +279,7 @@
                 { "key": "bathrooms", "value": "2" },
                 { "key": "minPrice", "value": "100" },
                 { "key": "maxPrice", "value": "1000" },
-                { "key": "propertyType", "value": "Penthouse" },
+                { "key": "propertyType", "value": "PENTHOUSE" },
                 { "key": "page", "value": "1" },
                 { "key": "limit", "value": "10" }
               ]
@@ -251,7 +295,7 @@
           }
         },
         {
-          "name": "Get Apartment By ID",
+          "name": "Get Apartment By ID / Property ID",
           "request": {
             "method": "GET",
             "url": { "raw": "{{baseUrl}}/apartment/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment", "{{apartmentId}}"] }
@@ -265,8 +309,37 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"pricePerShabbat\": 500,\n  \"description\": \"Updated luxury penthouse description with added amenities.\"\n}"
+              "raw": "{\n  \"pricePerShabbat\": 500,\n  \"description\": \"Updated luxury penthouse description with added Shabbat amenities.\"\n}"
             },
+            "url": { "raw": "{{baseUrl}}/apartment/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment", "{{apartmentId}}"] }
+          }
+        },
+        {
+          "name": "Admin: Get Apartment Details",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/apartment/admin-details/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment", "admin-details", "{{apartmentId}}"] }
+          }
+        },
+        {
+          "name": "Admin: Update Apartment Status",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CONFIRMED\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/apartment/status/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment", "status", "{{apartmentId}}"] }
+          }
+        },
+        {
+          "name": "Delete Apartment",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
             "url": { "raw": "{{baseUrl}}/apartment/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment", "{{apartmentId}}"] }
           }
         }
@@ -276,7 +349,7 @@
       "name": "4. Weekend Calendar",
       "item": [
         {
-          "name": "Admin: Create Weekend",
+          "name": "Admin: Create Weekend Calendar",
           "event": [
             {
               "listen": "test",
@@ -297,16 +370,44 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Parshat Bereshit Weekend\",\n  \"startDate\": \"2026-10-16T15:00:00.000Z\",\n  \"endDate\": \"2026-10-18T19:00:00.000Z\"\n}"
+              "raw": "{\n  \"title\": \"Parshat Bereshit 2026\",\n  \"date\": \"2026-10-17T00:00:00.000Z\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/weekend-calendar", "host": ["{{baseUrl}}"], "path": ["weekend-calendar"] }
           }
         },
         {
-          "name": "Get All Weekends",
+          "name": "Get All Weekend Calendars",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/weekend-calendar/all", "host": ["{{baseUrl}}"], "path": ["weekend-calendar", "all"] }
+            "url": { "raw": "{{baseUrl}}/weekend-calendar?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["weekend-calendar"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
+          }
+        },
+        {
+          "name": "Get Weekend Calendar By ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/weekend-calendar/{{shabbosId}}", "host": ["{{baseUrl}}"], "path": ["weekend-calendar", "{{shabbosId}}"] }
+          }
+        },
+        {
+          "name": "Admin: Update Weekend Calendar",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Parshat Bereshit Updated\",\n  \"date\": \"2026-10-17T00:00:00.000Z\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/weekend-calendar/{{shabbosId}}", "host": ["{{baseUrl}}"], "path": ["weekend-calendar", "{{shabbosId}}"] }
+          }
+        },
+        {
+          "name": "Admin: Delete Weekend Calendar",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/weekend-calendar/{{shabbosId}}", "host": ["{{baseUrl}}"], "path": ["weekend-calendar", "{{shabbosId}}"] }
           }
         }
       ]
@@ -315,23 +416,49 @@
       "name": "5. Apartment Availability",
       "item": [
         {
-          "name": "Set Apartment Availability",
+          "name": "Add Availability",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"weekendId\": \"{{shabbosId}}\",\n  \"isAvailable\": true\n}"
+              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"weekendId\": \"{{shabbosId}}\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/apartment-availability", "host": ["{{baseUrl}}"], "path": ["apartment-availability"] }
+            "url": { "raw": "{{baseUrl}}/apartment-availability/add", "host": ["{{baseUrl}}"], "path": ["apartment-availability", "add"] }
+          }
+        },
+        {
+          "name": "Remove Availability",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"weekendId\": \"{{shabbosId}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/apartment-availability/remove", "host": ["{{baseUrl}}"], "path": ["apartment-availability", "remove"] }
+          }
+        },
+        {
+          "name": "Bulk Set Availability",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"weekendIds\": [\"{{shabbosId}}\"]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/apartment-availability/bulk-set", "host": ["{{baseUrl}}"], "path": ["apartment-availability", "bulk-set"] }
           }
         },
         {
           "name": "Get Apartment Availabilities",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/apartment-availability/apartment/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment-availability", "apartment", "{{apartmentId}}"] }
+            "url": { "raw": "{{baseUrl}}/apartment-availability/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment-availability", "{{apartmentId}}"] }
           }
         }
       ]
@@ -353,20 +480,7 @@
           }
         },
         {
-          "name": "Create Report Rented Intent (50 ILS)",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"bookingId\": \"{{bookingId}}\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/payment/create-report-rented-intent", "host": ["{{baseUrl}}"], "path": ["payment", "create-report-rented-intent"] }
-          }
-        },
-        {
-          "name": "Verify Payment Intent (Direct Verification)",
+          "name": "Verify Payment Intent (Stripe Verification)",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
@@ -381,7 +495,154 @@
       ]
     },
     {
-      "name": "7. Wishlist",
+      "name": "7. Swap Preference",
+      "item": [
+        {
+          "name": "Turn On / Update Swap Preference",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isEnabled\": true,\n  \"city\": \"Tel Aviv\",\n  \"neighborhood\": \"Florentin\",\n  \"rooms\": 3,\n  \"beds\": 2,\n  \"weekend\": \"2026-10-17T00:00:00.000Z\",\n  \"whatsApp\": \"+972501234567\",\n  \"email\": \"david@example.com\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/swap-preference", "host": ["{{baseUrl}}"], "path": ["swap-preference"] }
+          }
+        },
+        {
+          "name": "Turn Off Swap Preference",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isEnabled\": false\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/swap-preference", "host": ["{{baseUrl}}"], "path": ["swap-preference"] }
+          }
+        },
+        {
+          "name": "Get My Swap Preference",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/swap-preference/my-preference", "host": ["{{baseUrl}}"], "path": ["swap-preference", "my-preference"] }
+          }
+        },
+        {
+          "name": "Get Matched Swappable Properties (Swap Gated)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/swap-preference/matched-swaps?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["swap-preference", "matched-swaps"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] }
+          }
+        },
+        {
+          "name": "Get All Swappable Properties (Swap Gated)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/swap-preference/all?city=Tel%20Aviv&page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["swap-preference", "all"], "query": [{ "key": "city", "value": "Tel Aviv" }, { "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Swap Request",
+      "item": [
+        {
+          "name": "Send Swap Request (Requires Both Swaps ON)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.id) {",
+                  "    pm.collectionVariables.set('swapId', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toAppId\": \"{{targetApartmentId}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/swap/request", "host": ["{{baseUrl}}"], "path": ["swap", "request"] }
+          }
+        },
+        {
+          "name": "Get My Swaps (Sent & Received)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/swap/my-swaps", "host": ["{{baseUrl}}"], "path": ["swap", "my-swaps"] }
+          }
+        },
+        {
+          "name": "Update Swap Status (Accept/Reject)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/swap/status/{{swapId}}", "host": ["{{baseUrl}}"], "path": ["swap", "status", "{{swapId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Report Rented",
+      "item": [
+        {
+          "name": "Report Rented - Standard Rent (50 ILS Fee Intent)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reportType\": \"RENT\",\n  \"weekend\": \"2026-10-17T00:00:00.000Z\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/report-rented/create-intent", "host": ["{{baseUrl}}"], "path": ["report-rented", "create-intent"] }
+          }
+        },
+        {
+          "name": "Report Rented - Against Swap (Dual 50 ILS Fee Intent)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reportType\": \"SWAP\",\n  \"targetApartmentId\": \"{{targetApartmentId}}\",\n  \"weekend\": \"2026-10-17T00:00:00.000Z\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/report-rented/create-intent", "host": ["{{baseUrl}}"], "path": ["report-rented", "create-intent"] }
+          }
+        },
+        {
+          "name": "Get My Reported Rented History",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/report-rented/my-reports", "host": ["{{baseUrl}}"], "path": ["report-rented", "my-reports"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Wishlist",
       "item": [
         {
           "name": "Toggle Wishlist Item",
@@ -407,95 +668,10 @@
       ]
     },
     {
-      "name": "8. Review",
+      "name": "11. Review",
       "item": [
         {
           "name": "Create Review",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"rating\": 5,\n  \"comment\": \"Amazing apartment! Clean, spacious, and perfect location for Shabbat.\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/review", "host": ["{{baseUrl}}"], "path": ["review"] }
-          }
-        },
-        {
-          "name": "Get Reviews by Apartment ID",
-          "request": {
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/review/apartment/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["review", "apartment", "{{apartmentId}}"] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "9. Swap Preference",
-      "item": [
-        {
-          "name": "Create/Update Swap Preference",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"isEnabled\": true,\n  \"city\": \"Tel Aviv\",\n  \"neighborhood\": \"Florentin\",\n  \"rooms\": 2,\n  \"beds\": 2\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/swap-preference", "host": ["{{baseUrl}}"], "path": ["swap-preference"] }
-          }
-        },
-        {
-          "name": "Get My Swap Preference",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/swap-preference/my-preference", "host": ["{{baseUrl}}"], "path": ["swap-preference", "my-preference"] }
-          }
-        },
-        {
-          "name": "Get Preference-Matched Swappable Properties",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/swap-preference/matched-swaps", "host": ["{{baseUrl}}"], "path": ["swap-preference", "matched-swaps"] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "10. Swap Request",
-      "item": [
-        {
-          "name": "Send Swap Request",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"targetApartmentId\": \"{{apartmentId}}\",\n  \"message\": \"Would love to swap apartments for the upcoming weekend!\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/swap", "host": ["{{baseUrl}}"], "path": ["swap"] }
-          }
-        },
-        {
-          "name": "Get My Swap Requests",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/swap/my-swaps", "host": ["{{baseUrl}}"], "path": ["swap", "my-swaps"] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "11. Booking",
-      "item": [
-        {
-          "name": "Create Booking",
           "event": [
             {
               "listen": "test",
@@ -503,7 +679,7 @@
                 "exec": [
                   "var jsonData = pm.response.json();",
                   "if (jsonData.data && jsonData.data.id) {",
-                  "    pm.collectionVariables.set('bookingId', jsonData.data.id);",
+                  "    pm.collectionVariables.set('reviewId', jsonData.data.id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -516,84 +692,54 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"weekendId\": \"{{shabbosId}}\",\n  \"guestCount\": 4\n}"
+              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"title\": \"Great Shabbat Stay\",\n  \"message\": \"Amazing apartment! Clean, spacious, and perfect location for Shabbat.\",\n  \"rating\": 5\n}"
             },
-            "url": { "raw": "{{baseUrl}}/booking", "host": ["{{baseUrl}}"], "path": ["booking"] }
+            "url": { "raw": "{{baseUrl}}/review", "host": ["{{baseUrl}}"], "path": ["review"] }
           }
         },
         {
-          "name": "Get My Guest Bookings",
+          "name": "Get Reviews by Apartment ID",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/booking/my-bookings", "host": ["{{baseUrl}}"], "path": ["booking", "my-bookings"] }
+            "url": { "raw": "{{baseUrl}}/review/apartment/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["review", "apartment", "{{apartmentId}}"] }
           }
         },
         {
-          "name": "Get Host Rent History",
+          "name": "Delete Review",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/booking/rent-history", "host": ["{{baseUrl}}"], "path": ["booking", "rent-history"] }
+            "method": "DELETE",
+            "url": { "raw": "{{baseUrl}}/review/{{reviewId}}", "host": ["{{baseUrl}}"], "path": ["review", "{{reviewId}}"] }
           }
         }
       ]
     },
     {
-      "name": "12. Contact Us",
-      "item": [
-        {
-          "name": "Submit Contact Form",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Sarah Levi\",\n  \"email\": \"sarah@example.com\",\n  \"phone\": \"+972528889999\",\n  \"subject\": \"Inquiry about Apartment Verification\",\n  \"message\": \"Hello, I would like to verify how listing verification works for host owners.\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/contact", "host": ["{{baseUrl}}"], "path": ["contact"] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "13. Twilio Call Log",
-      "item": [
-        {
-          "name": "Initiate Twilio Voice Call",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"receiverId\": \"user-id-to-call\",\n  \"apartmentId\": \"{{apartmentId}}\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/call/initiate", "host": ["{{baseUrl}}"], "path": ["call", "initiate"] }
-          }
-        },
-        {
-          "name": "Get My Call Logs & Duration",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/call/my-logs", "host": ["{{baseUrl}}"], "path": ["call", "my-logs"] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "14. Custom Offer",
+      "name": "12. Custom Offer",
       "item": [
         {
           "name": "Submit Custom Price Offer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.data && jsonData.data.id) {",
+                  "    pm.collectionVariables.set('offerId', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"shabbosId\": \"{{shabbosId}}\",\n  \"offerPrice\": 400,\n  \"message\": \"Can you accept 400 ILS for this weekend?\"\n}"
+              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"shabbosId\": \"{{shabbosId}}\",\n  \"originalPrice\": 450,\n  \"offerPrice\": 400,\n  \"message\": \"Can you accept 400 ILS for this weekend?\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/offer", "host": ["{{baseUrl}}"], "path": ["offer"] }
           }
@@ -605,11 +751,24 @@
             "method": "GET",
             "url": { "raw": "{{baseUrl}}/offer/my-offers", "host": ["{{baseUrl}}"], "path": ["offer", "my-offers"] }
           }
+        },
+        {
+          "name": "Update Offer Status (Accept/Reject)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACCEPTED\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/offer/status/{{offerId}}", "host": ["{{baseUrl}}"], "path": ["offer", "status", "{{offerId}}"] }
+          }
         }
       ]
     },
     {
-      "name": "15. Interested Request",
+      "name": "13. Interested Request",
       "item": [
         {
           "name": "Submit Interested Request",
@@ -625,7 +784,7 @@
           }
         },
         {
-          "name": "Get Interested Requests",
+          "name": "Get My Interested Requests",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
@@ -635,10 +794,10 @@
       ]
     },
     {
-      "name": "16. Notify Request",
+      "name": "14. Notify Request",
       "item": [
         {
-          "name": "Submit Notify Me Request",
+          "name": "Submit Notify Request",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
@@ -651,7 +810,7 @@
           }
         },
         {
-          "name": "Get Owner Notify Requests (User Contact Info)",
+          "name": "Get My Notify Requests",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
@@ -661,27 +820,52 @@
       ]
     },
     {
-      "name": "17. Report Rented",
+      "name": "15. Contact Us",
       "item": [
         {
-          "name": "Submit Report Rented (50 ILS Fee Intent)",
+          "name": "Submit Contact Form",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sarah Levi\",\n  \"email\": \"sarah@example.com\",\n  \"phone\": \"+972528889999\",\n  \"subject\": \"Inquiry about Apartment Verification\",\n  \"message\": \"Hello, I would like to verify how listing verification works for host owners.\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/contact", "host": ["{{baseUrl}}"], "path": ["contact"] }
+          }
+        },
+        {
+          "name": "Admin: Get All Contacts",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/contact", "host": ["{{baseUrl}}"], "path": ["contact"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "16. Twilio Call Log",
+      "item": [
+        {
+          "name": "Initiate Twilio Voice Call",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"bookingId\": \"{{bookingId}}\"\n}"
+              "raw": "{\n  \"receiverId\": \"user-id-to-call\",\n  \"apartmentId\": \"{{apartmentId}}\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/report-rented/create-intent", "host": ["{{baseUrl}}"], "path": ["report-rented", "create-intent"] }
+            "url": { "raw": "{{baseUrl}}/call/initiate", "host": ["{{baseUrl}}"], "path": ["call", "initiate"] }
           }
         },
         {
-          "name": "Get My Reported Rented History",
+          "name": "Get My Call Logs",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/report-rented/my-reports", "host": ["{{baseUrl}}"], "path": ["report-rented", "my-reports"] }
+            "url": { "raw": "{{baseUrl}}/call/my-logs", "host": ["{{baseUrl}}"], "path": ["call", "my-logs"] }
           }
         }
       ]

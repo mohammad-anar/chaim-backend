@@ -9,8 +9,21 @@ import { ApartmentServices } from "./apartment.service.js";
 const createApartment = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
 
-  const coverImage = getSingleFilePath(req.files, "image");
-  const images = getMultipleFilesPath(req.files, "image");
+  const uploadedCoverImage =
+    getSingleFilePath(req.files, "coverImage") ||
+    getSingleFilePath(req.files, "image");
+  const uploadedImages =
+    getMultipleFilesPath(req.files, "images") ||
+    getMultipleFilesPath(req.files, "image");
+
+  const coverImage =
+    uploadedCoverImage ||
+    (uploadedImages && uploadedImages.length > 0 ? uploadedImages[0] : req.body.coverImage);
+
+  const images =
+    uploadedImages && uploadedImages.length > 0
+      ? uploadedImages
+      : req.body.images;
 
   const payload = {
     ...req.body,
@@ -103,8 +116,15 @@ const updateApartment = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
   const id = req.params.id as string;
 
-  const coverImage = getSingleFilePath(req.files, "image");
-  const newImages = getMultipleFilesPath(req.files, "image");
+  const uploadedCoverImage =
+    getSingleFilePath(req.files, "coverImage") ||
+    getSingleFilePath(req.files, "image");
+  const newImages =
+    getMultipleFilesPath(req.files, "images") ||
+    getMultipleFilesPath(req.files, "image");
+
+  const coverImage =
+    uploadedCoverImage || req.body.coverImage;
 
   const payload = {
     ...req.body,
