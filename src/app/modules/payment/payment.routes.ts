@@ -33,4 +33,9 @@ router.post(
   PaymentController.handleNedarimCallback,
 );
 
+router.get(
+  "/nedarim-callback",
+  PaymentController.handleNedarimCallback,
+);
+
 export const PaymentRoutes = router;

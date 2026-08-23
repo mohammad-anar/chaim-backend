@@ -342,12 +342,39 @@ const verifyAndConfirmNedarimPayment = async (
 };
 
 const handleNedarimCallback = async (payload: any) => {
-  const transactionId = payload.TransactionId || payload.transactionId || payload.ConfirmationNo;
-  const paymentType = payload.Param1 || payload.paymentType;
-  const paymentRecordId = payload.Param2 || payload.paymentRecordId;
+  console.log("[NedarimCallback] Received webhook payload:", JSON.stringify(payload, null, 2));
+
+  const transactionId =
+    payload.TransactionId ||
+    payload.transactionId ||
+    payload.ConfirmationNo ||
+    payload.confirmationNo ||
+    payload.TransId ||
+    payload.ConfirmationCode;
+
+  const paymentType =
+    payload.Param1 ||
+    payload.param1 ||
+    payload.paymentType;
+
+  const paymentRecordId =
+    payload.Param2 ||
+    payload.param2 ||
+    payload.paymentRecordId;
 
   if (transactionId && paymentType && paymentRecordId) {
-    await verifyAndConfirmNedarimPayment("SYSTEM", {
+    try {
+      await verifyAndConfirmNedarimPayment("SYSTEM", {
+        transactionId: String(transactionId),
+        paymentType: String(paymentType) as any,
+        paymentRecordId: String(paymentRecordId),
+      });
+      console.log(`[NedarimCallback] Successfully processed transaction: ${transactionId}`);
+    } catch (err: any) {
+      console.error(`[NedarimCallback] Error processing callback for txn ${transactionId}:`, err?.message || err);
+    }
+  } else {
+    console.warn("[NedarimCallback] Incomplete parameters in callback payload:", {
       transactionId,
       paymentType,
       paymentRecordId,

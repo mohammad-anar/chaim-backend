@@ -55,9 +55,14 @@ const verifyNedarimPayment = catchAsync(async (req: Request, res: Response) => {
 });
 
 const handleNedarimCallback = catchAsync(async (req: Request, res: Response) => {
-  const result = await PaymentServices.handleNedarimCallback(req.body);
+  const payload = {
+    ...req.query,
+    ...req.body,
+  };
 
-  res.status(StatusCodes.OK).json(result);
+  const result = await PaymentServices.handleNedarimCallback(payload);
+
+  res.status(StatusCodes.OK).send("OK");
 });
 
 export const PaymentController = {
