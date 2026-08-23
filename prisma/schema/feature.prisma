@@ -42,8 +42,9 @@ model Swap {
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime   @updatedAt @map("updated_at")
 
-  fromApartment Apartment @relation("FromApartment", fields: [fromAppId], references: [id], onDelete: Cascade)
-  toApartment   Apartment @relation("ToApartment", fields: [toAppId], references: [id], onDelete: Cascade)
+  fromApartment Apartment   @relation("FromApartment", fields: [fromAppId], references: [id], onDelete: Cascade)
+  toApartment   Apartment   @relation("ToApartment", fields: [toAppId], references: [id], onDelete: Cascade)
+  payments      SwapPayment[]
 
   @@map("swaps")
 }

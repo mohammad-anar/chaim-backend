@@ -11,15 +11,26 @@ router.post(
 );
 
 router.post(
-  "/verify-intent",
+  "/create-swap-intent",
   auth(),
-  PaymentController.confirmPaymentIntent,
+  PaymentController.createSwapPaymentIntent,
 );
 
 router.post(
-  "/webhook",
-  express.raw({ type: "application/json" }),
-  PaymentController.handleStripeWebhook,
+  "/create-report-rented-intent",
+  auth(),
+  PaymentController.createReportRentedPaymentIntent,
+);
+
+router.post(
+  "/verify-nedarim",
+  auth(),
+  PaymentController.verifyNedarimPayment,
+);
+
+router.post(
+  "/nedarim-callback",
+  PaymentController.handleNedarimCallback,
 );
 
 export const PaymentRoutes = router;

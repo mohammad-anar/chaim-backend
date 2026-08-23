@@ -42,8 +42,9 @@ enum OfferStatus {
 }
 
 enum PaymentMethod {
-  CASH
+  NEDARIM_PLUS
   STRIPE
+  CASH
 }
 
 enum PaymentStatus {

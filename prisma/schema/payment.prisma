@@ -1,17 +1,16 @@
-// 1. One-time payment model for listing an apartment (Payment goes directly to Admin via Stripe in ILS)
+// 1. One-time payment model for listing an apartment (Payment goes directly to Admin via Nedarim Plus in ILS)
 model ApartmentListingPayment {
-  id                    String        @id @default(uuid())
-  apartmentId           String        @unique @map("apartment_id") // One-time payment per apartment
-  userId                String        @unique @map("user_id")      // One listing payment per user
-  amount                Float
-  currency              String        @default("ILS")
-  paymentMethod         PaymentMethod @default(STRIPE) @map("payment_method")
-  stripePaymentIntentId String?       @unique @map("stripe_payment_intent_id")
-  stripeSessionId       String?       @unique @map("stripe_session_id")
-  status                PaymentStatus @default(PENDING)
-  paidAt                DateTime?     @map("paid_at")
-  createdAt             DateTime      @default(now()) @map("created_at")
-  updatedAt             DateTime      @updatedAt @map("updated_at")
+  id            String        @id @default(uuid())
+  apartmentId   String        @unique @map("apartment_id") // One-time payment per apartment
+  userId        String        @unique @map("user_id")      // One listing payment per user
+  amount        Float
+  currency      String        @default("ILS")
+  paymentMethod PaymentMethod @default(NEDARIM_PLUS) @map("payment_method")
+  transactionId String?       @unique @map("transaction_id")
+  status        PaymentStatus @default(PENDING)
+  paidAt        DateTime?     @map("paid_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
   apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -19,25 +18,44 @@ model ApartmentListingPayment {
   @@map("apartment_listing_payments")
 }
 
-// 2. Payment model for report-rented (50 ILS fee paid directly to Admin via Stripe)
+// 2. Payment model for report-rented (50 ILS fee paid directly to Admin via Nedarim Plus)
 model ReportRentedPayment {
-  id                    String        @id @default(uuid())
-  reportRentedId        String?       @unique @map("report_rented_id")
-  apartmentId           String        @map("apartment_id")
-  payerId               String        @map("payer_id") // Host/Owner paying 50 ILS admin fee via Stripe
-  amount                Float         @default(50.0)
-  currency              String        @default("ILS")
-  paymentMethod         PaymentMethod @default(STRIPE) @map("payment_method")
-  stripePaymentIntentId String?       @unique @map("stripe_payment_intent_id")
-  stripeSessionId       String?       @unique @map("stripe_session_id")
-  status                PaymentStatus @default(PENDING)
-  paidAt                DateTime?     @map("paid_at")
-  createdAt             DateTime      @default(now()) @map("created_at")
-  updatedAt             DateTime      @updatedAt @map("updated_at")
+  id            String        @id @default(uuid())
+  reportRentedId String?       @unique @map("report_rented_id")
+  apartmentId   String        @map("apartment_id")
+  payerId       String        @map("payer_id") // Host/Owner paying 50 ILS admin fee via Nedarim Plus
+  amount        Float         @default(50.0)
+  currency      String        @default("ILS")
+  paymentMethod PaymentMethod @default(NEDARIM_PLUS) @map("payment_method")
+  transactionId String?       @unique @map("transaction_id")
+  status        PaymentStatus @default(PENDING)
+  paidAt        DateTime?     @map("paid_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
 
   reportRented ReportRented? @relation(fields: [reportRentedId], references: [id], onDelete: SetNull)
   apartment    Apartment     @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
   payer        User          @relation("ReportRentedPayer", fields: [payerId], references: [id], onDelete: Cascade)
 
   @@map("report_rented_payments")
+}
+
+// 3. Payment model for swap request (Fee paid directly to Admin via Nedarim Plus)
+model SwapPayment {
+  id            String        @id @default(uuid())
+  swapId        String        @map("swap_id")
+  payerId       String        @map("payer_id")
+  amount        Float         @default(50.0)
+  currency      String        @default("ILS")
+  paymentMethod PaymentMethod @default(NEDARIM_PLUS) @map("payment_method")
+  transactionId String?       @unique @map("transaction_id")
+  status        PaymentStatus @default(PENDING)
+  paidAt        DateTime?     @map("paid_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  swap  Swap @relation(fields: [swapId], references: [id], onDelete: Cascade)
+  payer User @relation("SwapPayer", fields: [payerId], references: [id], onDelete: Cascade)
+
+  @@map("swap_payments")
 }

@@ -96,6 +96,7 @@ const getMySwaps = async (userId: string) => {
   const sent = await prisma.swap.findMany({
     where: { fromAppId: userApartment.id },
     include: {
+      payments: true,
       toApartment: {
         include: {
           user: {
@@ -116,6 +117,7 @@ const getMySwaps = async (userId: string) => {
   const received = await prisma.swap.findMany({
     where: { toAppId: userApartment.id },
     include: {
+      payments: true,
       fromApartment: {
         include: {
           user: {

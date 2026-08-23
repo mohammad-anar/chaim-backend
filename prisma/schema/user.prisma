@@ -26,6 +26,7 @@ model User {
   wallet                 Wallet?
   listingPayment         ApartmentListingPayment?
   reportRentedPayments   ReportRentedPayment[]     @relation("ReportRentedPayer")
+  swapPayments           SwapPayment[]             @relation("SwapPayer")
   callsMade              CallLog[]                 @relation("CallsMade")
   callsReceived          CallLog[]                 @relation("CallsReceived")
 

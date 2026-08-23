@@ -12,21 +12,39 @@ const createListingPaymentIntent = catchAsync(async (req: Request, res: Response
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: "Listing PaymentIntent created successfully",
+    message: "Listing Nedarim payment intent created successfully",
     data: result,
   });
 });
 
-const handleStripeWebhook = catchAsync(async (req: Request, res: Response) => {
-  const signature = req.headers["stripe-signature"] as string;
-  const result = await PaymentServices.handleStripeWebhook(signature, req.body);
+const createSwapPaymentIntent = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const { swapId } = req.body;
+  const result = await PaymentServices.createSwapPaymentIntent(userId, swapId);
 
-  res.status(StatusCodes.OK).json(result);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Swap Nedarim payment intent created successfully",
+    data: result,
+  });
 });
 
-const confirmPaymentIntent = catchAsync(async (req: Request, res: Response) => {
-  const { paymentIntentId } = req.body;
-  const result = await PaymentServices.verifyAndConfirmPaymentIntent(paymentIntentId);
+const createReportRentedPaymentIntent = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const result = await PaymentServices.createReportRentedPaymentIntent(userId, req.body);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Report rented Nedarim payment intent created successfully",
+    data: result,
+  });
+});
+
+const verifyNedarimPayment = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const result = await PaymentServices.verifyAndConfirmNedarimPayment(userId, req.body);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -36,8 +54,16 @@ const confirmPaymentIntent = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const handleNedarimCallback = catchAsync(async (req: Request, res: Response) => {
+  const result = await PaymentServices.handleNedarimCallback(req.body);
+
+  res.status(StatusCodes.OK).json(result);
+});
+
 export const PaymentController = {
   createListingPaymentIntent,
-  handleStripeWebhook,
-  confirmPaymentIntent,
+  createSwapPaymentIntent,
+  createReportRentedPaymentIntent,
+  verifyNedarimPayment,
+  handleNedarimCallback,
 };

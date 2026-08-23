@@ -31,13 +31,13 @@ export default {
     password: process.env.PASSWORD,
     avatar: process.env.AVATAR,
   },
-  stripe: {
-    secret_key: process.env.STRIPE_SECRET_KEY,
-    webhook_secret: process.env.STRIPE_WEBHOOK_SECRET,
-    currency: process.env.STRIPE_CURRENCY || "ILS",
+  nedarim: {
+    mosad_id: process.env.NEDARIM_MOSAD_ID,
+    api_valid: process.env.NEDARIM_API_VALID,
   },
   fees: {
     apartment_listing_fee: Number(process.env.APARTMENT_LISTING_FEE || 100),
+    swap_request_fee: Number(process.env.SWAP_REQUEST_FEE || 50),
     report_rented_fee: Number(process.env.REPORT_RENTED_FEE || 50),
   },
 };

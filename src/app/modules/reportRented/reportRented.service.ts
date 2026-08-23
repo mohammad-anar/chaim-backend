@@ -4,7 +4,6 @@ import config from "../../../config/index.js";
 import ApiError from "../../../errors/ApiError.js";
 import { parseFlexibleDate } from "../../../helpers/parseDate.js";
 import { prisma } from "../../../helpers/prisma.js";
-import { stripe } from "../../../helpers/stripe.js";
 import { ICreateReportRentedIntent } from "./reportRented.interface.js";
 
 const createReportRentedIntent = async (
@@ -13,6 +12,7 @@ const createReportRentedIntent = async (
 ) => {
   const apartment = await prisma.apartment.findUnique({
     where: { userId },
+    include: { user: { select: { username: true, email: true, phone: true } } },
   });
 
   if (!apartment) {
@@ -71,8 +71,7 @@ const createReportRentedIntent = async (
     }
   }
 
-  const amountInILS = config.fees.report_rented_fee || 50; // 50 ILS
-  const amountInCents = Math.round(amountInILS * 100);
+  const amountInILS = config.fees.report_rented_fee || 50;
 
   let reportRented: any = null;
   let paymentRecord: any = null;
@@ -151,8 +150,8 @@ const createReportRentedIntent = async (
           apartmentId: resolvedTargetApartmentId,
           payerId: targetApartment.userId,
           amount: amountInILS,
-          currency: config.stripe.currency || "ILS",
-          paymentMethod: "STRIPE",
+          currency: "ILS",
+          paymentMethod: "NEDARIM_PLUS",
           status: "PENDING",
         },
       });
@@ -163,8 +162,8 @@ const createReportRentedIntent = async (
           apartmentId: resolvedTargetApartmentId,
           payerId: targetApartment.userId,
           amount: amountInILS,
-          currency: config.stripe.currency || "ILS",
-          paymentMethod: "STRIPE",
+          currency: "ILS",
+          paymentMethod: "NEDARIM_PLUS",
           status: "PENDING",
         },
       });
@@ -213,50 +212,11 @@ const createReportRentedIntent = async (
         apartmentId: apartment.id,
         payerId: userId,
         amount: amountInILS,
-        currency: config.stripe.currency || "ILS",
-        paymentMethod: "STRIPE",
+        currency: "ILS",
+        paymentMethod: "NEDARIM_PLUS",
         status: "PENDING",
       },
     });
-  }
-
-  // Generate Stripe payment intent for the requesting user
-  let clientSecret: string | null = null;
-  let paymentIntentId: string | null = paymentRecord.stripePaymentIntentId || null;
-
-  if (process.env.STRIPE_SECRET_KEY) {
-    if (paymentIntentId) {
-      try {
-        const existingIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-        clientSecret = existingIntent.client_secret;
-      } catch (err) {
-        paymentIntentId = null;
-      }
-    }
-
-    if (!clientSecret) {
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: amountInCents,
-        currency: (config.stripe.currency || "ils").toLowerCase(),
-        metadata: {
-          paymentType: "REPORT_RENTED_FEE",
-          reportRentedId: reportRented.id,
-          reportRentedPaymentId: paymentRecord.id,
-          apartmentId: apartment.id,
-          userId,
-        },
-      });
-
-      clientSecret = paymentIntent.client_secret;
-      paymentIntentId = paymentIntent.id;
-
-      await prisma.reportRentedPayment.update({
-        where: { id: paymentRecord.id },
-        data: {
-          stripePaymentIntentId: paymentIntentId,
-        },
-      });
-    }
   }
 
   return {
@@ -265,9 +225,13 @@ const createReportRentedIntent = async (
     reportType: reportRented.reportType,
     targetApartment: reportRented.targetApartment,
     amount: amountInILS,
-    currency: config.stripe.currency || "ILS",
+    currency: "ILS",
     paymentStatus: paymentRecord.status,
-    clientSecret,
+    mosadId: config.nedarim.mosad_id || "",
+    paymentType: "REPORT_RENTED",
+    clientName: apartment.user.username,
+    clientEmail: apartment.user.email || "",
+    clientPhone: apartment.user.phone || "",
   };
 };
 

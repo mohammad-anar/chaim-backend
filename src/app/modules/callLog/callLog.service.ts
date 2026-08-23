@@ -8,7 +8,9 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
-const twilioClient = accountSid && authToken ? twilio(accountSid, authToken) : null;
+// Only initialize Twilio client when real credentials are provided (accountSid must start with "AC")
+const isValidTwilioSid = accountSid?.startsWith("AC");
+const twilioClient = isValidTwilioSid && authToken ? twilio(accountSid!, authToken) : null;
 
 const initiateCall = async (callerId: string, payload: IInitiateCall) => {
   const caller = await prisma.user.findUnique({
