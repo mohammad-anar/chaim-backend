@@ -133,10 +133,33 @@ const getMyAppartment = async (userId: string) => {
     upcomingWeekends,
   );
 
+  const now = new Date();
+  const isListingActive = Boolean(
+    apartment.listingPayment &&
+    apartment.listingPayment.status === "COMPLETED" &&
+    (!apartment.listingPayment.expiresAt || new Date(apartment.listingPayment.expiresAt) > now)
+  );
+
+  const isListingExpired = Boolean(
+    apartment.listingPayment &&
+    apartment.listingPayment.status === "COMPLETED" &&
+    apartment.listingPayment.expiresAt &&
+    new Date(apartment.listingPayment.expiresAt) <= now
+  );
+
+  let daysRemaining: number | null = null;
+  if (apartment.listingPayment?.expiresAt) {
+    const diffTime = new Date(apartment.listingPayment.expiresAt).getTime() - now.getTime();
+    daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+  }
+
   return {
     ...apartment,
     upcomingAvailability,
     availabilityMessage: upcomingAvailability.availabilityMessage,
+    isListingActive,
+    isListingExpired,
+    daysRemaining,
   };
 };
 
@@ -285,7 +308,20 @@ const getAllApartments = async (
   const andConditions: Prisma.ApartmentWhereInput[] = [];
 
   if (!isUserAdmin) {
-    andConditions.push({ status: "CONFIRMED" });
+    andConditions.push({
+      status: "CONFIRMED",
+      OR: [
+        { listingPayment: null },
+        {
+          listingPayment: {
+            OR: [
+              { expiresAt: null },
+              { expiresAt: { gt: new Date() } },
+            ],
+          },
+        },
+      ],
+    });
   } else if (!isAnyOrEmpty(status)) {
     andConditions.push({ status: status as ApartmentStatus });
   }

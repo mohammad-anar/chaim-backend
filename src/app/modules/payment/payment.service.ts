@@ -24,16 +24,28 @@ const createListingPaymentIntent = async (userId: string, apartmentId: string) =
     throw new ApiError(StatusCodes.FORBIDDEN, "You do not own this apartment");
   }
 
-  const feeAmount = config.fees.apartment_listing_fee || 100;
+  const feeAmount = config.fees.apartment_listing_fee || 28;
 
   let listingPayment = await prisma.apartmentListingPayment.findUnique({
     where: { apartmentId },
   });
 
-  if (listingPayment && listingPayment.status === "COMPLETED") {
+  const now = new Date();
+  const isStillValid =
+    listingPayment &&
+    listingPayment.status === "COMPLETED" &&
+    listingPayment.expiresAt &&
+    new Date(listingPayment.expiresAt) > now;
+
+  if (isStillValid && listingPayment?.expiresAt) {
+    const expiryFormatted = new Date(listingPayment.expiresAt).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
-      "Listing fee has already been paid for this apartment",
+      `Listing fee has already been paid for this apartment and is active until ${expiryFormatted}`,
     );
   }
 
@@ -48,6 +60,18 @@ const createListingPaymentIntent = async (userId: string, apartmentId: string) =
         status: "PENDING",
       },
     });
+  } else {
+    // Renewing expired or pending listing payment for another year
+    listingPayment = await prisma.apartmentListingPayment.update({
+      where: { id: listingPayment.id },
+      data: {
+        amount: feeAmount,
+        currency: "ILS",
+        paymentMethod: "NEDARIM_PLUS",
+        status: "PENDING",
+        transactionId: null,
+      },
+    });
   }
 
   return {
@@ -60,6 +84,7 @@ const createListingPaymentIntent = async (userId: string, apartmentId: string) =
     clientName: apartment.user.username,
     clientEmail: apartment.user.email || "",
     clientPhone: apartment.user.phone || "",
+    validityDuration: "1 Year",
   };
 };
 
@@ -212,7 +237,7 @@ const verifyAndConfirmNedarimPayment = async (
 
   let expectedFee = 0;
   if (paymentType === "APARTMENT_LISTING") {
-    expectedFee = config.fees.apartment_listing_fee || 100;
+    expectedFee = config.fees.apartment_listing_fee || 28;
   } else if (paymentType === "SWAP_REQUEST") {
     expectedFee = config.fees.swap_request_fee || 50;
   } else if (paymentType === "REPORT_RENTED") {
@@ -240,12 +265,17 @@ const verifyAndConfirmNedarimPayment = async (
       throw new ApiError(StatusCodes.NOT_FOUND, "Apartment listing payment record not found");
     }
 
+    const paidAt = new Date();
+    // 1-year listing validity (365 days)
+    const expiresAt = new Date(paidAt.getTime() + 365 * 24 * 60 * 60 * 1000);
+
     await prisma.$transaction(async (tx) => {
       await tx.apartmentListingPayment.update({
         where: { id: targetListingPayment.id },
         data: {
           status: "COMPLETED",
-          paidAt: new Date(),
+          paidAt,
+          expiresAt,
           transactionId,
         },
       });
@@ -260,9 +290,11 @@ const verifyAndConfirmNedarimPayment = async (
 
     return {
       success: true,
-      message: "Apartment listing payment confirmed and apartment activated successfully",
+      message: "Apartment listing payment confirmed and apartment activated for 1 year successfully",
       apartmentId: targetListingPayment.apartmentId,
       transactionId,
+      paidAt,
+      expiresAt,
     };
   } else if (paymentType === "SWAP_REQUEST") {
     const targetSwapPayment = paymentRecordId

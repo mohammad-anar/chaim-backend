@@ -9,6 +9,7 @@ model ApartmentListingPayment {
   transactionId String?       @unique @map("transaction_id")
   status        PaymentStatus @default(PENDING)
   paidAt        DateTime?     @map("paid_at")
+  expiresAt     DateTime?     @map("expires_at") // 1 year listing validity from paidAt
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
 

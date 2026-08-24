@@ -36,7 +36,7 @@ export default {
     api_valid: process.env.NEDARIM_API_VALID,
   },
   fees: {
-    apartment_listing_fee: Number(process.env.APARTMENT_LISTING_FEE || 100),
+    apartment_listing_fee: Number(process.env.APARTMENT_LISTING_FEE || 28),
     swap_request_fee: Number(process.env.SWAP_REQUEST_FEE || 50),
     report_rented_fee: Number(process.env.REPORT_RENTED_FEE || 50),
   },
