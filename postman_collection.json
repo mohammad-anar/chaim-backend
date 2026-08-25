@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "chaim-backend-api-collection",
-    "name": "Chaim Backend API Collection",
-    "description": "Complete Postman collection for Chaim Backend API covering all feature modules with dynamic variables, authentication, search/filters, swap gating, dual-fee swap report rented, and sample payloads.",
+    "_postman_id": "shabbos-rent-api-collection-v2",
+    "name": "ShabbosRent API Collection",
+    "description": "Complete API documentation and Postman collection for ShabbosRent Backend, covering all 21 modules including Auth, Users, Apartments, Calendar, Availability, Payments, Swaps, Calls, Inquiries, Report Rented, Ambassador Program, News, Advertisements, and Real-Time Alerts.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,112 +13,213 @@
     },
     {
       "key": "token",
-      "value": "",
+      "value": "YOUR_USER_JWT_TOKEN",
       "type": "string"
     },
     {
-      "key": "refreshToken",
-      "value": "",
+      "key": "adminToken",
+      "value": "YOUR_ADMIN_JWT_TOKEN",
       "type": "string"
     },
     {
-      "key": "apartmentId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "targetApartmentId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "shabbosId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "swapId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "offerId",
-      "value": "",
-      "type": "string"
-    },
-    {
-      "key": "reviewId",
-      "value": "",
+      "key": "ambassadorToken",
+      "value": "YOUR_AMBASSADOR_JWT_TOKEN",
       "type": "string"
     }
   ],
   "item": [
     {
       "name": "1. Authentication",
+      "description": "User signup, login, OTP verification, password recovery, and refresh token management.",
       "item": [
         {
           "name": "Register User",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"david_cohen\",\n  \"email\": \"david@example.com\",\n  \"phone\": \"+972501234567\",\n  \"password\": \"Password123!\"\n}"
+              "raw": "{\n  \"username\": \"Moshe Cohen\",\n  \"email\": \"moshe@example.com\",\n  \"phone\": \"+972541234567\",\n  \"password\": \"Password123!\",\n  \"role\": \"USER\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"moshe@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"moshe@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/send-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "send-otp"
+              ]
+            }
           }
         },
         {
           "name": "Verify OTP",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"david@example.com\",\n  \"otp\": 123456\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/auth/verify-otp", "host": ["{{baseUrl}}"], "path": ["auth", "verify-otp"] }
-          }
-        },
-        {
-          "name": "Resend OTP",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"david@example.com\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/auth/resend-otp", "host": ["{{baseUrl}}"], "path": ["auth", "resend-otp"] }
-          }
-        },
-        {
-          "name": "Login",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.data && jsonData.data.accessToken) {",
-                  "    pm.collectionVariables.set('token', jsonData.data.accessToken);",
-                  "}",
-                  "if (jsonData.data && jsonData.data.refreshToken) {",
-                  "    pm.collectionVariables.set('refreshToken', jsonData.data.refreshToken);",
-                  "}"
-                ],
-                "type": "text/javascript"
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
               }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@gmail.com\",\n  \"password\": \"12345678\"\n}"
+              "raw": "{\n  \"identifier\": \"moshe@example.com\",\n  \"otp\": \"123456\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verify-otp"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"moshe@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"NewSecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"Password123!\",\n  \"newPassword\": \"NewSecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "change-password"
+              ]
+            }
           }
         },
         {
@@ -126,746 +227,2301 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Cookies", "value": "refreshToken={{refreshToken}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
-            "url": { "raw": "{{baseUrl}}/auth/refresh-token", "host": ["{{baseUrl}}"], "path": ["auth", "refresh-token"] }
-          }
-        },
-        {
-          "name": "Change Password",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"oldPassword\": \"Password123!\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+              "raw": "{\n  \"refreshToken\": \"REFRESH_TOKEN_HERE\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/auth/change-password", "host": ["{{baseUrl}}"], "path": ["auth", "change-password"] }
-          }
-        },
-        {
-          "name": "Forgot Password",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"david@example.com\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["auth", "forgot-password"] }
-          }
-        },
-        {
-          "name": "Reset Password",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"david@example.com\",\n  \"otp\": 123456,\n  \"newPassword\": \"NewPassword123!\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["auth", "reset-password"] }
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh-token"
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "2. User",
+      "name": "2. User Management",
+      "description": "User profile retrieval, updates, and admin user list/role/status controls.",
       "item": [
         {
           "name": "Get My Profile",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/user/me", "host": ["{{baseUrl}}"], "path": ["user", "me"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user",
+                "profile"
+              ]
+            }
           }
         },
         {
           "name": "Update My Profile",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"david_cohen_updated\",\n  \"phone\": \"+972509876543\"\n}"
+              "raw": "{\n  \"username\": \"Moshe Cohen Updated\",\n  \"phone\": \"+972549998888\",\n  \"profileImage\": \"https://images.unsplash.com/photo-1534528741775-53994a69daeb\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/user/update-me", "host": ["{{baseUrl}}"], "path": ["user", "update-me"] }
-          }
-        },
-        {
-          "name": "Get User By ID",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/user/user-id-here", "host": ["{{baseUrl}}"], "path": ["user", "user-id-here"] }
+            "url": {
+              "raw": "{{baseUrl}}/user/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user",
+                "profile"
+              ]
+            }
           }
         },
         {
           "name": "Admin: Get All Users",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/user?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["user"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user?page=1&limit=10&role=USER&status=ACTIVE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "role",
+                  "value": "USER"
+                },
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Update User Role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"AMBASSADOR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/user/role/USER_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user",
+                "role",
+                "USER_ID_HERE"
+              ]
+            }
           }
         },
         {
           "name": "Admin: Update User Status",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"ACTIVE\"\n}"
+              "raw": "{\n  \"status\": \"BLOCKED\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/user/status/user-id-here", "host": ["{{baseUrl}}"], "path": ["user", "status", "user-id-here"] }
-          }
-        },
-        {
-          "name": "Admin: Delete User",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "DELETE",
-            "url": { "raw": "{{baseUrl}}/user/user-id-here", "host": ["{{baseUrl}}"], "path": ["user", "user-id-here"] }
+            "url": {
+              "raw": "{{baseUrl}}/user/status/USER_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user",
+                "status",
+                "USER_ID_HERE"
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "3. Apartment",
+      "name": "3. Apartments",
+      "description": "Create, view, filter, update, and manage apartments, amenities, and owner listings.",
       "item": [
         {
-          "name": "Create Apartment",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.data && jsonData.data.id) {",
-                  "    pm.collectionVariables.set('apartmentId', jsonData.data.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
+          "name": "Create Apartment Listing",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Luxury Penthouse in Jerusalem\",\n  \"description\": \"Beautiful 3-bedroom apartment close to the Western Wall with city view.\",\n  \"city\": \"Jerusalem\",\n  \"neighborhood\": \"Rehavia\",\n  \"street1\": \"King George St 12\",\n  \"propertyType\": \"PENTHOUSE\",\n  \"bedrooms\": 3,\n  \"bathrooms\": 2,\n  \"maxGuest\": 6,\n  \"pricePerShabbat\": 450,\n  \"amenities\": [\"WIFI\", \"KOSHER_KITCHEN\", \"AIR_CONDITIONING\", \"SHABBAT_ELEVATOR\"],\n  \"howToContact\": \"BOTH\",\n  \"phoneNumber\": \"+972501234567\",\n  \"whatsApp\": \"+972501234567\"\n}"
+              "raw": "{\n  \"title\": \"Luxury Penthouse near Great Synagogue\",\n  \"description\": \"Spacious 4-bedroom apartment with sukkah balcony, kosher kitchen, hot plate, and shabbat elevator.\",\n  \"city\": \"Jerusalem\",\n  \"neighborhood\": \"Rehavia\",\n  \"address\": \"King George 25\",\n  \"propertyType\": \"APARTMENT\",\n  \"rooms\": 4,\n  \"guestCapacity\": 10,\n  \"basePrice\": 1800,\n  \"coverImage\": \"https://images.unsplash.com/photo-1545324418-cc1a3fa10c00\",\n  \"images\": [\n    \"https://images.unsplash.com/photo-1545324418-cc1a3fa10c00\",\n    \"https://images.unsplash.com/photo-1512917774080-9991f1c4c750\"\n  ],\n  \"amenities\": [\n    \"WIFI\",\n    \"AIR_CONDITIONING\",\n    \"KOSHER_KITCHEN\",\n    \"HOT_PLATE\",\n    \"SHABBAT_ELEVATOR\",\n    \"SUKKAH_BALCONY\"\n  ],\n  \"phoneNumber\": \"+972541234567\",\n  \"whatsApp\": \"+972541234567\",\n  \"referralCode\": \"JERUSALEM2026\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/apartment", "host": ["{{baseUrl}}"], "path": ["apartment"] }
+            "url": {
+              "raw": "{{baseUrl}}/apartment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment"
+              ]
+            }
           }
         },
         {
           "name": "Get All Apartments (Search & Filter)",
           "request": {
             "method": "GET",
+            "header": [],
             "url": {
-              "raw": "{{baseUrl}}/apartment?city=Jerusalem&neighborhood=Rehavia&bedrooms=3&bathrooms=2&minPrice=100&maxPrice=1000&propertyType=PENTHOUSE&page=1&limit=10",
-              "host": ["{{baseUrl}}"],
-              "path": ["apartment"],
+              "raw": "{{baseUrl}}/apartment?searchTerm=Jerusalem&city=Jerusalem&minPrice=500&maxPrice=3000&guestCapacity=6&page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment"
+              ],
               "query": [
-                { "key": "city", "value": "Jerusalem" },
-                { "key": "neighborhood", "value": "Rehavia" },
-                { "key": "bedrooms", "value": "3" },
-                { "key": "bathrooms", "value": "2" },
-                { "key": "minPrice", "value": "100" },
-                { "key": "maxPrice", "value": "1000" },
-                { "key": "propertyType", "value": "PENTHOUSE" },
-                { "key": "page", "value": "1" },
-                { "key": "limit", "value": "10" }
+                {
+                  "key": "searchTerm",
+                  "value": "Jerusalem"
+                },
+                {
+                  "key": "city",
+                  "value": "Jerusalem"
+                },
+                {
+                  "key": "minPrice",
+                  "value": "500"
+                },
+                {
+                  "key": "maxPrice",
+                  "value": "3000"
+                },
+                {
+                  "key": "guestCapacity",
+                  "value": "6"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
               ]
             }
           }
         },
         {
-          "name": "Get My Apartment",
+          "name": "Get Single Apartment by ID / PropertyId",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/apartment/my-apartment", "host": ["{{baseUrl}}"], "path": ["apartment", "my-apartment"] }
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/apartment/apart-001",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment",
+                "apart-001"
+              ]
+            }
           }
         },
         {
-          "name": "Get Apartment By ID / Property ID",
+          "name": "Get My Listed Apartment",
           "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/apartment/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment", "{{apartmentId}}"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/apartment/my-apartment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment",
+                "my-apartment"
+              ]
+            }
           }
         },
         {
-          "name": "Update Apartment",
+          "name": "Update My Apartment",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"pricePerShabbat\": 500,\n  \"description\": \"Updated luxury penthouse description with added Shabbat amenities.\"\n}"
+              "raw": "{\n  \"title\": \"Updated Luxury Penthouse with Sukkah Balcony\",\n  \"basePrice\": 1950,\n  \"guestCapacity\": 12\n}"
             },
-            "url": { "raw": "{{baseUrl}}/apartment/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment", "{{apartmentId}}"] }
+            "url": {
+              "raw": "{{baseUrl}}/apartment/my-apartment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment",
+                "my-apartment"
+              ]
+            }
           }
         },
         {
-          "name": "Admin: Get Apartment Details",
+          "name": "Admin: Update Apartment Status (Publish / Unpublish / Block)",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/apartment/admin-details/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment", "admin-details", "{{apartmentId}}"] }
-          }
-        },
-        {
-          "name": "Admin: Update Apartment Status",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"CONFIRMED\"\n}"
+              "raw": "{\n  \"status\": \"PUBLISHED\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/apartment/status/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment", "status", "{{apartmentId}}"] }
-          }
-        },
-        {
-          "name": "Delete Apartment",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "DELETE",
-            "url": { "raw": "{{baseUrl}}/apartment/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment", "{{apartmentId}}"] }
+            "url": {
+              "raw": "{{baseUrl}}/apartment/status/APARTMENT_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment",
+                "status",
+                "APARTMENT_ID_HERE"
+              ]
+            }
           }
         }
       ]
     },
     {
       "name": "4. Weekend Calendar",
+      "description": "Manage Shabbat weekend calendar dates and holiday entries across Israel.",
       "item": [
         {
-          "name": "Admin: Create Weekend Calendar",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.data && jsonData.data.id) {",
-                  "    pm.collectionVariables.set('shabbosId', jsonData.data.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
-              }
+          "name": "Get All Weekend Dates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/weekend-calendar?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "weekend-calendar"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
             }
-          ],
+          }
+        },
+        {
+          "name": "Admin: Create Weekend Date",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Parshat Bereshit 2026\",\n  \"date\": \"2026-10-17T00:00:00.000Z\"\n}"
+              "raw": "{\n  \"title\": \"Parashat Noach\",\n  \"date\": \"2026-10-17T00:00:00.000Z\",\n  \"hebrewDate\": \"6 Cheshvan 5787\",\n  \"holidayName\": \"Shabbat Noach\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/weekend-calendar", "host": ["{{baseUrl}}"], "path": ["weekend-calendar"] }
+            "url": {
+              "raw": "{{baseUrl}}/weekend-calendar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "weekend-calendar"
+              ]
+            }
           }
         },
         {
-          "name": "Get All Weekend Calendars",
+          "name": "Admin: Update Weekend Date",
           "request": {
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/weekend-calendar?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["weekend-calendar"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }] }
-          }
-        },
-        {
-          "name": "Get Weekend Calendar By ID",
-          "request": {
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/weekend-calendar/{{shabbosId}}", "host": ["{{baseUrl}}"], "path": ["weekend-calendar", "{{shabbosId}}"] }
-          }
-        },
-        {
-          "name": "Admin: Update Weekend Calendar",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Parshat Bereshit Updated\",\n  \"date\": \"2026-10-17T00:00:00.000Z\"\n}"
+              "raw": "{\n  \"title\": \"Parashat Lech Lecha\",\n  \"holidayName\": \"Shabbat Lech-Lecha\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/weekend-calendar/{{shabbosId}}", "host": ["{{baseUrl}}"], "path": ["weekend-calendar", "{{shabbosId}}"] }
+            "url": {
+              "raw": "{{baseUrl}}/weekend-calendar/WEEKEND_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "weekend-calendar",
+                "WEEKEND_ID_HERE"
+              ]
+            }
           }
         },
         {
-          "name": "Admin: Delete Weekend Calendar",
+          "name": "Admin: Delete Weekend Date",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "DELETE",
-            "url": { "raw": "{{baseUrl}}/weekend-calendar/{{shabbosId}}", "host": ["{{baseUrl}}"], "path": ["weekend-calendar", "{{shabbosId}}"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/weekend-calendar/WEEKEND_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "weekend-calendar",
+                "WEEKEND_ID_HERE"
+              ]
+            }
           }
         }
       ]
     },
     {
       "name": "5. Apartment Availability",
+      "description": "Manage Shabbat weekend availability, custom pricing per date, and blocked slots.",
       "item": [
         {
-          "name": "Add Availability",
+          "name": "Set Weekend Availability & Price",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"weekendId\": \"{{shabbosId}}\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/apartment-availability/add", "host": ["{{baseUrl}}"], "path": ["apartment-availability", "add"] }
-          }
-        },
-        {
-          "name": "Remove Availability",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"weekendId\": \"{{shabbosId}}\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/apartment-availability/remove", "host": ["{{baseUrl}}"], "path": ["apartment-availability", "remove"] }
-          }
-        },
-        {
-          "name": "Bulk Set Availability",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"weekendIds\": [\"{{shabbosId}}\"]\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/apartment-availability/bulk-set", "host": ["{{baseUrl}}"], "path": ["apartment-availability", "bulk-set"] }
-          }
-        },
-        {
-          "name": "Get Apartment Availabilities",
-          "request": {
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/apartment-availability/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["apartment-availability", "{{apartmentId}}"] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "6. Payment",
-      "item": [
-        {
-          "name": "Create Listing Payment Intent (100 ILS)",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/payment/create-listing-intent", "host": ["{{baseUrl}}"], "path": ["payment", "create-listing-intent"] }
-          }
-        },
-        {
-          "name": "Verify Payment Intent (Stripe Verification)",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"paymentIntentId\": \"pi_3MtwBwLkdIwHu7ix08a2k05d\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/payment/verify-intent", "host": ["{{baseUrl}}"], "path": ["payment", "verify-intent"] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "7. Swap Preference",
-      "item": [
-        {
-          "name": "Turn On / Update Swap Preference",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"isEnabled\": true,\n  \"city\": \"Tel Aviv\",\n  \"neighborhood\": \"Florentin\",\n  \"rooms\": 3,\n  \"beds\": 2,\n  \"weekend\": \"2026-10-17T00:00:00.000Z\",\n  \"whatsApp\": \"+972501234567\",\n  \"email\": \"david@example.com\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/swap-preference", "host": ["{{baseUrl}}"], "path": ["swap-preference"] }
-          }
-        },
-        {
-          "name": "Turn Off Swap Preference",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"isEnabled\": false\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/swap-preference", "host": ["{{baseUrl}}"], "path": ["swap-preference"] }
-          }
-        },
-        {
-          "name": "Get My Swap Preference",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/swap-preference/my-preference", "host": ["{{baseUrl}}"], "path": ["swap-preference", "my-preference"] }
-          }
-        },
-        {
-          "name": "Get Matched Swappable Properties (Swap Gated)",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/swap-preference/matched-swaps?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["swap-preference", "matched-swaps"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] }
-          }
-        },
-        {
-          "name": "Get All Swappable Properties (Swap Gated)",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/swap-preference/all?city=Tel%20Aviv&page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["swap-preference", "all"], "query": [{ "key": "city", "value": "Tel Aviv" }, { "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "8. Swap Request",
-      "item": [
-        {
-          "name": "Send Swap Request (Requires Both Swaps ON)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.data && jsonData.data.id) {",
-                  "    pm.collectionVariables.set('swapId', jsonData.data.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
-            }
-          ],
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"toAppId\": \"{{targetApartmentId}}\"\n}"
+              "raw": "{\n  \"apartmentId\": \"APARTMENT_ID_HERE\",\n  \"weekendId\": \"WEEKEND_ID_HERE\",\n  \"isAvailable\": true,\n  \"price\": 2200\n}"
             },
-            "url": { "raw": "{{baseUrl}}/swap/request", "host": ["{{baseUrl}}"], "path": ["swap", "request"] }
+            "url": {
+              "raw": "{{baseUrl}}/apartment-availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment-availability"
+              ]
+            }
           }
         },
         {
-          "name": "Get My Swaps (Sent & Received)",
+          "name": "Get Availability by Apartment ID",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/swap/my-swaps", "host": ["{{baseUrl}}"], "path": ["swap", "my-swaps"] }
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/apartment-availability/APARTMENT_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment-availability",
+                "APARTMENT_ID_HERE"
+              ]
+            }
           }
         },
         {
-          "name": "Update Swap Status (Accept/Reject)",
+          "name": "Delete Availability Slot",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/apartment-availability/AVAILABILITY_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment-availability",
+                "AVAILABILITY_ID_HERE"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Calls & WhatsApp (Contact Landlord)",
+      "description": "Twilio masked click-to-call bridging, WhatsApp contact click logging, TwiML generation, and webhooks.",
+      "item": [
+        {
+          "name": "Initiate Masked Voice Call (Hotline or Landlord)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentId\": \"apart-001\",\n  \"channel\": \"VOICE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/call/initiate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "call",
+                "initiate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Initiate WhatsApp Contact (Direct Tracked Chat)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentId\": \"apart-001\",\n  \"message\": \"Shalom! I would like to inquire about Shabbat availability for your listing.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/call/initiate-whatsapp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "call",
+                "initiate-whatsapp"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Call & WhatsApp Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/call/my-logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "call",
+                "my-logs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Get All Platform Call Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/call/admin/all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "call",
+                "admin",
+                "all"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Twilio TwiML Webhook Endpoint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/call/twiml?to=%2B972541234567",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "call",
+                "twiml"
+              ],
+              "query": [
+                {
+                  "key": "to",
+                  "value": "+972541234567"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Twilio Status Callback Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "CallSid",
+                  "value": "CA1234567890abcdef"
+                },
+                {
+                  "key": "CallStatus",
+                  "value": "completed"
+                },
+                {
+                  "key": "CallDuration",
+                  "value": "145"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/call/status-webhook",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "call",
+                "status-webhook"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Payments & Nedarim Integration",
+      "description": "Intent creation, Nedarim iframe verification, listing fees, report rented fees, swap fees, and admin transaction logs.",
+      "item": [
+        {
+          "name": "Create Listing Payment Intent (₪28)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentId\": \"APARTMENT_ID_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/create-listing-intent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "create-listing-intent"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Swap Request Payment Intent (₪50)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"swapId\": \"SWAP_ID_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/create-swap-intent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "create-swap-intent"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Report Rented Payment Intent (₪50)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reportRentedId\": \"REPORT_RENTED_ID_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/create-report-rented-intent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "create-report-rented-intent"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify & Confirm Nedarim Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"TX-NEDARIM-987654\",\n  \"paymentType\": \"LISTING\",\n  \"paymentRecordId\": \"PAYMENT_RECORD_ID_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/verify-nedarim",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "verify-nedarim"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Payment History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/my-payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "my-payments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Get All Platform Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/admin/all-transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "all-transactions"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Report Rented",
+      "description": "Hosts reporting an apartment as rented for a specific weekend date and paying the ₪50 fee.",
+      "item": [
+        {
+          "name": "Create Report Rented Record",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentId\": \"APARTMENT_ID_HERE\",\n  \"weekend\": \"2026-10-17T00:00:00.000Z\",\n  \"price\": 1800,\n  \"guestName\": \"David Levi\",\n  \"guestPhone\": \"+972528887766\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/report-rented",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "report-rented"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Rented Reports",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/report-rented/my-reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "report-rented",
+                "my-reports"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Get All Reported Rentals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/report-rented/admin/all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "report-rented",
+                "admin",
+                "all"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Apartment Swaps",
+      "description": "Apartment swap preferences, mutual swap requests, approvals, and swap history.",
+      "item": [
+        {
+          "name": "Set / Update My Swap Preference",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentId\": \"APARTMENT_ID_HERE\",\n  \"isEnabled\": true,\n  \"preferredCities\": [\n    \"Jerusalem\",\n    \"Bnei Brak\",\n    \"Tsfat\"\n  ],\n  \"minRooms\": 3,\n  \"maxGuests\": 8,\n  \"note\": \"Looking to swap for Shabbat Chanukah or Purim.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/swap-preference",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "swap-preference"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Swap Preference by Apartment ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/swap-preference/APARTMENT_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "swap-preference",
+                "APARTMENT_ID_HERE"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Apartment Swap Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toAppId\": \"TARGET_APARTMENT_ID_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/swap",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "swap"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Swap Requests (Sent & Received)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/swap/my-swaps",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "swap",
+                "my-swaps"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Accept or Reject Swap Request",
+          "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"APPROVED\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/swap/status/{{swapId}}", "host": ["{{baseUrl}}"], "path": ["swap", "status", "{{swapId}}"] }
+            "url": {
+              "raw": "{{baseUrl}}/swap/status/SWAP_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "swap",
+                "status",
+                "SWAP_ID_HERE"
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "9. Report Rented",
+      "name": "10. Reviews & Ratings",
+      "description": "Guest reviews, star ratings, and admin moderation (approval/rejection).",
       "item": [
         {
-          "name": "Report Rented - Standard Rent (50 ILS Fee Intent)",
+          "name": "Submit Review for Apartment",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reportType\": \"RENT\",\n  \"weekend\": \"2026-10-17T00:00:00.000Z\"\n}"
+              "raw": "{\n  \"apartmentId\": \"APARTMENT_ID_HERE\",\n  \"rating\": 5,\n  \"title\": \"Incredible Shabbat Experience\",\n  \"message\": \"Spotless apartment, excellent hot water urn, kosher setup, and 3 minutes from the Kotel.\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/report-rented/create-intent", "host": ["{{baseUrl}}"], "path": ["report-rented", "create-intent"] }
+            "url": {
+              "raw": "{{baseUrl}}/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "review"
+              ]
+            }
           }
         },
         {
-          "name": "Report Rented - Against Swap (Dual 50 ILS Fee Intent)",
+          "name": "Get Approved Reviews for Apartment",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"reportType\": \"SWAP\",\n  \"targetApartmentId\": \"{{targetApartmentId}}\",\n  \"weekend\": \"2026-10-17T00:00:00.000Z\"\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/report-rented/create-intent", "host": ["{{baseUrl}}"], "path": ["report-rented", "create-intent"] }
-          }
-        },
-        {
-          "name": "Get My Reported Rented History",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/report-rented/my-reports", "host": ["{{baseUrl}}"], "path": ["report-rented", "my-reports"] }
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/review/apartment/APARTMENT_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "review",
+                "apartment",
+                "APARTMENT_ID_HERE"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Get All Reviews for Moderation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/review/admin/all?status=PENDING",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "review",
+                "admin",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Approve / Reject Review",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/review/status/REVIEW_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "review",
+                "status",
+                "REVIEW_ID_HERE"
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "10. Wishlist",
+      "name": "11. Wishlist",
+      "description": "Save and manage favorite apartments in personal wishlist.",
       "item": [
         {
-          "name": "Toggle Wishlist Item",
+          "name": "Add Apartment to Wishlist",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\"\n}"
+              "raw": "{\n  \"apartmentId\": \"APARTMENT_ID_HERE\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/wishlist/toggle", "host": ["{{baseUrl}}"], "path": ["wishlist", "toggle"] }
+            "url": {
+              "raw": "{{baseUrl}}/wishlist",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlist"
+              ]
+            }
           }
         },
         {
           "name": "Get My Wishlist",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/wishlist/my-wishlist", "host": ["{{baseUrl}}"], "path": ["wishlist", "my-wishlist"] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "11. Review",
-      "item": [
-        {
-          "name": "Create Review",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.data && jsonData.data.id) {",
-                  "    pm.collectionVariables.set('reviewId', jsonData.data.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/wishlist",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlist"
+              ]
             }
-          ],
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"title\": \"Great Shabbat Stay\",\n  \"message\": \"Amazing apartment! Clean, spacious, and perfect location for Shabbat.\",\n  \"rating\": 5\n}"
-            },
-            "url": { "raw": "{{baseUrl}}/review", "host": ["{{baseUrl}}"], "path": ["review"] }
           }
         },
         {
-          "name": "Get Reviews by Apartment ID",
+          "name": "Remove from Wishlist",
           "request": {
-            "method": "GET",
-            "url": { "raw": "{{baseUrl}}/review/apartment/{{apartmentId}}", "host": ["{{baseUrl}}"], "path": ["review", "apartment", "{{apartmentId}}"] }
-          }
-        },
-        {
-          "name": "Delete Review",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "DELETE",
-            "url": { "raw": "{{baseUrl}}/review/{{reviewId}}", "host": ["{{baseUrl}}"], "path": ["review", "{{reviewId}}"] }
-          }
-        }
-      ]
-    },
-    {
-      "name": "12. Custom Offer",
-      "item": [
-        {
-          "name": "Submit Custom Price Offer",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var jsonData = pm.response.json();",
-                  "if (jsonData.data && jsonData.data.id) {",
-                  "    pm.collectionVariables.set('offerId', jsonData.data.id);",
-                  "}"
-                ],
-                "type": "text/javascript"
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
               }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/wishlist/APARTMENT_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "wishlist",
+                "APARTMENT_ID_HERE"
+              ]
             }
-          ],
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Offers (Price Negotiation)",
+      "description": "Guest price offers on specific Shabbat dates and host counter-offers / approvals.",
+      "item": [
+        {
+          "name": "Submit Price Offer",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"shabbosId\": \"{{shabbosId}}\",\n  \"originalPrice\": 450,\n  \"offerPrice\": 400,\n  \"message\": \"Can you accept 400 ILS for this weekend?\"\n}"
+              "raw": "{\n  \"apartmentId\": \"APARTMENT_ID_HERE\",\n  \"weekendId\": \"WEEKEND_ID_HERE\",\n  \"offeredPrice\": 1500,\n  \"message\": \"Family of 6 coming for a Shabbat Bar Mitzvah nearby.\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/offer", "host": ["{{baseUrl}}"], "path": ["offer"] }
+            "url": {
+              "raw": "{{baseUrl}}/offer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "offer"
+              ]
+            }
           }
         },
         {
-          "name": "Get My Offers",
+          "name": "Get Offers for My Apartment",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/offer/my-offers", "host": ["{{baseUrl}}"], "path": ["offer", "my-offers"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/offer/received",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "offer",
+                "received"
+              ]
+            }
           }
         },
         {
-          "name": "Update Offer Status (Accept/Reject)",
+          "name": "Respond to Offer (Accept / Reject / Counter)",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"ACCEPTED\"\n}"
+              "raw": "{\n  \"status\": \"ACCEPTED\",\n  \"counterPrice\": 1650\n}"
             },
-            "url": { "raw": "{{baseUrl}}/offer/status/{{offerId}}", "host": ["{{baseUrl}}"], "path": ["offer", "status", "{{offerId}}"] }
+            "url": {
+              "raw": "{{baseUrl}}/offer/status/OFFER_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "offer",
+                "status",
+                "OFFER_ID_HERE"
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "13. Interested Request",
+      "name": "13. Interested Requests",
+      "description": "General guest inquiries expressing interest in an apartment.",
       "item": [
         {
-          "name": "Submit Interested Request",
+          "name": "Send Interested Request",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\"\n}"
+              "raw": "{\n  \"apartmentId\": \"APARTMENT_ID_HERE\",\n  \"message\": \"Hi, is this apartment available for Shabbat Chayei Sarah?\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/interested-request", "host": ["{{baseUrl}}"], "path": ["interested-request"] }
+            "url": {
+              "raw": "{{baseUrl}}/interested-request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "interested-request"
+              ]
+            }
           }
         },
         {
-          "name": "Get My Interested Requests",
+          "name": "Get Interested Requests for My Apartment",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/interested-request/my-requests", "host": ["{{baseUrl}}"], "path": ["interested-request", "my-requests"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/interested-request/my-apartment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "interested-request",
+                "my-apartment"
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "14. Notify Request",
+      "name": "14. Notify Requests (Waitlist)",
+      "description": "Guests requesting notifications when an occupied apartment or date becomes free.",
       "item": [
         {
-          "name": "Submit Notify Request",
+          "name": "Subscribe for Availability Notification",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\"\n}"
+              "raw": "{\n  \"apartmentId\": \"APARTMENT_ID_HERE\",\n  \"weekendId\": \"WEEKEND_ID_HERE\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/notify-request", "host": ["{{baseUrl}}"], "path": ["notify-request"] }
+            "url": {
+              "raw": "{{baseUrl}}/notify-request",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notify-request"
+              ]
+            }
           }
         },
         {
-          "name": "Get My Notify Requests",
+          "name": "Get My Notify Subscriptions",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/notify-request/my-requests", "host": ["{{baseUrl}}"], "path": ["notify-request", "my-requests"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notify-request/my-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notify-request",
+                "my-requests"
+              ]
+            }
           }
         }
       ]
     },
     {
       "name": "15. Contact Us",
+      "description": "Public contact form submissions and admin response management.",
       "item": [
         {
           "name": "Submit Contact Form",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Sarah Levi\",\n  \"email\": \"sarah@example.com\",\n  \"phone\": \"+972528889999\",\n  \"subject\": \"Inquiry about Apartment Verification\",\n  \"message\": \"Hello, I would like to verify how listing verification works for host owners.\"\n}"
+              "raw": "{\n  \"name\": \"Yossi Klein\",\n  \"email\": \"yossi@example.com\",\n  \"phone\": \"+972501112233\",\n  \"subject\": \"Inquiry regarding group bookings in Jerusalem\",\n  \"message\": \"We are organizing a family reunion of 35 people for Shabbat Hanukkah and would like assistance booking 3 neighboring apartments.\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/contact", "host": ["{{baseUrl}}"], "path": ["contact"] }
+            "url": {
+              "raw": "{{baseUrl}}/contact",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "contact"
+              ]
+            }
           }
         },
         {
-          "name": "Admin: Get All Contacts",
+          "name": "Admin: Get All Contact Submissions",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/contact", "host": ["{{baseUrl}}"], "path": ["contact"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/contact/admin/all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "contact",
+                "admin",
+                "all"
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "16. Twilio Call Log",
+      "name": "16. Ambassador Program",
+      "description": "Full ambassador lifecycle: registration, referral links, Model A/B selection, manual claims, payout requests, sub-ambassador tiers, and admin controls.",
       "item": [
         {
-          "name": "Initiate Twilio Voice Call",
+          "name": "Register as Ambassador",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"receiverId\": \"user-id-to-call\",\n  \"apartmentId\": \"{{apartmentId}}\"\n}"
+              "raw": "{\n  \"name\": \"Avraham Goldberg\",\n  \"email\": \"avraham@ambassador.com\",\n  \"phone\": \"+972548889900\",\n  \"password\": \"SecureAmbassador123!\",\n  \"recruiterCode\": \"SHABBOS-LEVI\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/call/initiate", "host": ["{{baseUrl}}"], "path": ["call", "initiate"] }
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "register"
+              ]
+            }
           }
         },
         {
-          "name": "Get My Call Logs",
+          "name": "Ambassador Login",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"avraham@ambassador.com\",\n  \"password\": \"SecureAmbassador123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Ambassador Dashboard Stats",
+          "request": {
             "method": "GET",
-            "url": { "raw": "{{baseUrl}}/call/my-logs", "host": ["{{baseUrl}}"], "path": ["call", "my-logs"] }
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ambassadorToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/dashboard",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "dashboard"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Ambassador Referred Apartments & Deadlines",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ambassadorToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/apartments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "apartments"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Select Commission Model (Model A or Model B)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ambassadorToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attributionId\": \"ATTRIBUTION_ID_HERE\",\n  \"model\": \"MODEL_A\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/select-model",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "select-model"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Manual Claim Apartment by Phone / Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ambassadorToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerPhone\": \"+972541112233\",\n  \"ownerEmail\": \"owner@gmail.com\",\n  \"ownerName\": \"Shimon Peretz\",\n  \"model\": \"MODEL_B\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/claim-apartment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "claim-apartment"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Commission History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ambassadorToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/commissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "commissions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Sub-Ambassador Network & Tier Overrides",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ambassadorToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/sub-ambassadors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "sub-ambassadors"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Request Ambassador Payout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ambassadorToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 350\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/request-payout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "request-payout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Payout History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{ambassadorToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/payouts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "payouts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Get All Ambassador Applications & Records",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/admin/all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "admin",
+                "all"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Review Ambassador Application (Approve/Reject)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ambassadorId\": \"AMBASSADOR_ID_HERE\",\n  \"status\": \"ACTIVE\",\n  \"notes\": \"Approved after verifying identity and community references.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/admin/review-application",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "admin",
+                "review-application"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Process Ambassador Payout (Paid/Rejected)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payoutId\": \"PAYOUT_ID_HERE\",\n  \"status\": \"PAID\",\n  \"paymentReference\": \"BIT-TRANS-778899\",\n  \"notes\": \"Transferred via Bit.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ambassador/admin/process-payout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ambassador",
+                "admin",
+                "process-payout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "17. Community News & Updates",
+      "description": "Community news articles, Shabbat guides, hotline announcements, and CMS publication controls.",
+      "item": [
+        {
+          "name": "Get Published News Articles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/news?category=ANNOUNCEMENT&page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "news"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "ANNOUNCEMENT"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get News Article by ID or Slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/news/voice-hotline-expanded-jerusalem",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "news",
+                "voice-hotline-expanded-jerusalem"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Create News Article",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Voice Hotline Booking Service Expanded for Jerusalem Region\",\n  \"summary\": \"You can now query availability, inspect listings, and book Shabbat rentals directly via our interactive voice hotline.\",\n  \"content\": \"In order to make our platform accessible to everyone in the community, we have officially rolled out the Shabos Rent Voice Hotline...\",\n  \"category\": \"ANNOUNCEMENT\",\n  \"coverImage\": \"https://images.unsplash.com/photo-1545324418-cc1a3fa10c00\",\n  \"author\": \"Shabos Rent Team\",\n  \"isPublished\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/news",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "news"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Update News Article",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Voice Hotline Booking Service Expanded for Jerusalem & Bnei Brak\",\n  \"isPublished\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/news/NEWS_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "news",
+                "NEWS_ID_HERE"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Delete News Article",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/news/NEWS_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "news",
+                "NEWS_ID_HERE"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "18. Advertisements",
+      "description": "Banner advertisements management across homepage, sidebar, and footer with click tracking.",
+      "item": [
+        {
+          "name": "Get Active Advertisements by Position",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/advertisement?position=HOME_TOP",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "advertisement"
+              ],
+              "query": [
+                {
+                  "key": "position",
+                  "value": "HOME_TOP"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Track Advertisement Click",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/advertisement/click/AD_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "advertisement",
+                "click",
+                "AD_ID_HERE"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Create Advertisement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Kosher Catering Shabbat Special\",\n  \"imageUrl\": \"https://images.unsplash.com/photo-1555396273-367ea4eb4db5\",\n  \"linkUrl\": \"https://glatt-catering.co.il\",\n  \"position\": \"HOME_TOP\",\n  \"startDate\": \"2026-10-01T00:00:00.000Z\",\n  \"endDate\": \"2026-12-31T00:00:00.000Z\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/advertisement",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "advertisement"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Update Advertisement",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/advertisement/AD_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "advertisement",
+                "AD_ID_HERE"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Delete Advertisement",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/advertisement/AD_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "advertisement",
+                "AD_ID_HERE"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "19. Alerts & Notifications",
+      "description": "Real-time alerts, banner notices, targeted user/admin broadcasts, and Socket.IO persistence.",
+      "item": [
+        {
+          "name": "Get My Active Alerts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alert/my-alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alert",
+                "my-alerts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Get All Alerts (With Filters)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alert?type=URGENT&isActive=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alert"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "URGENT"
+                },
+                {
+                  "key": "isActive",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Create & Broadcast System Alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Scheduled Server Maintenance\",\n  \"message\": \"ShabbosRent will undergo a 10-minute scheduled database upgrade on Tuesday at 02:00 AM IST.\",\n  \"type\": \"WARNING\",\n  \"targetRole\": null,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/alert",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alert"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Update Alert",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/alert/ALERT_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alert",
+                "ALERT_ID_HERE"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Admin: Delete Alert",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alert/ALERT_ID_HERE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alert",
+                "ALERT_ID_HERE"
+              ]
+            }
           }
         }
       ]

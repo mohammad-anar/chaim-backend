@@ -13,6 +13,10 @@ import { Secret } from "jsonwebtoken";
 import config from "../../../config/index.js";
 import ApiError from "../../../errors/ApiError.js";
 import { jwtHelper } from "../../../helpers/jwtHelper.js";
+import {
+  notifyAdminOnAmbassadorRegistered,
+  notifyAdminOnPayoutRequested,
+} from "../../../helpers/notificationHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
 import {
   DEFAULT_AMBASSADOR_RATES,
@@ -156,6 +160,14 @@ const registerAmbassador = async (payload: IRegisterAmbassadorPayload) => {
       status: true,
       createdAt: true,
     },
+  });
+
+  // Notify Admin of New Ambassador Application
+  await notifyAdminOnAmbassadorRegistered({
+    ambassadorId: ambassador.id,
+    name: ambassador.name,
+    email: ambassador.email,
+    phone: ambassador.phone,
   });
 
   return ambassador;
@@ -667,6 +679,19 @@ const requestPayout = async (ambassadorId: string, requestedAmount?: number) => 
       amount: payoutAmount,
       status: PayoutStatus.REQUESTED,
     },
+  });
+
+  const ambassador = await prisma.ambassador.findUnique({
+    where: { id: ambassadorId },
+    select: { name: true },
+  });
+
+  // Notify Admin of Payout Request
+  await notifyAdminOnPayoutRequested({
+    payoutId: payout.id,
+    ambassadorId,
+    ambassadorName: ambassador?.name || "Ambassador",
+    amount: payoutAmount,
   });
 
   return payout;

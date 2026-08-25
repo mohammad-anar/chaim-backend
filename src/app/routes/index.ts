@@ -1,4 +1,6 @@
 import express from "express";
+import { AdvertisementRoutes } from "../modules/advertisement/advertisement.routes.js";
+import { AlertRoutes } from "../modules/alert/alert.routes.js";
 import { AmbassadorRoutes } from "../modules/ambassador/ambassador.routes.js";
 import { ApartmentRoutes } from "../modules/apartment/apartment.routes.js";
 import { ApartmentAvailabilityRoutes } from "../modules/apartmentAvailability/apartmentAvailability.routes.js";
@@ -6,6 +8,7 @@ import { AuthRoutes } from "../modules/auth/auth.routes.js";
 import { CallLogRoutes } from "../modules/callLog/callLog.routes.js";
 import { ContactRoutes } from "../modules/contact/contact.routes.js";
 import { InterestedRequestRoutes } from "../modules/interestedRequest/interestedRequest.routes.js";
+import { NewsRoutes } from "../modules/news/news.routes.js";
 import { NotifyRequestRoutes } from "../modules/notifyRequest/notifyRequest.routes.js";
 import { OfferRoutes } from "../modules/offer/offer.routes.js";
 import { PaymentRoutes } from "../modules/payment/payment.routes.js";
@@ -87,6 +90,18 @@ const moduleRoutes = [
   {
     path: "/ambassador",
     route: AmbassadorRoutes,
+  },
+  {
+    path: "/news",
+    route: NewsRoutes,
+  },
+  {
+    path: "/advertisement",
+    route: AdvertisementRoutes,
+  },
+  {
+    path: "/alert",
+    route: AlertRoutes,
   },
 ];
 

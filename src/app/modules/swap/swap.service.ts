@@ -1,6 +1,7 @@
 import { SwapStatus } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiError.js";
+import { notifyOnSwapAccepted } from "../../../helpers/notificationHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
 import { ICreateSwapRequest } from "./swap.interface.js";
 
@@ -166,6 +167,17 @@ const updateSwapStatus = async (
       toApartment: true,
     },
   });
+
+  if (status === SwapStatus.APPROVED) {
+    await notifyOnSwapAccepted({
+      swapId: result.id,
+      swapCode: result.swapCode,
+      fromApartmentTitle: result.fromApartment.title,
+      toApartmentTitle: result.toApartment.title,
+      fromUserId: result.fromApartment.userId,
+      toUserId: result.toApartment.userId,
+    });
+  }
 
   return result;
 };

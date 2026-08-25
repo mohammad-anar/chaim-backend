@@ -39,6 +39,31 @@ const deleteReview = catchAsync(async (req: Request, res: Response) => {
     statusCode: StatusCodes.OK,
     success: true,
     message: result.message,
+    data: null,
+  });
+});
+
+const getAllReviewsAdmin = catchAsync(async (req: Request, res: Response) => {
+  const result = await ReviewServices.getAllReviewsAdmin(req.query);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Admin reviews retrieved successfully",
+    data: result,
+  });
+});
+
+const updateReviewStatusAdmin = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const { status } = req.body;
+  const result = await ReviewServices.updateReviewStatusAdmin(id, status);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Review status updated successfully",
+    data: result,
   });
 });
 
@@ -46,4 +71,6 @@ export const ReviewController = {
   createReview,
   getApartmentReviews,
   deleteReview,
+  getAllReviewsAdmin,
+  updateReviewStatusAdmin,
 };

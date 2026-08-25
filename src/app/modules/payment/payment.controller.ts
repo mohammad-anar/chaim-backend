@@ -65,10 +65,22 @@ const handleNedarimCallback = catchAsync(async (req: Request, res: Response) => 
   res.status(StatusCodes.OK).send("OK");
 });
 
+const getAdminAllTransactions = catchAsync(async (req: Request, res: Response) => {
+  const result = await PaymentServices.getAdminAllTransactions();
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Admin payment transactions retrieved successfully",
+    data: result,
+  });
+});
+
 export const PaymentController = {
   createListingPaymentIntent,
   createSwapPaymentIntent,
   createReportRentedPaymentIntent,
   verifyNedarimPayment,
   handleNedarimCallback,
+  getAdminAllTransactions,
 };

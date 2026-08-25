@@ -17,6 +17,18 @@ const initiateCall = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const initiateWhatsApp = catchAsync(async (req: Request, res: Response) => {
+  const callerId = req.user.id;
+  const result = await CallLogServices.initiateWhatsApp(callerId, req.body);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "WhatsApp contact link generated successfully",
+    data: result,
+  });
+});
+
 const renderTwiML = (req: Request, res: Response) => {
   const targetPhone = req.query.to as string;
   const VoiceResponse = twilio.twiml.VoiceResponse;
@@ -50,9 +62,22 @@ const getMyCallLogs = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllCallLogsAdmin = catchAsync(async (req: Request, res: Response) => {
+  const result = await CallLogServices.getAllCallLogsAdmin();
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "All call logs retrieved successfully",
+    data: result,
+  });
+});
+
 export const CallLogController = {
   initiateCall,
+  initiateWhatsApp,
   renderTwiML,
   handleTwilioStatusWebhook,
   getMyCallLogs,
+  getAllCallLogsAdmin,
 };

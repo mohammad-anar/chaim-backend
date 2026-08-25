@@ -109,3 +109,29 @@ enum PayoutStatus {
   REJECTED
 }
 
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AdvertisementPosition {
+  HOME_TOP
+  HOME_MIDDLE
+  SIDEBAR
+  FOOTER
+}
+
+enum AlertType {
+  INFO
+  WARNING
+  SUCCESS
+  URGENT
+}
+
+enum ContactChannel {
+  VOICE
+  WHATSAPP
+  EMAIL
+}
+

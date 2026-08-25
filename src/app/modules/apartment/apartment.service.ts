@@ -6,6 +6,10 @@ import { paginationHelper } from "../../../helpers/paginationHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
 import { IPaginationOptions } from "../../../types/pagination.js";
 import {
+  notifyAdminOnApartmentAdded,
+  notifyOnAmbassadorAttribution,
+} from "../../../helpers/notificationHelper.js";
+import {
   IApartmentFilterRequest,
   ICreateApartment,
   IUpdateApartment,
@@ -123,6 +127,16 @@ const createApartment = async (
             listingCreatedAt: now,
           },
         });
+
+        // Notify Admin and Ambassador
+        await notifyOnAmbassadorAttribution({
+          ambassadorId: ambassador.id,
+          ambassadorName: ambassador.name,
+          apartmentId: apartment.id,
+          apartmentTitle: apartment.title,
+          ownerName: apartment.user.username,
+          referralCode: ambassador.referralCode || "",
+        });
       }
     } else {
       // 2. Check if a manual claim exists for this owner phone/email without an apartmentId
@@ -135,6 +149,7 @@ const createApartment = async (
             ...(ownerEmail ? [{ ownerEmail }] : []),
           ],
         },
+        include: { ambassador: true },
       });
 
       if (pendingManualClaim) {
@@ -146,8 +161,27 @@ const createApartment = async (
             listingCreatedAt: apartment.createdAt,
           },
         });
+
+        if (pendingManualClaim.ambassador) {
+          await notifyOnAmbassadorAttribution({
+            ambassadorId: pendingManualClaim.ambassador.id,
+            ambassadorName: pendingManualClaim.ambassador.name,
+            apartmentId: apartment.id,
+            apartmentTitle: apartment.title,
+            ownerName: apartment.user.username,
+            referralCode: pendingManualClaim.ambassador.referralCode || "",
+          });
+        }
       }
     }
+
+    // Always Notify Admin of New Apartment Listing
+    await notifyAdminOnApartmentAdded({
+      apartmentId: apartment.id,
+      title: apartment.title,
+      city: apartment.city,
+      ownerName: apartment.user.username,
+    });
   } catch (ambassadorErr) {
     console.error("[AmbassadorAttribution] Error linking apartment to ambassador:", ambassadorErr);
   }

@@ -7,10 +7,35 @@ import notFound from "./app/middlewares/notFound.js";
 import { getIO } from "./helpers/socketHelper.js";
 
 const app: Application = express();
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:5173",
+  "http://10.10.7.102:3000",
+  "https://shabbos-rent-website.vercel.app",
+  ...(config.cors_origin ? [config.cors_origin] : []),
+  ...(config.frontend_url ? [config.frontend_url] : []),
+];
+
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://10.10.7.102:3000"],
+    origin: (origin, callback) => {
+      // allow requests with no origin (e.g. mobile apps, curl)
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.includes("localhost") ||
+        origin.includes("127.0.0.1")
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true); // Permissive in dev/staging to prevent CORS blocks for frontend
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   }),
 );
 

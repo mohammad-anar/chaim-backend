@@ -28,7 +28,19 @@ const getMyReportedRented = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllReportRentedAdmin = catchAsync(async (req: Request, res: Response) => {
+  const result = await ReportRentedServices.getAllReportRentedAdmin();
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "All reported rented records retrieved successfully",
+    data: result,
+  });
+});
+
 export const ReportRentedController = {
   createReportRentedIntent,
   getMyReportedRented,
+  getAllReportRentedAdmin,
 };

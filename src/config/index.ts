@@ -40,4 +40,9 @@ export default {
     swap_request_fee: Number(process.env.SWAP_REQUEST_FEE || 50),
     report_rented_fee: Number(process.env.REPORT_RENTED_FEE || 50),
   },
+  twilio: {
+    account_sid: process.env.TWILIO_ACCOUNT_SID,
+    auth_token: process.env.TWILIO_AUTH_TOKEN,
+    phone_number: process.env.TWILIO_PHONE_NUMBER || "+97225007890",
+  },
 };

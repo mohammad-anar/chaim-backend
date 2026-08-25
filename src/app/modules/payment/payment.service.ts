@@ -2,6 +2,7 @@ import { StatusCodes } from "http-status-codes";
 import config from "../../../config/index.js";
 import ApiError from "../../../errors/ApiError.js";
 import { verifyNedarimTransaction } from "../../../helpers/nedarim.js";
+import { notifyAdminOnReportRented } from "../../../helpers/notificationHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
 import {
   ICreateListingPaymentPayload,
@@ -426,9 +427,15 @@ const verifyAndConfirmNedarimPayment = async (
     };
   } else if (paymentType === "REPORT_RENTED") {
     const targetReportPayment = paymentRecordId
-      ? await prisma.reportRentedPayment.findUnique({ where: { id: paymentRecordId } })
+      ? await prisma.reportRentedPayment.findUnique({
+          where: { id: paymentRecordId },
+          include: { apartment: true, payer: true, reportRented: true },
+        })
       : reportRentedId
-        ? await prisma.reportRentedPayment.findFirst({ where: { reportRentedId, payerId: userId } })
+        ? await prisma.reportRentedPayment.findFirst({
+            where: { reportRentedId, payerId: userId },
+            include: { apartment: true, payer: true, reportRented: true },
+          })
         : null;
 
     if (!targetReportPayment) {
@@ -525,6 +532,16 @@ const verifyAndConfirmNedarimPayment = async (
       }
     });
 
+    // Notify Admin of Confirmed Rented Apartment
+    await notifyAdminOnReportRented({
+      reportRentedId: targetReportPayment.reportRentedId || targetReportPayment.id,
+      apartmentTitle: targetReportPayment.apartment?.title || "Apartment",
+      city: targetReportPayment.apartment?.city || "Israel",
+      weekend: targetReportPayment.reportRented?.weekend || new Date(),
+      hostName: targetReportPayment.payer?.username || "Host",
+      amount: targetReportPayment.amount,
+    });
+
     return {
       success: true,
       message: "Report rented payment confirmed successfully",
@@ -579,10 +596,95 @@ const handleNedarimCallback = async (payload: any) => {
   return { received: true };
 };
 
+const getAdminAllTransactions = async () => {
+  const [listingPayments, swapPayments, reportPayments] = await Promise.all([
+    prisma.apartmentListingPayment.findMany({
+      include: {
+        apartment: { select: { id: true, propertyId: true, title: true, city: true } },
+        user: { select: { id: true, username: true, email: true, phone: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.swapPayment.findMany({
+      include: {
+        swap: {
+          select: {
+            id: true,
+            swapCode: true,
+            fromApartment: { select: { id: true, title: true, city: true } },
+            toApartment: { select: { id: true, title: true, city: true } },
+          },
+        },
+        payer: { select: { id: true, username: true, email: true, phone: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.reportRentedPayment.findMany({
+      include: {
+        apartment: { select: { id: true, propertyId: true, title: true, city: true } },
+        payer: { select: { id: true, username: true, email: true, phone: true } },
+        reportRented: { select: { id: true, reportType: true, weekend: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const transactions = [
+    ...listingPayments.map((p) => ({
+      id: p.id,
+      category: "LISTING_FEE",
+      amount: p.amount,
+      currency: p.currency,
+      status: p.status,
+      transactionId: p.transactionId,
+      payer: p.user,
+      apartment: p.apartment,
+      createdAt: p.createdAt,
+      paidAt: p.paidAt,
+    })),
+    ...swapPayments.map((p) => ({
+      id: p.id,
+      category: "SWAP_FEE",
+      amount: p.amount,
+      currency: p.currency,
+      status: p.status,
+      transactionId: p.transactionId,
+      payer: p.payer,
+      apartment: p.swap?.fromApartment || null,
+      swapDetails: p.swap,
+      createdAt: p.createdAt,
+      paidAt: p.paidAt,
+    })),
+    ...reportPayments.map((p) => ({
+      id: p.id,
+      category: p.reportRented?.reportType === "SWAP" ? "SWAP_REPORT_FEE" : "REPORT_RENTED_FEE",
+      amount: p.amount,
+      currency: p.currency,
+      status: p.status,
+      transactionId: p.transactionId,
+      payer: p.payer,
+      apartment: p.apartment,
+      createdAt: p.createdAt,
+      paidAt: p.paidAt,
+    })),
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const totalCollected = transactions
+    .filter((t) => t.status === "COMPLETED")
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  return {
+    totalTransactions: transactions.length,
+    totalCollectedILS: totalCollected,
+    transactions,
+  };
+};
+
 export const PaymentServices = {
   createListingPaymentIntent,
   createSwapPaymentIntent,
   createReportRentedPaymentIntent,
   verifyAndConfirmNedarimPayment,
   handleNedarimCallback,
+  getAdminAllTransactions,
 };

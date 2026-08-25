@@ -1,4 +1,5 @@
 import express from "express";
+import { UserRole } from "@prisma/client";
 import auth from "../../middlewares/auth.js";
 import { PaymentController } from "./payment.controller.js";
 
@@ -36,6 +37,13 @@ router.post(
 router.get(
   "/nedarim-callback",
   PaymentController.handleNedarimCallback,
+);
+
+// Admin: View all platform payment transactions
+router.get(
+  "/admin/all-transactions",
+  auth(UserRole.SUPER_ADMIN),
+  PaymentController.getAdminAllTransactions,
 );
 
 export const PaymentRoutes = router;

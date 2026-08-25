@@ -59,15 +59,16 @@ model Contact {
 }
 
 model CallLog {
-  id            String   @id @default(uuid())
-  callerId      String   @map("caller_id")
-  receiverId    String   @map("receiver_id")
-  apartmentId   String?  @map("apartment_id")
-  twilioCallSid String?  @unique @map("twilio_call_sid")
-  duration      Int      @default(0) // Duration in seconds
-  status        String   @default("INITIATED")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id            String         @id @default(uuid())
+  callerId      String         @map("caller_id")
+  receiverId    String         @map("receiver_id")
+  apartmentId   String?        @map("apartment_id")
+  channel       ContactChannel @default(VOICE)
+  twilioCallSid String?        @unique @map("twilio_call_sid")
+  duration      Int            @default(0) // Duration in seconds
+  status        String         @default("INITIATED")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
   caller    User       @relation("CallsMade", fields: [callerId], references: [id], onDelete: Cascade)
   receiver  User       @relation("CallsReceived", fields: [receiverId], references: [id], onDelete: Cascade)

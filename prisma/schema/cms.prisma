@@ -1,0 +1,45 @@
+model News {
+  id          String   @id @default(uuid())
+  title       String
+  content     String
+  summary     String?
+  image       String?
+  author      String?  @default("Admin")
+  isPublished Boolean  @default(true) @map("is_published")
+  views       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("news")
+}
+
+model Advertisement {
+  id        String                @id @default(uuid())
+  title     String
+  image     String
+  targetUrl String?               @map("target_url")
+  position  AdvertisementPosition @default(HOME_TOP)
+  isActive  Boolean               @default(true) @map("is_active")
+  clicks    Int                   @default(0)
+  startDate DateTime?             @map("start_date")
+  endDate   DateTime?             @map("end_date")
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
+
+  @@map("advertisements")
+}
+
+model Alert {
+  id           String    @id @default(uuid())
+  title        String
+  message      String
+  type         AlertType @default(INFO)
+  targetRole   UserRole? @map("target_role")
+  targetUserId String?   @map("target_user_id")
+  link         String?
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("alerts")
+}

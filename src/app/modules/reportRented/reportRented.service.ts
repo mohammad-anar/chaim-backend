@@ -302,7 +302,44 @@ const getMyReportedRented = async (userId: string) => {
   return enrichedReports;
 };
 
+const getAllReportRentedAdmin = async () => {
+  const reports = await prisma.reportRented.findMany({
+    include: {
+      apartment: {
+        select: {
+          id: true,
+          propertyId: true,
+          title: true,
+          city: true,
+          neighborhood: true,
+          coverImage: true,
+          user: {
+            select: { id: true, username: true, email: true, phone: true },
+          },
+        },
+      },
+      targetApartment: {
+        select: {
+          id: true,
+          propertyId: true,
+          title: true,
+          city: true,
+          coverImage: true,
+          user: {
+            select: { id: true, username: true, email: true, phone: true },
+          },
+        },
+      },
+      payment: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return reports;
+};
+
 export const ReportRentedServices = {
   createReportRentedIntent,
   getMyReportedRented,
+  getAllReportRentedAdmin,
 };
