@@ -286,6 +286,99 @@ const verifyAndConfirmNedarimPayment = async (
           status: "CONFIRMED",
         },
       });
+
+      // Process Ambassador Listing Commission
+      try {
+        const attribution = await tx.ambassadorAttribution.findFirst({
+          where: {
+            apartmentId: targetListingPayment.apartmentId,
+            status: "ACTIVE",
+          },
+          include: { ambassador: true },
+        });
+
+        if (attribution) {
+          const now = new Date();
+          const defaultRates = {
+            modelAListing: 15,
+            modelARental: 25,
+            modelBListing: 25,
+            modelBRental: 40,
+            subReferralListing: 5,
+          };
+          const ambRates = (attribution.ambassador.rates as any) || defaultRates;
+
+          if (attribution.model) {
+            const listingAmount =
+              attribution.model === "MODEL_A"
+                ? (ambRates.modelAListing ?? 15)
+                : (ambRates.modelBListing ?? 25);
+
+            const existingComm = await tx.ambassadorCommission.findFirst({
+              where: {
+                ambassadorId: attribution.ambassadorId,
+                sourceListingId: attribution.apartmentId,
+                type: "LISTING",
+              },
+            });
+
+            if (existingComm) {
+              await tx.ambassadorCommission.update({
+                where: { id: existingComm.id },
+                data: {
+                  amount: listingAmount,
+                  status: "APPROVED",
+                },
+              });
+            } else {
+              await tx.ambassadorCommission.create({
+                data: {
+                  ambassadorId: attribution.ambassadorId,
+                  type: "LISTING",
+                  sourceListingId: attribution.apartmentId,
+                  apartmentTitle: attribution.apartmentTitle,
+                  amount: listingAmount,
+                  status: "APPROVED",
+                  earnedAt: now,
+                },
+              });
+            }
+
+            // Sub-ambassador override for recruiter
+            if (attribution.ambassador.recruitedById) {
+              const parentAmbassador = await tx.ambassador.findUnique({
+                where: { id: attribution.ambassador.recruitedById },
+              });
+              if (parentAmbassador) {
+                const parentRates = (parentAmbassador.rates as any) || defaultRates;
+                const existingSub = await tx.ambassadorCommission.findFirst({
+                  where: {
+                    ambassadorId: parentAmbassador.id,
+                    sourceListingId: attribution.apartmentId,
+                    type: "SUB_REFERRAL",
+                  },
+                });
+
+                if (!existingSub) {
+                  await tx.ambassadorCommission.create({
+                    data: {
+                      ambassadorId: parentAmbassador.id,
+                      type: "SUB_REFERRAL",
+                      sourceListingId: attribution.apartmentId,
+                      apartmentTitle: attribution.apartmentTitle,
+                      amount: parentRates.subReferralListing ?? 5,
+                      status: "APPROVED",
+                      earnedAt: now,
+                    },
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (ambErr) {
+        console.error("[AmbassadorCommission] Error approving listing commission:", ambErr);
+      }
     });
 
     return {
@@ -359,6 +452,76 @@ const verifyAndConfirmNedarimPayment = async (
             paidAt: new Date(),
           },
         });
+      }
+
+      // Process Ambassador Rental Commission
+      try {
+        const attribution = await tx.ambassadorAttribution.findFirst({
+          where: {
+            apartmentId: targetReportPayment.apartmentId,
+            status: "ACTIVE",
+          },
+          include: { ambassador: true },
+        });
+
+        if (attribution && attribution.model) {
+          const now = new Date();
+          const defaultRates = {
+            modelAListing: 15,
+            modelARental: 25,
+            modelBListing: 25,
+            modelBRental: 40,
+            subReferralListing: 5,
+          };
+          const ambRates = (attribution.ambassador.rates as any) || defaultRates;
+
+          if (attribution.model === "MODEL_A") {
+            // Model A: ₪25 per rental event for 12 months (365 days) from listingCreatedAt
+            const listingCreatedAt = new Date(attribution.listingCreatedAt);
+            const isWithin12Months = now.getTime() - listingCreatedAt.getTime() <= 365 * 24 * 60 * 60 * 1000;
+
+            if (isWithin12Months) {
+              await tx.ambassadorCommission.create({
+                data: {
+                  ambassadorId: attribution.ambassadorId,
+                  type: "RENTAL",
+                  sourceListingId: targetReportPayment.apartmentId,
+                  sourceRentalId: targetReportPayment.reportRentedId || targetReportPayment.id,
+                  apartmentTitle: attribution.apartmentTitle,
+                  amount: ambRates.modelARental ?? 25,
+                  status: "APPROVED",
+                  earnedAt: now,
+                },
+              });
+            }
+          } else if (attribution.model === "MODEL_B") {
+            // Model B: ₪40 on First Rental Ever Only
+            const existingRentalCommission = await tx.ambassadorCommission.findFirst({
+              where: {
+                sourceListingId: targetReportPayment.apartmentId,
+                type: "RENTAL",
+                status: { not: "REVERSED" },
+              },
+            });
+
+            if (!existingRentalCommission) {
+              await tx.ambassadorCommission.create({
+                data: {
+                  ambassadorId: attribution.ambassadorId,
+                  type: "RENTAL",
+                  sourceListingId: targetReportPayment.apartmentId,
+                  sourceRentalId: targetReportPayment.reportRentedId || targetReportPayment.id,
+                  apartmentTitle: attribution.apartmentTitle,
+                  amount: ambRates.modelBRental ?? 40,
+                  status: "APPROVED",
+                  earnedAt: now,
+                },
+              });
+            }
+          }
+        }
+      } catch (ambRentErr) {
+        console.error("[AmbassadorRentalCommission] Error processing rental commission:", ambRentErr);
       }
     });
 

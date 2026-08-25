@@ -22,6 +22,7 @@ export type ICreateApartment = {
   whatsApp?: string;
   howToContact?: HowToContact;
   additionalDetails?: string;
+  referralCode?: string;
 };
 
 export type IUpdateApartment = Partial<ICreateApartment>;

@@ -1,4 +1,5 @@
 import express from "express";
+import { AmbassadorRoutes } from "../modules/ambassador/ambassador.routes.js";
 import { ApartmentRoutes } from "../modules/apartment/apartment.routes.js";
 import { ApartmentAvailabilityRoutes } from "../modules/apartmentAvailability/apartmentAvailability.routes.js";
 import { AuthRoutes } from "../modules/auth/auth.routes.js";
@@ -82,6 +83,10 @@ const moduleRoutes = [
   {
     path: "/report-rented",
     route: ReportRentedRoutes,
+  },
+  {
+    path: "/ambassador",
+    route: AmbassadorRoutes,
   },
 ];
 

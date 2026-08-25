@@ -93,6 +93,65 @@ const createApartment = async (
     },
   });
 
+  // Handle Ambassador Attribution
+  try {
+    const ownerPhone = (payload.phoneNumber || apartment.user.phone || "").replace(/\D/g, "");
+    const ownerEmail = (apartment.user.email || "").trim().toLowerCase();
+
+    // 1. If referral code was supplied
+    if (payload.referralCode && payload.referralCode.trim() !== "") {
+      const ambassador = await prisma.ambassador.findUnique({
+        where: { referralCode: payload.referralCode.trim().toUpperCase() },
+      });
+
+      if (ambassador && ambassador.status === "ACTIVE") {
+        const now = new Date();
+        const deadline = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+        await prisma.ambassadorAttribution.create({
+          data: {
+            apartmentId: apartment.id,
+            ambassadorId: ambassador.id,
+            apartmentTitle: apartment.title,
+            ownerName: apartment.user.username,
+            ownerPhone: ownerPhone,
+            ownerEmail: ownerEmail || null,
+            model: null,
+            modelDeadline: deadline,
+            method: "LINK",
+            status: "ACTIVE",
+            listingCreatedAt: now,
+          },
+        });
+      }
+    } else {
+      // 2. Check if a manual claim exists for this owner phone/email without an apartmentId
+      const pendingManualClaim = await prisma.ambassadorAttribution.findFirst({
+        where: {
+          apartmentId: null,
+          status: "ACTIVE",
+          OR: [
+            ...(ownerPhone ? [{ ownerPhone }] : []),
+            ...(ownerEmail ? [{ ownerEmail }] : []),
+          ],
+        },
+      });
+
+      if (pendingManualClaim) {
+        await prisma.ambassadorAttribution.update({
+          where: { id: pendingManualClaim.id },
+          data: {
+            apartmentId: apartment.id,
+            apartmentTitle: apartment.title,
+            listingCreatedAt: apartment.createdAt,
+          },
+        });
+      }
+    }
+  } catch (ambassadorErr) {
+    console.error("[AmbassadorAttribution] Error linking apartment to ambassador:", ambassadorErr);
+  }
+
   return apartment;
 };
 

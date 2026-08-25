@@ -21,6 +21,7 @@ const createApartmentZodSchema = z.object({
   whatsApp: z.string().optional(),
   howToContact: z.enum([HowToContact.PHONE, HowToContact.WHATSAPP, HowToContact.BOTH]).optional(),
   additionalDetails: z.string().optional(),
+  referralCode: z.string().optional(),
 });
 
 const updateApartmentZodSchema = z.object({

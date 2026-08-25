@@ -55,6 +55,7 @@ model Apartment {
   listingPayment       ApartmentListingPayment?
   reportRentedPayments ReportRentedPayment[]
   callLogs             CallLog[]
+  ambassadorAttribution AmbassadorAttribution?
 
   @@map("apartments")
 }

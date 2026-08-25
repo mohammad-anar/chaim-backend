@@ -1,5 +1,6 @@
 enum UserRole {
   USER
+  AMBASSADOR
   SUPER_ADMIN
 }
 
@@ -63,5 +64,48 @@ enum TransactionType {
 enum ReportType {
   RENT
   SWAP
+}
+
+enum AmbassadorStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum AmbassadorModel {
+  MODEL_A
+  MODEL_B
+}
+
+enum AttributionMethod {
+  LINK
+  MANUAL
+  ADMIN
+}
+
+enum AttributionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CommissionType {
+  LISTING
+  RENTAL
+  SUB_REFERRAL
+  REVERSAL
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  REVERSED
+}
+
+enum PayoutStatus {
+  REQUESTED
+  PAID
+  REJECTED
 }
 

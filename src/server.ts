@@ -1,6 +1,7 @@
 import app from "./app.js";
 import config from "./config/index.js";
 import { seedSuperAdmin } from "./db/seedSuperAdmin.js";
+import { initAmbassadorDeadlineScheduler } from "./helpers/ambassadorDeadlineCron.js";
 import { initSocket } from "./helpers/socketHelper.js";
 import "./helpers/bullQueue.js";
 
@@ -21,8 +22,10 @@ async function bootstrap() {
       console.log(`🚀 Server running on http://localhost:${config.port}`);
     });
     // socket
-    //socket
     initSocket(server);
+
+    // ambassador deadline cron runner
+    initAmbassadorDeadlineScheduler();
   } catch (error) {
     console.error("Error during server startup:", error);
     process.exit(1);

@@ -1,0 +1,90 @@
+model Ambassador {
+  id               String           @id @default(uuid())
+  name             String
+  email            String           @unique
+  phone            String           @unique
+  password         String
+  referralCode     String?          @unique @map("referral_code")
+  defaultModel     AmbassadorModel  @default(MODEL_A) @map("default_model")
+  recruitedById    String?          @map("recruited_by_id")
+  status           AmbassadorStatus @default(PENDING)
+  rates            Json?            @map("rates")
+  rateLockedUntil  DateTime?        @map("rate_locked_until")
+  approvedAt       DateTime?        @map("approved_at")
+  contractSignedAt DateTime?        @map("contract_signed_at")
+  payoutDetails    Json?            @map("payout_details")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  recruitedBy          Ambassador?              @relation("AmbassadorRecruitment", fields: [recruitedById], references: [id], onDelete: SetNull)
+  recruitedAmbassadors Ambassador[]             @relation("AmbassadorRecruitment")
+  attributions         AmbassadorAttribution[]
+  commissions          AmbassadorCommission[]
+  payouts              AmbassadorPayout[]
+
+  @@map("ambassadors")
+}
+
+model AmbassadorAttribution {
+  id               String            @id @default(uuid())
+  apartmentId      String?           @unique @map("apartment_id")
+  ambassadorId     String            @map("ambassador_id")
+  apartmentTitle   String            @map("apartment_title")
+  ownerName        String?           @map("owner_name")
+  ownerPhone       String            @map("owner_phone")
+  ownerEmail       String?           @map("owner_email")
+  model            AmbassadorModel?  @map("model")
+  modelSetAt       DateTime?         @map("model_set_at")
+  modelDeadline    DateTime          @map("model_deadline")
+  method           AttributionMethod @default(LINK)
+  status           AttributionStatus @default(ACTIVE)
+  attributedAt     DateTime          @default(now()) @map("attributed_at")
+  listingCreatedAt DateTime          @default(now()) @map("listing_created_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  ambassador Ambassador @relation(fields: [ambassadorId], references: [id], onDelete: Cascade)
+  apartment  Apartment? @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+
+  @@map("ambassador_attributions")
+}
+
+model AmbassadorCommission {
+  id              String           @id @default(uuid())
+  ambassadorId    String           @map("ambassador_id")
+  type            CommissionType
+  sourceListingId String?          @map("source_listing_id")
+  sourceRentalId  String?          @map("source_rental_id")
+  apartmentTitle  String           @map("apartment_title")
+  amount          Float
+  status          CommissionStatus @default(PENDING)
+  payoutId        String?          @map("payout_id")
+  reversalOf      String?          @map("reversal_of")
+  reversalReason  String?          @map("reversal_reason")
+  earnedAt        DateTime         @default(now()) @map("earned_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  ambassador Ambassador        @relation(fields: [ambassadorId], references: [id], onDelete: Cascade)
+  payout     AmbassadorPayout? @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+
+  @@map("ambassador_commissions")
+}
+
+model AmbassadorPayout {
+  id              String       @id @default(uuid())
+  ambassadorId    String       @map("ambassador_id")
+  amount          Float
+  status          PayoutStatus @default(REQUESTED)
+  referenceCode   String?      @map("reference_code")
+  rejectionReason String?      @map("rejection_reason")
+  requestedAt     DateTime     @default(now()) @map("requested_at")
+  paidAt          DateTime?    @map("paid_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  ambassador  Ambassador             @relation(fields: [ambassadorId], references: [id], onDelete: Cascade)
+  commissions AmbassadorCommission[]
+
+  @@map("ambassador_payouts")
+}
