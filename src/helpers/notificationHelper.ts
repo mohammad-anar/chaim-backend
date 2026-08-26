@@ -300,3 +300,40 @@ export const notifyAdminOnWhatsAppInitiated = async (data: {
     metadata: { callLogId: data.callLogId },
   });
 };
+
+/**
+ * 10. Alert Admin & Ambassador when a user registers using an Ambassador referral link
+ */
+export const notifyOnUserRegisteredViaAmbassador = async (data: {
+  ambassadorId: string;
+  ambassadorName: string;
+  referralCode: string;
+  newUserId: string;
+  newUserName: string;
+  newUserEmail?: string;
+  newUserPhone?: string;
+}) => {
+  // Notify Admin
+  await dispatchNotification({
+    title: "New User via Ambassador Referral",
+    message: `User "${data.newUserName}" registered using referral code ${data.referralCode} (Ambassador: ${data.ambassadorName}).`,
+    type: AlertType.INFO,
+    targetRole: UserRole.SUPER_ADMIN,
+    link: `/dashboard/ambassadors`,
+    metadata: {
+      ambassadorId: data.ambassadorId,
+      newUserId: data.newUserId,
+    },
+  });
+
+  // Notify the Ambassador themselves
+  await dispatchNotification({
+    title: "New User Joined via Your Link!",
+    message: `"${data.newUserName}" just signed up using your referral link. Keep sharing to grow your network!`,
+    type: AlertType.SUCCESS,
+    targetRole: UserRole.AMBASSADOR,
+    targetUserId: data.ambassadorId,
+    link: `/ambassador/dashboard`,
+    metadata: { newUserId: data.newUserId },
+  });
+};

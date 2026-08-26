@@ -9,6 +9,7 @@ import { jwtHelper } from "../../../helpers/jwtHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
 import { emailHelper } from "../../../helpers/emailHelper.js";
 import { emailTemplate } from "../../shared/emailTemplate.js";
+import { notifyOnUserRegisteredViaAmbassador } from "../../../helpers/notificationHelper.js";
 import {
   IChangePassword,
   IForgotPassword,
@@ -98,6 +99,49 @@ const registerUser = async (payload: IRegisterUser) => {
       await emailHelper.sendEmail(template);
     } catch (err: any) {
       console.error("Failed to send registration OTP email:", err?.message || err);
+    }
+  }
+
+  // Handle ambassador referral code attribution on registration
+  if (payload.referralCode && payload.referralCode.trim() !== "") {
+    try {
+      const ambassador = await prisma.ambassador.findUnique({
+        where: { referralCode: payload.referralCode.trim().toUpperCase() },
+      });
+
+      if (ambassador && ambassador.status === "ACTIVE") {
+        // Track user-level referral attribution
+        // Note: apartmentTitle and ownerPhone are required (non-nullable) in schema.
+        // We store a placeholder; the real apartment linkage happens when the user lists a property.
+        await prisma.ambassadorAttribution.create({
+          data: {
+            ambassadorId: ambassador.id,
+            apartmentId: null,
+            apartmentTitle: "(Pending — user registered via referral link)",
+            ownerName: result.username,
+            ownerPhone: (result.phone || "").replace(/\D/g, "") || "unknown",
+            ownerEmail: result.email || null,
+            model: null,
+            modelDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            method: "LINK",
+            status: "ACTIVE",
+            listingCreatedAt: new Date(),
+          },
+        });
+
+        // Notify admin + ambassador
+        await notifyOnUserRegisteredViaAmbassador({
+          ambassadorId: ambassador.id,
+          ambassadorName: ambassador.name,
+          referralCode: ambassador.referralCode || payload.referralCode,
+          newUserId: result.id,
+          newUserName: result.username,
+          newUserEmail: result.email || undefined,
+          newUserPhone: result.phone || undefined,
+        });
+      }
+    } catch (refErr) {
+      console.error("[AmbassadorReferral] Error attributing user registration:", refErr);
     }
   }
 

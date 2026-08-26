@@ -5,6 +5,7 @@ const registerZodSchema = z.object({
   email: z.string().email("Invalid email address").optional(),
   phone: z.string().optional(),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  referralCode: z.string().optional(),
 });
 
 const loginZodSchema = z.object({

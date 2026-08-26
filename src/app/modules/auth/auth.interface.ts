@@ -4,6 +4,7 @@ export type IRegisterUser = {
   phone?: string;
   password: string;
   profileImage?: string;
+  referralCode?: string;
 };
 
 export type ILoginUser = {
