@@ -5,6 +5,7 @@ export type IRegisterUser = {
   password: string;
   profileImage?: string;
   referralCode?: string;
+  marketingPlatformId?: string;
 };
 
 export type ILoginUser = {

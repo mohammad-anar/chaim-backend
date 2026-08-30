@@ -6,6 +6,7 @@ const registerZodSchema = z.object({
   phone: z.string().optional(),
   password: z.string().min(6, "Password must be at least 6 characters"),
   referralCode: z.string().optional(),
+  marketingPlatformId: z.string().optional(),
 });
 
 const loginZodSchema = z.object({

@@ -135,3 +135,9 @@ enum ContactChannel {
   EMAIL
 }
 
+enum MarketingPlatformStatus {
+  ACTIVE
+  INACTIVE
+}
+
+

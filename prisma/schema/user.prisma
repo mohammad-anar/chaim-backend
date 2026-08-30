@@ -14,6 +14,9 @@ model User {
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
+  marketingPlatformId    String?                   @map("marketing_platform_id")
+  marketingPlatform      MarketingPlatform?        @relation(fields: [marketingPlatformId], references: [id], onDelete: SetNull)
+
   marketingEmail         MarketingEmail?
   apartment              Apartment?
   notifyRequestsSent     NotifyRequest[]           @relation("NotifyRequestUser")

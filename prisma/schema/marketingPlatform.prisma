@@ -1,0 +1,12 @@
+model MarketingPlatform {
+  id        String                  @id @default(uuid())
+  title     String
+  platform  String
+  status    MarketingPlatformStatus @default(ACTIVE)
+  createdAt DateTime                @default(now()) @map("created_at")
+  updatedAt DateTime                @updatedAt @map("updated_at")
+
+  users     User[]
+
+  @@map("advertisements_and_marketing_platforms")
+}
