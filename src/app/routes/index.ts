@@ -1,6 +1,7 @@
 import express from "express";
 import { AdvertisementRoutes } from "../modules/advertisement/advertisement.routes.js";
 import { AlertRoutes } from "../modules/alert/alert.routes.js";
+import { MarketingPlatformRoutes } from "../modules/marketingPlatform/marketingPlatform.routes.js";
 import { AmbassadorRoutes } from "../modules/ambassador/ambassador.routes.js";
 import { ApartmentRoutes } from "../modules/apartment/apartment.routes.js";
 import { ApartmentAvailabilityRoutes } from "../modules/apartmentAvailability/apartmentAvailability.routes.js";
@@ -102,6 +103,10 @@ const moduleRoutes = [
   {
     path: "/alert",
     route: AlertRoutes,
+  },
+  {
+    path: "/marketing-platform",
+    route: MarketingPlatformRoutes,
   },
 ];
 
