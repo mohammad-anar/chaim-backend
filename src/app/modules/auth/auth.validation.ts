@@ -6,12 +6,17 @@ const registerZodSchema = z
     email: z.string().email("Invalid email address").optional(),
     phone: z.string().min(6, "Phone number must be at least 6 digits").optional(),
     password: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(1, "Confirm password is required"),
     referralCode: z.string().optional(),
     marketingPlatformId: z.string().optional(),
   })
   .refine((data) => data.email || data.phone, {
     message: "At least one of email or phone number is required",
     path: ["email"],
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
   });
 
 const loginZodSchema = z

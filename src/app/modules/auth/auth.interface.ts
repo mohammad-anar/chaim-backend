@@ -3,6 +3,7 @@ export type IRegisterUser = {
   email?: string;
   phone?: string;
   password: string;
+  confirmPassword?: string;
   profileImage?: string;
   referralCode?: string;
   marketingPlatformId?: string;

@@ -72,6 +72,11 @@ const deliverOtp = async (
 // ---------------------------------------------------------------------------
 
 const registerUser = async (payload: IRegisterUser) => {
+  // Validate confirmPassword if provided
+  if (payload.confirmPassword && payload.password !== payload.confirmPassword) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Passwords do not match");
+  }
+
   // At least one of email or phone must be provided (also enforced in validation)
   if (!payload.email && !payload.phone) {
     throw new ApiError(
