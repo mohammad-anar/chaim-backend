@@ -9,8 +9,14 @@ export type IRegisterUser = {
 };
 
 export type ILoginUser = {
-  identifier: string; // email or phone
+  identifier?: string; // email or phone
+  email?: string;
+  phone?: string;
   password: string;
+};
+
+export type IDemoLogin = {
+  role: "admin" | "user" | "user1" | "user2" | "ambassador";
 };
 
 export type IChangePassword = {

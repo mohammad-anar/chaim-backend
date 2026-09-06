@@ -5,6 +5,8 @@ import fileUploadHandler from "../../middlewares/fileUploadHandler.js";
 import validateRequest from "../../middlewares/validateRequest.js";
 import { ApartmentController } from "./apartment.controller.js";
 import { ApartmentValidation } from "./apartment.validation.js";
+import { WeekendCalendarController } from "../weekendCalendar/weekendCalendar.controller.js";
+import { ApartmentAvailabilityController } from "../apartmentAvailability/apartmentAvailability.controller.js";
 
 const router = express.Router();
 
@@ -31,6 +33,17 @@ router.get(
 router.get(
   "/",
   ApartmentController.getAllApartments,
+);
+
+router.get(
+  "/availability/weekends",
+  WeekendCalendarController.getAllWeekendCalendars,
+);
+
+router.post(
+  "/availability/special-price",
+  auth(),
+  ApartmentAvailabilityController.setSpecialWeekendDirect,
 );
 
 router.get(

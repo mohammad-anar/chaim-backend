@@ -22,3 +22,17 @@ export type IVerifyNedarimPaymentPayload = {
   swapId?: string;
   reportRentedId?: string;
 };
+
+export type IDirectCardPaymentPayload = {
+  paymentType: "LISTING" | "REPORT_RENTED" | "SWAP" | "APARTMENT_LISTING" | "SWAP_REQUEST";
+  apartmentId?: string;
+  reportRentedId?: string;
+  swapId?: string;
+  paymentRecordId?: string;
+  cardNumber?: string;
+  cardHolder?: string;
+  expiryDate?: string;
+  expirationDate?: string;
+  cvv?: string;
+  idNumber?: string;
+};

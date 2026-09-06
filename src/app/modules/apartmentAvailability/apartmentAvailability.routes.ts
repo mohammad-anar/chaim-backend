@@ -3,8 +3,11 @@ import auth from "../../middlewares/auth.js";
 import validateRequest from "../../middlewares/validateRequest.js";
 import { ApartmentAvailabilityController } from "./apartmentAvailability.controller.js";
 import { ApartmentAvailabilityValidation } from "./apartmentAvailability.validation.js";
+import { WeekendCalendarController } from "../weekendCalendar/weekendCalendar.controller.js";
 
 const router = express.Router();
+
+router.get("/weekends", WeekendCalendarController.getAllWeekendCalendars);
 
 router.post(
   "/add",
@@ -25,6 +28,12 @@ router.post(
   auth(),
   validateRequest(ApartmentAvailabilityValidation.bulkSetAvailabilityZodSchema),
   ApartmentAvailabilityController.bulkSetAvailability,
+);
+
+router.post(
+  "/special-price",
+  auth(),
+  ApartmentAvailabilityController.setSpecialWeekendDirect,
 );
 
 // Dedicated route to toggle special weekend pricing for a specific availability record

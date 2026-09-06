@@ -89,10 +89,29 @@ const deleteAlert = async (id: string) => {
   });
 };
 
+const markAllAlertsAsRead = async (userId?: string) => {
+  const result = await prisma.alert.updateMany({
+    where: {
+      isActive: true,
+      ...(userId ? { targetUserId: userId } : {}),
+    },
+    data: {
+      isActive: false,
+    },
+  });
+
+  return {
+    success: true,
+    message: "Alerts marked as read",
+    count: result.count,
+  };
+};
+
 export const AlertService = {
   createAlert,
   getAllAlerts,
   getActiveAlertsForUser,
   updateAlert,
   deleteAlert,
+  markAllAlertsAsRead,
 };

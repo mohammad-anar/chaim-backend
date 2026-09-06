@@ -1,6 +1,8 @@
 import express from "express";
 import { UserRole } from "@prisma/client";
 import auth from "../../middlewares/auth.js";
+import validateRequest from "../../middlewares/validateRequest.js";
+import { PaymentValidation } from "./payment.validation.js";
 import { PaymentController } from "./payment.controller.js";
 
 const router = express.Router();
@@ -27,6 +29,13 @@ router.post(
   "/verify-nedarim",
   auth(),
   PaymentController.verifyNedarimPayment,
+);
+
+router.post(
+  "/direct-card",
+  auth(),
+  validateRequest(PaymentValidation.directCardPaymentZodSchema),
+  PaymentController.processDirectCardPayment,
 );
 
 router.post(

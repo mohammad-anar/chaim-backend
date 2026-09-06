@@ -39,8 +39,21 @@ const getAllReportRentedAdmin = catchAsync(async (req: Request, res: Response) =
   });
 });
 
+const markReportAsPaidAdmin = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const result = await ReportRentedServices.markReportAsPaidAdmin(id as string);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.message,
+    data: result,
+  });
+});
+
 export const ReportRentedController = {
   createReportRentedIntent,
   getMyReportedRented,
   getAllReportRentedAdmin,
+  markReportAsPaidAdmin,
 };

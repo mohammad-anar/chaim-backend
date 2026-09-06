@@ -14,9 +14,20 @@ const registerZodSchema = z
     path: ["email"],
   });
 
-const loginZodSchema = z.object({
-  identifier: z.string().min(1, "Email or phone number is required"),
-  password: z.string().min(1, "Password is required"),
+const loginZodSchema = z
+  .object({
+    identifier: z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    password: z.string().min(1, "Password is required"),
+  })
+  .refine((data) => data.identifier || data.email || data.phone, {
+    message: "Email, phone number, or identifier is required",
+    path: ["identifier"],
+  });
+
+const demoLoginZodSchema = z.object({
+  role: z.enum(["admin", "user", "user1", "user2", "ambassador"]),
 });
 
 const changePasswordZodSchema = z.object({
@@ -50,6 +61,7 @@ const resendOtpZodSchema = z.object({
 export const AuthValidation = {
   registerZodSchema,
   loginZodSchema,
+  demoLoginZodSchema,
   changePasswordZodSchema,
   forgotPasswordZodSchema,
   verifyOtpZodSchema,

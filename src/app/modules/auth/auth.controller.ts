@@ -94,9 +94,20 @@ const resendOtp = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const demoLogin = catchAsync(async (req: Request, res: Response) => {
+  const result = await AuthServices.demoLogin(req.body);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: `Demo login successful for ${req.body.role}`,
+    data: result,
+  });
+});
+
 export const AuthController = {
   registerUser,
   loginUser,
+  demoLogin,
   refreshToken,
   changePassword,
   forgotPassword,

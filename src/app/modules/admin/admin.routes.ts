@@ -12,9 +12,20 @@ router.get(
   auth(UserRole.SUPER_ADMIN),
   AdminController.getDashboardStats,
 );
+router.get(
+  "/dashboard-stats",
+  auth(UserRole.SUPER_ADMIN),
+  AdminController.getDashboardStats,
+);
 
 router.get(
   "/dashboard/monthly-revenue",
+  auth(UserRole.SUPER_ADMIN),
+  validateRequest(AdminValidation.getMonthlyRevenueQueryZodSchema),
+  AdminController.getMonthlyRevenue,
+);
+router.get(
+  "/revenue-analytics",
   auth(UserRole.SUPER_ADMIN),
   validateRequest(AdminValidation.getMonthlyRevenueQueryZodSchema),
   AdminController.getMonthlyRevenue,
@@ -25,6 +36,11 @@ router.get(
   auth(UserRole.SUPER_ADMIN),
   AdminController.getCitySearchDemand,
 );
+router.get(
+  "/search-demand",
+  auth(UserRole.SUPER_ADMIN),
+  AdminController.getCitySearchDemand,
+);
 
 router.get(
   "/dashboard/recent-activity",
@@ -32,9 +48,20 @@ router.get(
   validateRequest(AdminValidation.getRecentActivityQueryZodSchema),
   AdminController.getRecentActivity,
 );
+router.get(
+  "/recent-activities",
+  auth(UserRole.SUPER_ADMIN),
+  validateRequest(AdminValidation.getRecentActivityQueryZodSchema),
+  AdminController.getRecentActivity,
+);
 
 router.get(
   "/dashboard/ambassador-overview",
+  auth(UserRole.SUPER_ADMIN),
+  AdminController.getAmbassadorOverview,
+);
+router.get(
+  "/ambassador-overview",
   auth(UserRole.SUPER_ADMIN),
   AdminController.getAmbassadorOverview,
 );

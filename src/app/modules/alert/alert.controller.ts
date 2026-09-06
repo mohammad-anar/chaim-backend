@@ -63,10 +63,23 @@ const deleteAlert = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const markAllAlertsAsRead = catchAsync(async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id;
+  const result = await AlertService.markAllAlertsAsRead(userId);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.message,
+    data: result,
+  });
+});
+
 export const AlertController = {
   createAlert,
   getAllAlerts,
   getMyAlerts,
   updateAlert,
   deleteAlert,
+  markAllAlertsAsRead,
 };

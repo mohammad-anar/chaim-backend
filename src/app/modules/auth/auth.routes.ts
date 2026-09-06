@@ -21,6 +21,12 @@ router.post(
 );
 
 router.post(
+  "/demo-login",
+  validateRequest(AuthValidation.demoLoginZodSchema),
+  AuthController.demoLogin,
+);
+
+router.post(
   "/refresh-token",
   validateRequest(AuthValidation.refreshTokenZodSchema),
   AuthController.refreshToken,

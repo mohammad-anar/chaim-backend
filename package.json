@@ -9,6 +9,8 @@
     "dev": "tsx watch ./src/server.ts",
     "build": "tsc",
     "postinstall": "prisma generate",
+    "seed": "tsx prisma/seed.ts",
+    "test": "tsx test_system_sync.ts",
     "start:prod": "node dist/server.js"
   },
   "dependencies": {

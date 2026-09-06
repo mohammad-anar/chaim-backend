@@ -338,8 +338,62 @@ const getAllReportRentedAdmin = async () => {
   return reports;
 };
 
+const markReportAsPaidAdmin = async (reportRentedId: string) => {
+  const report = await prisma.reportRented.findUnique({
+    where: { id: reportRentedId },
+    include: { payment: true, apartment: true },
+  });
+
+  if (!report) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Report rented record not found");
+  }
+
+  const now = new Date();
+  const txId = `ADMIN-PAID-${Date.now()}`;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.reportRented.update({
+      where: { id: reportRentedId },
+      data: { paidAt: now },
+    });
+
+    if (report.payment) {
+      await tx.reportRentedPayment.update({
+        where: { id: report.payment.id },
+        data: {
+          status: "COMPLETED",
+          paidAt: now,
+          transactionId: txId,
+        },
+      });
+    } else {
+      await tx.reportRentedPayment.create({
+        data: {
+          reportRentedId: report.id,
+          apartmentId: report.apartmentId,
+          payerId: report.apartment.userId,
+          amount: config.fees.report_rented_fee || 10,
+          currency: "ILS",
+          paymentMethod: "CASH",
+          status: "COMPLETED",
+          paidAt: now,
+          transactionId: txId,
+        },
+      });
+    }
+  });
+
+  return {
+    success: true,
+    message: "Report rented marked as paid successfully by admin",
+    reportRentedId,
+    paidAt: now,
+  };
+};
+
 export const ReportRentedServices = {
   createReportRentedIntent,
   getMyReportedRented,
   getAllReportRentedAdmin,
+  markReportAsPaidAdmin,
 };

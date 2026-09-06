@@ -29,7 +29,7 @@
     {
       "key": "apartmentId",
       "type": "string",
-      "value": "APARTMENT_UUID"
+      "value": "c0a4b9e0-9f08-489a-8c25-4b219286b7d8"
     },
     {
       "key": "userId",
@@ -95,6 +95,16 @@
       "key": "marketingPlatformId",
       "type": "string",
       "value": "MARKETING_PLATFORM_UUID"
+    },
+    {
+      "key": "availabilityId",
+      "type": "string",
+      "value": "AVAILABILITY_UUID"
+    },
+    {
+      "key": "reportRentedId",
+      "type": "string",
+      "value": "REPORT_RENTED_UUID"
     }
   ],
   "item": [
@@ -102,6 +112,153 @@
       "name": "1. Auth (/auth)",
       "description": "Register, login, OTP, password reset, token refresh.",
       "item": [
+        {
+          "name": "Demo Login — Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/demo-login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "demo-login"
+              ]
+            },
+            "description": "Instant login for Super Admin (admin@shabosrent.com). Automatically sets {{adminToken}} and {{token}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json?.data?.accessToken) {",
+                  "        pm.collectionVariables.set(\"adminToken\", json.data.accessToken);",
+                  "        pm.collectionVariables.set(\"token\", json.data.accessToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Demo Login — User (Host)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/demo-login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "demo-login"
+              ]
+            },
+            "description": "Instant login for Host User (user1@shabosrent.com with active listing). Automatically sets {{token}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"user\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json?.data?.accessToken) {",
+                  "        pm.collectionVariables.set('token', json.data.accessToken);",
+                  "        console.log(\"Updated 'token' token in collection variables\");",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Demo Login — Ambassador",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/demo-login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "demo-login"
+              ]
+            },
+            "description": "Instant login for Ambassador (ambassador@shabosrent.com). Automatically sets {{ambassadorToken}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"ambassador\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json?.data?.accessToken) {",
+                  "        pm.collectionVariables.set('ambassadorToken', json.data.accessToken);",
+                  "        console.log(\"Updated 'ambassadorToken' token in collection variables\");",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
         {
           "name": "Register User",
           "request": {
@@ -154,17 +311,37 @@
                 "login"
               ]
             },
-            "description": "Returns accessToken and refreshToken.",
+            "description": "Login with either email or phone number identifier. Automatically stores accessToken into token or adminToken based on role.",
             "body": {
               "mode": "raw",
-              "raw": "{\"email\":\"moshe@example.com\",\"password\":\"Password123!\"}",
+              "raw": "{\n  \"identifier\": \"admin@shabosrent.com\",\n  \"password\": \"password123\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json?.data?.accessToken) {",
+                  "        if (json.data.user?.role === \"SUPER_ADMIN\") {",
+                  "            pm.collectionVariables.set(\"adminToken\", json.data.accessToken);",
+                  "        } else {",
+                  "            pm.collectionVariables.set(\"token\", json.data.accessToken);",
+                  "        }",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Refresh Token",
@@ -361,6 +538,55 @@
               }
             }
           }
+        },
+        {
+          "name": "Login with Phone Number",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login using phone number as identifier without country code formatting.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"0501112233\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json?.data?.accessToken) {",
+                  "        pm.collectionVariables.set('token', json.data.accessToken);",
+                  "        console.log(\"Updated 'token' token in collection variables\");",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ]
     },
@@ -528,6 +754,70 @@
               ]
             },
             "description": ""
+          }
+        },
+        {
+          "name": "[Admin] Get All Apartment Owners & Payment Dues",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user/admin/owners?hasDue=false&page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user",
+                "admin",
+                "owners"
+              ],
+              "query": [
+                {
+                  "key": "hasDue",
+                  "value": "false"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Lists all apartment owners along with listing validity, pending rental report dues, pending swap dues, and calculated total outstanding balance."
+          }
+        },
+        {
+          "name": "[Admin] Send Payment Due Reminder to Owner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/user/admin/owners/{{userId}}/remind-payment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "user",
+                "admin",
+                "owners",
+                "{{userId}}",
+                "remind-payment"
+              ]
+            },
+            "description": "Sends an in-app alert, email, and SMS reminder to the specified apartment owner about their outstanding fees with a direct payment link."
           }
         }
       ]
@@ -900,6 +1190,135 @@
             },
             "description": ""
           }
+        },
+        {
+          "name": "Get Upcoming Availability Weekends",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/apartment/availability/weekends",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment",
+                "availability",
+                "weekends"
+              ]
+            },
+            "description": "Retrieves all upcoming Shabbat calendar weekends for availability selection."
+          }
+        },
+        {
+          "name": "Set Weekend Special Price (Direct)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/apartment/availability/special-price",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment",
+                "availability",
+                "special-price"
+              ]
+            },
+            "description": "Directly upserts apartment availability for a weekend and sets or updates a special price.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"weekendId\": \"{{weekendId}}\",\n  \"isSpecial\": true,\n  \"specialPrice\": 950\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[Admin] Send Weekend Availability Reminder",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/apartment/remind-availability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment",
+                "remind-availability"
+              ]
+            },
+            "description": "Admin dispatches availability update reminder for a weekend to a specific apartment owner or broadcasts to all confirmed apartments that haven't set availability for that weekend yet.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"weekendId\": \"{{weekendId}}\",\n  \"apartmentId\": \"{{apartmentId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[Admin] Block or Unblock Apartment",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/apartment/block/{{apartmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment",
+                "block",
+                "{{apartmentId}}"
+              ]
+            },
+            "description": "Admin blocks (status: BLOCKED) or unblocks an apartment, busts Redis cache, and sends an alert to the owner.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blocked\": true,\n  \"reason\": \"Violation of platform terms or unverified host\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
         }
       ]
     },
@@ -1231,6 +1650,97 @@
             },
             "description": ""
           }
+        },
+        {
+          "name": "Get Upcoming Weekends",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/apartment-availability/weekends",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment-availability",
+                "weekends"
+              ]
+            },
+            "description": "Retrieves all upcoming Shabbat calendar weekends for availability selection."
+          }
+        },
+        {
+          "name": "Set Weekend Special Price (Upsert)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/apartment-availability/special-price",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment-availability",
+                "special-price"
+              ]
+            },
+            "description": "Directly upserts apartment availability for a weekend and sets or clears a special price.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"weekendId\": \"{{weekendId}}\",\n  \"isSpecial\": true,\n  \"specialPrice\": 950\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Set Special Weekend Pricing by ID",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/apartment-availability/{{availabilityId}}/special",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "apartment-availability",
+                "{{availabilityId}}",
+                "special"
+              ]
+            },
+            "description": "Toggles special pricing for an existing availability record by its availabilityId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isSpecial\": true,\n  \"specialPrice\": 950\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
         }
       ]
     },
@@ -1479,6 +1989,66 @@
               ]
             },
             "description": ""
+          }
+        },
+        {
+          "name": "Direct Credit Card Payment (Listing / Report Rented / Swap)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/direct-card",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "direct-card"
+              ]
+            },
+            "description": "Direct credit card checkout used by frontend for Listing Fees (₪28/yr), Report Rented Fees (₪10), or Swap Fees (₪10). Instantly confirms payment and awards commissions.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentType\": \"LISTING\",\n  \"apartmentId\": \"{{apartmentId}}\",\n  \"cardNumber\": \"4580123456789012\",\n  \"cardHolder\": \"Moshe Cohen\",\n  \"expirationDate\": \"12/28\",\n  \"cvv\": \"123\",\n  \"idNumber\": \"012345678\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[Admin] View All Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/admin/all-transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "admin",
+                "all-transactions"
+              ]
+            },
+            "description": "Admin audit log of all platform payment transactions across Listing, Swap, and Report Rented fees."
           }
         }
       ]
@@ -1901,6 +2471,82 @@
             "body": {
               "mode": "raw",
               "raw": "{\"status\":\"APPROVED\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[Admin] Get All Swap Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/swap/admin/all?page=1&limit=20&status=PENDING",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "swap",
+                "admin",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                }
+              ]
+            },
+            "description": "Admin view of all swap requests across the platform with filtering by status and pagination."
+          }
+        },
+        {
+          "name": "[Admin] Update Swap Request Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/swap/admin/status/{{swapId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "swap",
+                "admin",
+                "status",
+                "{{swapId}}"
+              ]
+            },
+            "description": "Admin forcefully updates any swap status (PENDING, APPROVED, REJECTED) and notifies both parties.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\",\n  \"note\": \"Approved by administrator\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2464,6 +3110,30 @@
               ]
             },
             "description": ""
+          }
+        },
+        {
+          "name": "[Admin] Mark Rental Report as Paid",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/report-rented/{{reportRentedId}}/mark-paid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "report-rented",
+                "{{reportRentedId}}",
+                "mark-paid"
+              ]
+            },
+            "description": "Admin marks an unpaid rental report as completed/paid (e.g. for cash settlements or manual reconciliations)."
           }
         }
       ]
@@ -3163,6 +3833,68 @@
                 },
                 "description": "Manually run the 7-day model selection deadline checker."
               }
+            },
+            {
+              "name": "[Admin] Get Ambassador Analytics & Stats",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/ambassador/admin/stats",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "ambassador",
+                    "admin",
+                    "stats"
+                  ]
+                },
+                "description": "Admin KPIs: Pending, Active, Suspended, Blocked ambassador counts, attributed properties, and total earnings across all ambassadors."
+              }
+            },
+            {
+              "name": "[Admin] Update Ambassador Status (Approve / Reject / Block / Suspend)",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/ambassador/admin/status/{{ambassadorId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "ambassador",
+                    "admin",
+                    "status",
+                    "{{ambassadorId}}"
+                  ]
+                },
+                "description": "Updates ambassador lifecycle status (APPROVED, ACTIVE, REJECTED, SUSPENDED, BLOCKED).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"BLOCKED\",\n  \"notes\": \"Account suspended by admin\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
             }
           ]
         }
@@ -3477,6 +4209,29 @@
           }
         },
         {
+          "name": "Mark All Alerts as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alert/mark-all-read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alert",
+                "mark-all-read"
+              ]
+            },
+            "description": "Marks all active broadcast alerts as read for the authenticated user."
+          }
+        },
+        {
           "name": "Get All Alerts (Admin)",
           "request": {
             "method": "GET",
@@ -3772,6 +4527,171 @@
               ]
             },
             "description": "Delete a marketing platform record."
+          }
+        }
+      ]
+    },
+    {
+      "name": "22. Admin Dashboard (/admin)",
+      "description": "Executive KPI metrics, revenue breakdown charts, search demand analytics, recent activity streams, and Twilio voice call logs.",
+      "item": [
+        {
+          "name": "[Admin] Get Dashboard KPI Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "stats"
+              ]
+            },
+            "description": "Executive summary KPIs: total, active, pending, blocked apartments, completed rentals/swaps, unpaid booking and swap fees with ILS totals. (Alias: {{baseUrl}}/admin/dashboard-stats)"
+          }
+        },
+        {
+          "name": "[Admin] Get Monthly Revenue Analytics (Week 1–5)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/monthly-revenue?year=2026&month=9",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "monthly-revenue"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "2026"
+                },
+                {
+                  "key": "month",
+                  "value": "9"
+                }
+              ]
+            },
+            "description": "Bar chart data: monthly revenue breakdown from Week 1 to Week 5 categorized by listing fees, report rented fees, and swap fees. (Alias: {{baseUrl}}/admin/revenue-analytics)"
+          }
+        },
+        {
+          "name": "[Admin] Get City Search Demand & Volume",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/city-search-demand",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "city-search-demand"
+              ]
+            },
+            "description": "Bar chart data: search volume per city logged by user searches, correlated with available apartment listings. (Alias: {{baseUrl}}/admin/search-demand)"
+          }
+        },
+        {
+          "name": "[Admin] Get Recent Activities Stream",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/recent-activity?limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "recent-activity"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Unified chronological activity feed: rental reports, booking payments, swap payments, new listings, and user registrations. (Alias: {{baseUrl}}/admin/recent-activities)"
+          }
+        },
+        {
+          "name": "[Admin] Get Ambassador Dashboard Overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/dashboard/ambassador-overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "dashboard",
+                "ambassador-overview"
+              ]
+            },
+            "description": "Ambassador overview for the main admin dashboard. (Alias: {{baseUrl}}/admin/ambassador-overview)"
+          }
+        },
+        {
+          "name": "[Admin] Get All Call Logs (Twilio)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/call-logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "call-logs"
+              ]
+            },
+            "description": "All masked phone call logs through Twilio with duration, status, and caller/receiver profiles."
           }
         }
       ]

@@ -199,10 +199,53 @@ const setSpecialWeekend = async (
   return updated;
 };
 
+const setSpecialWeekendDirect = async (
+  userId: string,
+  payload: { apartmentId: string; weekendId: string; isSpecial: boolean; specialPrice?: number },
+) => {
+  const apartment = await prisma.apartment.findUnique({
+    where: { id: payload.apartmentId },
+  });
+
+  if (!apartment) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Apartment not found");
+  }
+
+  if (apartment.userId !== userId) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "You do not have permission to update this apartment availability",
+    );
+  }
+
+  const updated = await prisma.apartmentAvailability.upsert({
+    where: {
+      apartmentId_weekendId: {
+        apartmentId: payload.apartmentId,
+        weekendId: payload.weekendId,
+      },
+    },
+    update: {
+      isSpecial: payload.isSpecial,
+      specialPrice: payload.isSpecial ? (payload.specialPrice ?? null) : null,
+    },
+    create: {
+      apartmentId: payload.apartmentId,
+      weekendId: payload.weekendId,
+      isSpecial: payload.isSpecial,
+      specialPrice: payload.isSpecial ? (payload.specialPrice ?? null) : null,
+    },
+    include: { weekend: true },
+  });
+
+  return updated;
+};
+
 export const ApartmentAvailabilityServices = {
   addAvailability,
   removeAvailability,
   bulkSetAvailability,
   getApartmentAvailabilities,
   setSpecialWeekend,
+  setSpecialWeekendDirect,
 };

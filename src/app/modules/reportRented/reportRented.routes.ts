@@ -20,4 +20,7 @@ router.get("/my-reports", auth(), ReportRentedController.getMyReportedRented);
 // Admin: View all platform rental reports
 router.get("/admin/all", auth(UserRole.SUPER_ADMIN), ReportRentedController.getAllReportRentedAdmin);
 
+// Admin: Mark reported rented as paid
+router.patch("/:id/mark-paid", auth(UserRole.SUPER_ADMIN), ReportRentedController.markReportAsPaidAdmin);
+
 export const ReportRentedRoutes = router;

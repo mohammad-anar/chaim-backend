@@ -13,6 +13,7 @@ import { emailTemplate } from "../../shared/emailTemplate.js";
 import { notifyOnUserRegisteredViaAmbassador } from "../../../helpers/notificationHelper.js";
 import {
   IChangePassword,
+  IDemoLogin,
   IForgotPassword,
   ILoginUser,
   IRefreshToken,
@@ -228,9 +229,11 @@ const registerUser = async (payload: IRegisterUser) => {
 };
 
 const loginUser = async (payload: ILoginUser) => {
-  const { identifier, password } = payload;
+  const rawIdentifier =
+    payload.identifier || payload.email || payload.phone || "";
+  const { password } = payload;
 
-  const user = await findUserByIdentifier(identifier);
+  const user = await findUserByIdentifier(rawIdentifier);
 
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User does not exist");
@@ -450,9 +453,117 @@ const resendOtp = async (payload: { identifier: string }) => {
   };
 };
 
+const demoLogin = async (payload: IDemoLogin) => {
+  const { role } = payload;
+  let user: any = null;
+
+  if (role === "admin") {
+    user = await prisma.user.findFirst({
+      where: { role: UserRole.SUPER_ADMIN, isDeleted: false },
+    });
+  } else if (role === "user1" || role === "user") {
+    // User with listing
+    user = await prisma.user.findFirst({
+      where: {
+        apartment: { isNot: null },
+        role: UserRole.USER,
+        isDeleted: false,
+      },
+    });
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: { email: "user1@shabosrent.com" },
+      });
+    }
+  } else if (role === "user2") {
+    // Fresh user without listing
+    user = await prisma.user.findFirst({
+      where: {
+        apartment: null,
+        role: UserRole.USER,
+        isDeleted: false,
+      },
+    });
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: { email: "user2@shabosrent.com" },
+      });
+    }
+  } else if (role === "ambassador") {
+    const amb = await prisma.ambassador.findFirst({
+      where: { status: "ACTIVE" },
+    });
+    if (!amb) {
+      throw new ApiError(
+        StatusCodes.NOT_FOUND,
+        "No active ambassador found in database. Please seed the database first.",
+      );
+    }
+    const jwtPayload = {
+      id: amb.id,
+      name: amb.name,
+      email: amb.email,
+      phone: amb.phone,
+      referralCode: amb.referralCode,
+      role: "AMBASSADOR",
+    };
+    const accessToken = jwtHelper.createToken(
+      jwtPayload,
+      config.jwt.jwt_secret as Secret,
+      config.jwt.jwt_expire_in as any,
+    );
+    const refreshToken = jwtHelper.createToken(
+      jwtPayload,
+      config.jwt.jwt_secret as Secret,
+      config.jwt.jwt_refresh_expire_in as any,
+    );
+    const { password: _, ...ambData } = amb;
+    return {
+      accessToken,
+      refreshToken,
+      user: { ...ambData, role: "AMBASSADOR" },
+    };
+  }
+
+  if (!user) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      `No demo account found for role "${role}". Please seed the database first.`,
+    );
+  }
+
+  const jwtPayload = {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    role: user.role,
+  };
+
+  const accessToken = jwtHelper.createToken(
+    jwtPayload,
+    config.jwt.jwt_secret as Secret,
+    config.jwt.jwt_expire_in as any,
+  );
+
+  const refreshToken = jwtHelper.createToken(
+    jwtPayload,
+    config.jwt.jwt_secret as Secret,
+    config.jwt.jwt_refresh_expire_in as any,
+  );
+
+  const { password: _, ...userData } = user;
+
+  return {
+    accessToken,
+    refreshToken,
+    user: userData,
+  };
+};
+
 export const AuthServices = {
   registerUser,
   loginUser,
+  demoLogin,
   refreshToken,
   changePassword,
   forgotPassword,

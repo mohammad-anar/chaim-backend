@@ -76,11 +76,24 @@ const getAdminAllTransactions = catchAsync(async (req: Request, res: Response) =
   });
 });
 
+const processDirectCardPayment = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const result = await PaymentServices.processDirectCardPayment(userId, req.body);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.message,
+    data: result,
+  });
+});
+
 export const PaymentController = {
   createListingPaymentIntent,
   createSwapPaymentIntent,
   createReportRentedPaymentIntent,
   verifyNedarimPayment,
   handleNedarimCallback,
+  processDirectCardPayment,
   getAdminAllTransactions,
 };

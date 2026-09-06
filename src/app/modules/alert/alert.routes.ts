@@ -10,6 +10,9 @@ const router = express.Router();
 // Authenticated users: Get active broadcast alerts
 router.get("/my-alerts", auth(), AlertController.getMyAlerts);
 
+// Authenticated users: Mark all alerts as read
+router.patch("/mark-all-read", auth(), AlertController.markAllAlertsAsRead);
+
 // Admin: Get all alerts history
 router.get("/", auth(UserRole.SUPER_ADMIN), AlertController.getAllAlerts);
 
