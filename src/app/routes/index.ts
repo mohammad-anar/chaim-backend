@@ -20,6 +20,7 @@ import { SwapPreferenceRoutes } from "../modules/swapPreference/swapPreference.r
 import { UserRouter } from "../modules/user/user.routes.js";
 import { WeekendCalendarRoutes } from "../modules/weekendCalendar/weekendCalendar.routes.js";
 import { WishlistRoutes } from "../modules/wishlist/wishlist.routes.js";
+import { AdminRoutes } from "../modules/admin/admin.routes.js";
 
 const router = express.Router();
 
@@ -107,6 +108,10 @@ const moduleRoutes = [
   {
     path: "/marketing-platform",
     route: MarketingPlatformRoutes,
+  },
+  {
+    path: "/admin",
+    route: AdminRoutes,
   },
 ];
 

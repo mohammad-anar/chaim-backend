@@ -1,4 +1,4 @@
-import { ApartmentStatus, PropertyType, Prisma } from "@prisma/client";
+import { ApartmentStatus, PropertyType, Prisma, AlertType } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiError.js";
 import { getCache, setCache, deleteCacheByPattern } from "../../../helpers/redis.js";
@@ -6,9 +6,12 @@ import { paginationHelper } from "../../../helpers/paginationHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
 import { IPaginationOptions } from "../../../types/pagination.js";
 import {
+  dispatchNotification,
   notifyAdminOnApartmentAdded,
   notifyOnAmbassadorAttribution,
 } from "../../../helpers/notificationHelper.js";
+import { emailHelper } from "../../../helpers/emailHelper.js";
+import { smsHelper } from "../../../helpers/smsHelper.js";
 import {
   IApartmentFilterRequest,
   ICreateApartment,
@@ -432,6 +435,7 @@ const getAllApartments = async (
   }
 
   if (!isAnyOrEmpty(city)) {
+    logCitySearch(String(city).trim());
     andConditions.push({ city: { contains: String(city).trim(), mode: "insensitive" } });
   }
 
@@ -890,6 +894,193 @@ const getAdminApartmentDetails = async (idOrPropertyId: string) => {
   };
 };
 
+export const logCitySearch = async (city: string) => {
+  try {
+    if (!city || !city.trim()) return;
+    const clean = city.trim();
+    await prisma.citySearchLog.upsert({
+      where: { city: clean },
+      update: { searchCount: { increment: 1 } },
+      create: { city: clean, searchCount: 1 },
+    });
+  } catch {
+    // Ignore logging failures
+  }
+};
+
+const blockApartment = async (
+  apartmentId: string,
+  isBlocked: boolean,
+  reason?: string,
+) => {
+  const apartment = await prisma.apartment.findUnique({
+    where: { id: apartmentId },
+    include: { user: true },
+  });
+
+  if (!apartment) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Apartment not found");
+  }
+
+  const updatedStatus = isBlocked
+    ? ApartmentStatus.BLOCKED
+    : ApartmentStatus.CONFIRMED;
+
+  const result = await prisma.apartment.update({
+    where: { id: apartmentId },
+    data: { status: updatedStatus },
+  });
+
+  await deleteCacheByPattern("apartment:*");
+
+  // Notify owner
+  await dispatchNotification({
+    title: isBlocked ? "Apartment Blocked" : "Apartment Unblocked",
+    message: isBlocked
+      ? `Your apartment "${apartment.title}" has been blocked by an administrator.${reason ? ` Reason: ${reason}` : ""}`
+      : `Your apartment "${apartment.title}" has been unblocked and is active.`,
+    type: isBlocked ? AlertType.WARNING : AlertType.SUCCESS,
+    targetUserId: apartment.userId,
+    link: "/user-dashboard",
+    metadata: { apartmentId, isBlocked, reason },
+  });
+
+  return result;
+};
+
+const sendAvailabilityReminder = async (payload: {
+  weekendId: string;
+  apartmentId?: string;
+  message?: string;
+}) => {
+  const weekend = await prisma.weekendCalendar.findUnique({
+    where: { id: payload.weekendId },
+  });
+
+  if (!weekend) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Weekend calendar record not found");
+  }
+
+  const weekendName = weekend.title;
+  const weekendDateStr = weekend.date.toISOString().split("T")[0];
+
+  if (payload.apartmentId) {
+    const apartment = await prisma.apartment.findUnique({
+      where: { id: payload.apartmentId },
+      include: { user: true },
+    });
+
+    if (!apartment) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "Apartment not found");
+    }
+
+    const defaultMsg = `Please update your availability for "${apartment.title}" for upcoming weekend ${weekendName} (${weekendDateStr}).`;
+    const finalMsg = payload.message || defaultMsg;
+
+    // In-app alert
+    await dispatchNotification({
+      title: "Weekend Availability Update Reminder",
+      message: finalMsg,
+      type: AlertType.INFO,
+      targetUserId: apartment.userId,
+      link: `/apartment-availability/${apartment.id}`,
+      metadata: { apartmentId: apartment.id, weekendId: payload.weekendId },
+    });
+
+    // Email if email exists
+    if (apartment.user.email) {
+      try {
+        await emailHelper.sendEmail({
+          to: apartment.user.email,
+          subject: `Update Availability for ${weekendName}`,
+          html: `<p>Dear ${apartment.user.username},</p><p>${finalMsg}</p><p><a href="https://shabbos-rent-website.vercel.app/user-dashboard">Go to Dashboard</a></p>`,
+        });
+      } catch (err) {
+        console.error("Failed to send reminder email:", err);
+      }
+    }
+
+    // SMS if phone exists
+    const phone = apartment.phoneNumber || apartment.user.phone;
+    if (phone) {
+      try {
+        await smsHelper.sendSms({
+          to: phone,
+          body: `ShabbosRent: ${finalMsg}`,
+        });
+      } catch (err) {
+        console.error("Failed to send reminder SMS:", err);
+      }
+    }
+
+    return {
+      count: 1,
+      message: `Reminder sent to owner of "${apartment.title}"`,
+    };
+  }
+
+  // Broadcast to all confirmed apartments that do NOT have availability set for this weekend
+  const pendingApartments = await prisma.apartment.findMany({
+    where: {
+      status: ApartmentStatus.CONFIRMED,
+      availabilities: {
+        none: { weekendId: payload.weekendId },
+      },
+    },
+    include: { user: true },
+  });
+
+  let sentCount = 0;
+
+  for (const apt of pendingApartments) {
+    try {
+      const defaultMsg = `Please update your availability for "${apt.title}" for upcoming weekend ${weekendName} (${weekendDateStr}).`;
+      const finalMsg = payload.message || defaultMsg;
+
+      // In-app alert
+      await dispatchNotification({
+        title: "Weekend Availability Reminder",
+        message: finalMsg,
+        type: AlertType.INFO,
+        targetUserId: apt.userId,
+        link: `/apartment-availability/${apt.id}`,
+        metadata: { apartmentId: apt.id, weekendId: payload.weekendId },
+      });
+
+      // Email
+      if (apt.user.email) {
+        emailHelper
+          .sendEmail({
+            to: apt.user.email,
+            subject: `Update Availability for ${weekendName}`,
+            html: `<p>Dear ${apt.user.username},</p><p>${finalMsg}</p><p><a href="https://shabbos-rent-website.vercel.app/user-dashboard">Go to Dashboard</a></p>`,
+          })
+          .catch(() => {});
+      }
+
+      // SMS
+      const phone = apt.phoneNumber || apt.user.phone;
+      if (phone) {
+        smsHelper
+          .sendSms({
+            to: phone,
+            body: `ShabbosRent: ${finalMsg}`,
+          })
+          .catch(() => {});
+      }
+
+      sentCount++;
+    } catch (loopErr) {
+      console.error(`Error sending reminder to apartment ${apt.id}:`, loopErr);
+    }
+  }
+
+  return {
+    count: sentCount,
+    message: `Availability reminders dispatched to ${sentCount} apartment owners for weekend ${weekendName}`,
+  };
+};
+
 export const ApartmentServices = {
   createApartment,
   getMyAppartment,
@@ -898,5 +1089,8 @@ export const ApartmentServices = {
   getAdminApartmentDetails,
   updateApartment,
   updateApartmentStatus,
+  blockApartment,
+  sendAvailabilityReminder,
+  logCitySearch,
   deleteApartment,
 };

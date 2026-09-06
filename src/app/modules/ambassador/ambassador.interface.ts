@@ -56,7 +56,8 @@ export interface IRequestPayoutPayload {
 }
 
 export interface IAdminReviewApplicationPayload {
-  status: "APPROVED" | "REJECTED";
+  status: "APPROVED" | "REJECTED" | "BLOCKED" | "SUSPENDED" | "ACTIVE" | "INACTIVE";
+  reason?: string;
   customReferralCode?: string;
   rates?: Partial<IAmbassadorRates>;
 }

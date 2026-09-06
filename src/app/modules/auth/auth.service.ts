@@ -8,6 +8,7 @@ import generateOTP from "../../../helpers/generateOTP.js";
 import { jwtHelper } from "../../../helpers/jwtHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
 import { emailHelper } from "../../../helpers/emailHelper.js";
+import { smsHelper } from "../../../helpers/smsHelper.js";
 import { emailTemplate } from "../../shared/emailTemplate.js";
 import { notifyOnUserRegisteredViaAmbassador } from "../../../helpers/notificationHelper.js";
 import {
@@ -20,7 +21,65 @@ import {
   IVerifyOtp,
 } from "./auth.interface.js";
 
+// ---------------------------------------------------------------------------
+// Helper: resolve a user record by email-or-phone identifier
+// ---------------------------------------------------------------------------
+const findUserByIdentifier = async (identifier: string) => {
+  const normalized = identifier.trim().toLowerCase();
+  const phoneOnly = identifier.replace(/\D/g, "");
+
+  return prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: normalized },
+        ...(phoneOnly.length >= 6 ? [{ phone: phoneOnly }] : []),
+      ],
+    },
+  });
+};
+
+// ---------------------------------------------------------------------------
+// Helper: deliver OTP to the user's available contact channel
+// ---------------------------------------------------------------------------
+const deliverOtp = async (
+  user: { email: string | null; phone: string | null; username: string },
+  otp: number,
+  template: "createAccount" | "resetPassword",
+) => {
+  if (user.email) {
+    try {
+      const emailTpl =
+        template === "createAccount"
+          ? emailTemplate.createAccount({ name: user.username, email: user.email, otp })
+          : emailTemplate.resetPassword({ email: user.email, otp });
+      await emailHelper.sendEmail(emailTpl);
+    } catch (err: any) {
+      console.error("Failed to send OTP email:", err?.message || err);
+    }
+  } else if (user.phone) {
+    try {
+      await smsHelper.sendSms({
+        to: user.phone.startsWith("+") ? user.phone : `+${user.phone}`,
+        body: `Your Chaim verification code is: ${otp}. Valid for 10 minutes.`,
+      });
+    } catch (err: any) {
+      console.error("Failed to send OTP SMS:", err?.message || err);
+    }
+  }
+};
+
+// ---------------------------------------------------------------------------
+
 const registerUser = async (payload: IRegisterUser) => {
+  // At least one of email or phone must be provided (also enforced in validation)
+  if (!payload.email && !payload.phone) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "At least one of email or phone number is required",
+    );
+  }
+
+  // Check uniqueness within User table
   const existingUsername = await prisma.user.findUnique({
     where: { username: payload.username },
   });
@@ -43,6 +102,32 @@ const registerUser = async (payload: IRegisterUser) => {
     });
     if (existingPhone) {
       throw new ApiError(StatusCodes.CONFLICT, "Phone number already exists");
+    }
+  }
+
+  // Cross-model uniqueness: email/phone must not exist in Ambassador table either
+  if (payload.email) {
+    const ambassadorWithEmail = await prisma.ambassador.findUnique({
+      where: { email: payload.email.trim().toLowerCase() },
+    });
+    if (ambassadorWithEmail) {
+      throw new ApiError(
+        StatusCodes.CONFLICT,
+        "This email is already registered as an ambassador account",
+      );
+    }
+  }
+
+  if (payload.phone) {
+    const normalizedPhone = payload.phone.replace(/\D/g, "");
+    const ambassadorWithPhone = await prisma.ambassador.findUnique({
+      where: { phone: normalizedPhone },
+    });
+    if (ambassadorWithPhone) {
+      throw new ApiError(
+        StatusCodes.CONFLICT,
+        "This phone number is already registered as an ambassador account",
+      );
     }
   }
 
@@ -91,18 +176,12 @@ const registerUser = async (payload: IRegisterUser) => {
     return newUser;
   });
 
-  if (payload.email) {
-    try {
-      const template = emailTemplate.createAccount({
-        name: result.username,
-        email: payload.email,
-        otp,
-      });
-      await emailHelper.sendEmail(template);
-    } catch (err: any) {
-      console.error("Failed to send registration OTP email:", err?.message || err);
-    }
-  }
+  // Deliver OTP via email or SMS
+  await deliverOtp(
+    { email: result.email, phone: result.phone, username: result.username },
+    otp,
+    "createAccount",
+  );
 
   // Handle ambassador referral code attribution on registration
   if (payload.referralCode && payload.referralCode.trim() !== "") {
@@ -113,8 +192,6 @@ const registerUser = async (payload: IRegisterUser) => {
 
       if (ambassador && ambassador.status === "ACTIVE") {
         // Track user-level referral attribution
-        // Note: apartmentTitle and ownerPhone are required (non-nullable) in schema.
-        // We store a placeholder; the real apartment linkage happens when the user lists a property.
         await prisma.ambassadorAttribution.create({
           data: {
             ambassadorId: ambassador.id,
@@ -151,9 +228,9 @@ const registerUser = async (payload: IRegisterUser) => {
 };
 
 const loginUser = async (payload: ILoginUser) => {
-  const { email, password } = payload;
+  const { identifier, password } = payload;
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await findUserByIdentifier(identifier);
 
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User does not exist");
@@ -208,10 +285,7 @@ const refreshToken = async (payload: IRefreshToken) => {
 
   let verifyToken;
   try {
-    verifyToken = jwtHelper.verifyToken(
-      token,
-      config.jwt.jwt_secret as Secret,
-    );
+    verifyToken = jwtHelper.verifyToken(token, config.jwt.jwt_secret as Secret);
   } catch (error) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid Refresh Token");
   }
@@ -251,10 +325,7 @@ const changePassword = async (userId: string, payload: IChangePassword) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
   }
 
-  const isPasswordMatched = await bcrypt.compare(
-    payload.oldPassword,
-    user.password,
-  );
+  const isPasswordMatched = await bcrypt.compare(payload.oldPassword, user.password);
   if (!isPasswordMatched) {
     throw new ApiError(StatusCodes.UNAUTHORIZED, "Incorrect old password");
   }
@@ -271,12 +342,10 @@ const changePassword = async (userId: string, payload: IChangePassword) => {
 };
 
 const forgotPassword = async (payload: IForgotPassword) => {
-  const user = await prisma.user.findUnique({
-    where: { email: payload.email },
-  });
+  const user = await findUserByIdentifier(payload.identifier);
 
   if (!user) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User not found with this email");
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found with this email or phone");
   }
 
   const otp = generateOTP();
@@ -284,33 +353,22 @@ const forgotPassword = async (payload: IForgotPassword) => {
 
   await prisma.user.update({
     where: { id: user.id },
-    data: {
-      otp,
-      otpExpiry,
-    },
+    data: { otp, otpExpiry },
   });
 
-  if (user.email) {
-    try {
-      const template = emailTemplate.resetPassword({
-        email: user.email,
-        otp,
-      });
-      await emailHelper.sendEmail(template);
-    } catch (err: any) {
-      console.error("Failed to send reset password OTP email:", err?.message || err);
-    }
-  }
+  await deliverOtp(
+    { email: user.email, phone: user.phone, username: user.username },
+    otp,
+    "resetPassword",
+  );
 
   return {
-    message: "OTP sent to user email and stored in database successfully",
+    message: "OTP sent to your registered email or phone",
   };
 };
 
 const verifyOtp = async (payload: IVerifyOtp) => {
-  const user = await prisma.user.findUnique({
-    where: { email: payload.email },
-  });
+  const user = await findUserByIdentifier(payload.identifier);
 
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
@@ -337,9 +395,7 @@ const verifyOtp = async (payload: IVerifyOtp) => {
 };
 
 const resetPassword = async (payload: IResetPassword) => {
-  const user = await prisma.user.findUnique({
-    where: { email: payload.email },
-  });
+  const user = await findUserByIdentifier(payload.identifier);
 
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
@@ -368,13 +424,11 @@ const resetPassword = async (payload: IResetPassword) => {
   return { message: "Password reset successfully" };
 };
 
-const resendOtp = async (payload: { email: string }) => {
-  const user = await prisma.user.findUnique({
-    where: { email: payload.email },
-  });
+const resendOtp = async (payload: { identifier: string }) => {
+  const user = await findUserByIdentifier(payload.identifier);
 
   if (!user) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User not found with this email");
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found with this email or phone");
   }
 
   const otp = generateOTP();
@@ -382,24 +436,14 @@ const resendOtp = async (payload: { email: string }) => {
 
   await prisma.user.update({
     where: { id: user.id },
-    data: {
-      otp,
-      otpExpiry,
-    },
+    data: { otp, otpExpiry },
   });
 
-  if (user.email) {
-    try {
-      const template = emailTemplate.createAccount({
-        name: user.username,
-        email: user.email,
-        otp,
-      });
-      await emailHelper.sendEmail(template);
-    } catch (err: any) {
-      console.error("Failed to resend OTP email:", err?.message || err);
-    }
-  }
+  await deliverOtp(
+    { email: user.email, phone: user.phone, username: user.username },
+    otp,
+    "createAccount",
+  );
 
   return {
     message: "OTP resent successfully",

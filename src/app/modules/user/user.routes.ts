@@ -21,6 +21,19 @@ router.patch(
 );
 
 router.get(
+  "/admin/owners",
+  auth(UserRole.SUPER_ADMIN),
+  UserController.getAllOwnersAdmin,
+);
+
+router.post(
+  "/admin/owners/:id/remind-payment",
+  auth(UserRole.SUPER_ADMIN),
+  validateRequest(UserValidation.sendPaymentDueReminderZodSchema),
+  UserController.sendPaymentDueReminder,
+);
+
+router.get(
   "/",
   auth(UserRole.SUPER_ADMIN),
   UserController.getAllUsers,

@@ -1,12 +1,12 @@
 import bcrypt from "bcryptjs";
 import {
   AmbassadorModel,
+  AmbassadorRole,
   AmbassadorStatus,
   CommissionStatus,
   CommissionType,
   PayoutStatus,
   Prisma,
-  UserRole,
 } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import { Secret } from "jsonwebtoken";
@@ -107,6 +107,7 @@ const registerAmbassador = async (payload: IRegisterAmbassadorPayload) => {
   const normalizedEmail = payload.email.trim().toLowerCase();
   const normalizedPhone = payload.phone.replace(/\D/g, "");
 
+  // Check uniqueness within Ambassador table
   const existingByEmail = await prisma.ambassador.findUnique({
     where: { email: normalizedEmail },
   });
@@ -127,6 +128,27 @@ const registerAmbassador = async (payload: IRegisterAmbassadorPayload) => {
     );
   }
 
+  // Cross-model uniqueness: email/phone must not exist in User table either
+  const userWithEmail = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+  });
+  if (userWithEmail) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      "This email is already registered as a user account",
+    );
+  }
+
+  const userWithPhone = await prisma.user.findUnique({
+    where: { phone: normalizedPhone },
+  });
+  if (userWithPhone) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      "This phone number is already registered as a user account",
+    );
+  }
+
   let recruitedById: string | null = null;
   if (payload.recruitmentCode && payload.recruitmentCode.trim() !== "") {
     const recruiter = await prisma.ambassador.findUnique({
@@ -141,6 +163,9 @@ const registerAmbassador = async (payload: IRegisterAmbassadorPayload) => {
   const rawPassword = payload.password || "password123";
   const hashedPassword = await bcrypt.hash(rawPassword, saltRound);
 
+  // Auto-generate referral code at registration (code exists immediately, activated on approval)
+  const referralCode = await generateUniqueReferralCode(payload.name);
+
   const ambassador = await prisma.ambassador.create({
     data: {
       name: payload.name.trim(),
@@ -149,6 +174,7 @@ const registerAmbassador = async (payload: IRegisterAmbassadorPayload) => {
       password: hashedPassword,
       status: AmbassadorStatus.PENDING,
       defaultModel: AmbassadorModel.MODEL_A,
+      referralCode,
       recruitedById,
       rates: DEFAULT_AMBASSADOR_RATES as unknown as Prisma.InputJsonValue,
     },
@@ -157,6 +183,7 @@ const registerAmbassador = async (payload: IRegisterAmbassadorPayload) => {
       name: true,
       email: true,
       phone: true,
+      referralCode: true,
       status: true,
       createdAt: true,
     },
@@ -221,7 +248,7 @@ const loginAmbassador = async (payload: ILoginAmbassadorPayload) => {
     {
       id: ambassador.id,
       email: ambassador.email,
-      role: UserRole.AMBASSADOR,
+      role: AmbassadorRole.AMBASSADOR,
     },
     config.jwt.jwt_secret as Secret,
     (config.jwt.jwt_expire_in || "7d") as any,
@@ -781,27 +808,80 @@ const processExpiredDeadlines = async () => {
  * Admin Stats for Ambassador Overview Dashboard
  */
 const getAdminStats = async () => {
-  const pendingApplicants = await prisma.ambassador.count({
-    where: { status: AmbassadorStatus.PENDING },
-  });
-
-  const activeAmbassadors = await prisma.ambassador.count({
-    where: { status: AmbassadorStatus.ACTIVE },
-  });
-
-  const attributedProperties = await prisma.ambassadorAttribution.count({
-    where: { status: "ACTIVE" },
-  });
-
-  const pendingPayouts = await prisma.ambassadorPayout.count({
-    where: { status: PayoutStatus.REQUESTED },
-  });
-
-  return {
+  const [
+    totalAmbassadors,
     pendingApplicants,
     activeAmbassadors,
+    blockedAmbassadors,
     attributedProperties,
-    pendingPayouts,
+    pendingPayoutList,
+    paidPayoutList,
+    approvedCommissions,
+    pendingCommissions,
+  ] = await Promise.all([
+    prisma.ambassador.count(),
+    prisma.ambassador.count({
+      where: { status: AmbassadorStatus.PENDING },
+    }),
+    prisma.ambassador.count({
+      where: { status: AmbassadorStatus.ACTIVE },
+    }),
+    prisma.ambassador.count({
+      where: {
+        status: { in: [AmbassadorStatus.BLOCKED, AmbassadorStatus.SUSPENDED] },
+      },
+    }),
+    prisma.ambassadorAttribution.count({
+      where: { status: "ACTIVE" },
+    }),
+    prisma.ambassadorPayout.findMany({
+      where: { status: PayoutStatus.REQUESTED },
+      select: { amount: true },
+    }),
+    prisma.ambassadorPayout.findMany({
+      where: { status: PayoutStatus.PAID },
+      select: { amount: true },
+    }),
+    prisma.ambassadorCommission.findMany({
+      where: {
+        status: { in: [CommissionStatus.APPROVED, CommissionStatus.PAID] },
+      },
+      select: { amount: true },
+    }),
+    prisma.ambassadorCommission.findMany({
+      where: { status: CommissionStatus.PENDING },
+      select: { amount: true },
+    }),
+  ]);
+
+  const pendingPayoutAmount = pendingPayoutList.reduce(
+    (sum, p) => sum + (p.amount || 0),
+    0,
+  );
+  const totalPaidOut = paidPayoutList.reduce(
+    (sum, p) => sum + (p.amount || 0),
+    0,
+  );
+  const totalEarnings = approvedCommissions.reduce(
+    (sum, c) => sum + (c.amount || 0),
+    0,
+  );
+  const pendingEarnings = pendingCommissions.reduce(
+    (sum, c) => sum + (c.amount || 0),
+    0,
+  );
+
+  return {
+    totalAmbassadors,
+    pendingApplicants,
+    activeAmbassadors,
+    blockedAmbassadors,
+    attributedProperties,
+    pendingPayouts: pendingPayoutList.length,
+    pendingPayoutAmount: Math.round(pendingPayoutAmount * 100) / 100,
+    totalEarnings: Math.round(totalEarnings * 100) / 100,
+    totalPaidOut: Math.round(totalPaidOut * 100) / 100,
+    pendingEarnings: Math.round(pendingEarnings * 100) / 100,
   };
 };
 
@@ -858,7 +938,7 @@ const getAllAmbassadorsAdmin = async (query: { status?: string; search?: string 
 };
 
 /**
- * Admin: Review Ambassador Application (Approve or Reject)
+ * Admin: Review Ambassador Application or update status (Approve, Reject, Block, Suspend)
  */
 const reviewAmbassadorApplication = async (
   ambassadorId: string,
@@ -874,17 +954,19 @@ const reviewAmbassadorApplication = async (
 
   const now = new Date();
 
-  if (payload.status === "APPROVED") {
+  if (payload.status === "APPROVED" || payload.status === "ACTIVE") {
     let referralCode = payload.customReferralCode?.trim().toUpperCase();
-    if (!referralCode) {
+    if (!referralCode && !ambassador.referralCode) {
       referralCode = await generateUniqueReferralCode(ambassador.name);
-    } else {
+    } else if (payload.customReferralCode) {
       const codeExists = await prisma.ambassador.findUnique({
         where: { referralCode },
       });
       if (codeExists && codeExists.id !== ambassadorId) {
         throw new ApiError(StatusCodes.CONFLICT, "Custom referral code is already in use");
       }
+    } else {
+      referralCode = ambassador.referralCode || undefined;
     }
 
     const rateLockedUntil = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000); // 1-Year Rate Lock
@@ -894,15 +976,34 @@ const reviewAmbassadorApplication = async (
       data: {
         status: AmbassadorStatus.ACTIVE,
         referralCode,
-        approvedAt: now,
-        contractSignedAt: now,
-        rateLockedUntil,
+        approvedAt: ambassador.approvedAt || now,
+        contractSignedAt: ambassador.contractSignedAt || now,
+        rateLockedUntil: ambassador.rateLockedUntil || rateLockedUntil,
         ...(payload.rates ? { rates: payload.rates as Prisma.InputJsonValue } : {}),
       },
     });
 
     return updated;
+  } else if (payload.status === "BLOCKED") {
+    const updated = await prisma.ambassador.update({
+      where: { id: ambassadorId },
+      data: {
+        status: AmbassadorStatus.BLOCKED,
+      },
+    });
+
+    return updated;
+  } else if (payload.status === "SUSPENDED") {
+    const updated = await prisma.ambassador.update({
+      where: { id: ambassadorId },
+      data: {
+        status: AmbassadorStatus.SUSPENDED,
+      },
+    });
+
+    return updated;
   } else {
+    // REJECTED or INACTIVE
     const updated = await prisma.ambassador.update({
       where: { id: ambassadorId },
       data: {
@@ -1146,6 +1247,37 @@ const adminProcessPayout = async (
   }
 };
 
+/**
+ * Get the shareable referral link for the logged-in ambassador
+ */
+const getAmbassadorReferralLink = async (ambassadorId: string) => {
+  const ambassador = await prisma.ambassador.findUnique({
+    where: { id: ambassadorId },
+    select: { id: true, referralCode: true, status: true },
+  });
+
+  if (!ambassador) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Ambassador not found");
+  }
+
+  if (!ambassador.referralCode) {
+    throw new ApiError(
+      StatusCodes.NOT_FOUND,
+      "Referral code not assigned yet. Please contact support.",
+    );
+  }
+
+  const frontendUrl = config.frontend_url || "https://shabbos-rent-website.vercel.app";
+  const referralLink = `${frontendUrl}/signup?ref=${ambassador.referralCode}`;
+
+  return {
+    referralCode: ambassador.referralCode,
+    referralLink,
+    status: ambassador.status,
+    isActive: ambassador.status === AmbassadorStatus.ACTIVE,
+  };
+};
+
 export const AmbassadorService = {
   registerAmbassador,
   loginAmbassador,
@@ -1170,4 +1302,5 @@ export const AmbassadorService = {
   getAllPayoutsAdmin,
   adminProcessPayout,
   getAmbassadorRates,
+  getAmbassadorReferralLink,
 };

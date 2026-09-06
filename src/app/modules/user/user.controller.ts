@@ -74,6 +74,35 @@ const deleteUser = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllOwnersAdmin = catchAsync(async (req: Request, res: Response) => {
+  const filters = pick(req.query, ["searchTerm", "hasDue"]);
+  const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
+
+  const result = await UserServices.getAllOwnersAdmin(filters, options);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Apartment owners retrieved successfully",
+    meta: result.meta,
+    data: result.data,
+  });
+});
+
+const sendPaymentDueReminder = catchAsync(
+  async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const result = await UserServices.sendPaymentDueReminder(id, req.body);
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: result.message,
+      data: result,
+    });
+  },
+);
+
 export const UserController = {
   getMyProfile,
   updateMyProfile,
@@ -81,4 +110,6 @@ export const UserController = {
   getUserById,
   updateUserStatus,
   deleteUser,
+  getAllOwnersAdmin,
+  sendPaymentDueReminder,
 };

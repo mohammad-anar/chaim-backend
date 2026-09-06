@@ -1,7 +1,11 @@
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiError.js";
 import { prisma } from "../../../helpers/prisma.js";
-import { IBulkSetAvailability, IToggleAvailability } from "./apartmentAvailability.interface.js";
+import {
+  IBulkSetAvailability,
+  ISetSpecialWeekend,
+  IToggleAvailability,
+} from "./apartmentAvailability.interface.js";
 
 const addAvailability = async (userId: string, payload: IToggleAvailability) => {
   const apartment = await prisma.apartment.findUnique({
@@ -142,7 +146,57 @@ const getApartmentAvailabilities = async (apartmentId: string) => {
     orderBy: { weekend: { date: "asc" } },
   });
 
-  return availabilities;
+  // Enrich each availability with the effective price for the frontend:
+  // use specialPrice when isSpecial=true, otherwise fall back to apartment.pricePerShabbat
+  return availabilities.map((av) => ({
+    ...av,
+    effectivePrice: av.isSpecial && av.specialPrice != null
+      ? av.specialPrice
+      : apartment.pricePerShabbat,
+  }));
+};
+
+/**
+ * PATCH /:availabilityId/special
+ * Let the apartment owner mark a weekend as special and set a custom price.
+ * - isSpecial = true  → specialPrice required, stored as-is
+ * - isSpecial = false → specialPrice cleared to null automatically
+ */
+const setSpecialWeekend = async (
+  userId: string,
+  availabilityId: string,
+  payload: ISetSpecialWeekend,
+) => {
+  // Load the availability record along with its apartment to verify ownership
+  const availability = await prisma.apartmentAvailability.findUnique({
+    where: { id: availabilityId },
+    include: {
+      apartment: { select: { userId: true } },
+    },
+  });
+
+  if (!availability) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Availability record not found");
+  }
+
+  if (availability.apartment.userId !== userId) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "You do not have permission to update this availability",
+    );
+  }
+
+  const updated = await prisma.apartmentAvailability.update({
+    where: { id: availabilityId },
+    data: {
+      isSpecial: payload.isSpecial,
+      // Clear price automatically when turning off special mode
+      specialPrice: payload.isSpecial ? payload.specialPrice : null,
+    },
+    include: { weekend: true },
+  });
+
+  return updated;
 };
 
 export const ApartmentAvailabilityServices = {
@@ -150,4 +204,5 @@ export const ApartmentAvailabilityServices = {
   removeAvailability,
   bulkSetAvailability,
   getApartmentAvailabilities,
+  setSpecialWeekend,
 };

@@ -1,7 +1,10 @@
 enum UserRole {
   USER
-  AMBASSADOR
   SUPER_ADMIN
+}
+
+enum AmbassadorRole {
+  AMBASSADOR
 }
 
 enum UserStatus {
@@ -15,6 +18,7 @@ enum ApartmentStatus {
   CONFIRMED
   REJECTED
   SUSPENDED
+  BLOCKED
 }
 
 enum PropertyType {
@@ -71,6 +75,7 @@ enum AmbassadorStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+  BLOCKED
 }
 
 enum AmbassadorModel {

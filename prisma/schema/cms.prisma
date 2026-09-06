@@ -34,7 +34,7 @@ model Alert {
   title        String
   message      String
   type         AlertType @default(INFO)
-  targetRole   UserRole? @map("target_role")
+  targetRole   String?   @map("target_role")
   targetUserId String?   @map("target_user_id")
   link         String?
   isActive     Boolean   @default(true) @map("is_active")

@@ -1,4 +1,4 @@
-import { AlertType, UserRole } from "@prisma/client";
+import { AlertType } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { emitToUser, getIO } from "./socketHelper.js";
 
@@ -6,7 +6,7 @@ interface INotificationPayload {
   title: string;
   message: string;
   type?: AlertType;
-  targetRole?: UserRole;
+  targetRole?: string;
   targetUserId?: string;
   link?: string;
   metadata?: any;
@@ -52,13 +52,13 @@ export const dispatchNotification = async (payload: INotificationPayload) => {
       }
 
       // If targeted to SUPER_ADMIN or ALL, broadcast to admin room & global admin event
-      if (!payload.targetRole || payload.targetRole === UserRole.SUPER_ADMIN) {
+      if (!payload.targetRole || payload.targetRole === "SUPER_ADMIN") {
         io.to("admin").emit("admin_alert", eventData);
         io.emit("admin_notification", eventData);
       }
 
       // If targeted to AMBASSADOR or ALL
-      if (!payload.targetRole || payload.targetRole === UserRole.AMBASSADOR) {
+      if (!payload.targetRole || payload.targetRole === "AMBASSADOR") {
         io.to("ambassadors").emit("ambassador_alert", eventData);
       }
 
@@ -92,7 +92,7 @@ export const notifyAdminOnApartmentAdded = async (data: {
     title: "New Apartment Listed",
     message: `Apartment "${data.title}" in ${data.city} was listed by ${data.ownerName}. Pending admin confirmation.`,
     type: AlertType.INFO,
-    targetRole: UserRole.SUPER_ADMIN,
+    targetRole: "SUPER_ADMIN",
     link: `/dashboard/apartments`,
     metadata: { apartmentId: data.apartmentId },
   });
@@ -111,7 +111,7 @@ export const notifyAdminOnAmbassadorRegistered = async (data: {
     title: "New Ambassador Application",
     message: `${data.name} (${data.email}, ${data.phone}) has submitted an ambassador application.`,
     type: AlertType.INFO,
-    targetRole: UserRole.SUPER_ADMIN,
+    targetRole: "SUPER_ADMIN",
     link: `/dashboard/ambassadors`,
     metadata: { ambassadorId: data.ambassadorId },
   });
@@ -133,7 +133,7 @@ export const notifyOnAmbassadorAttribution = async (data: {
     title: "New Property Referral Linkage",
     message: `Property "${data.apartmentTitle}" listed by ${data.ownerName} was linked to Ambassador ${data.ambassadorName} (${data.referralCode}).`,
     type: AlertType.INFO,
-    targetRole: UserRole.SUPER_ADMIN,
+    targetRole: "SUPER_ADMIN",
     link: `/dashboard/ambassadors`,
     metadata: { apartmentId: data.apartmentId, ambassadorId: data.ambassadorId },
   });
@@ -143,7 +143,7 @@ export const notifyOnAmbassadorAttribution = async (data: {
     title: "New Property Linked to Your Referral!",
     message: `Great news! "${data.apartmentTitle}" was listed using your referral link. You have 7 days to choose your commission model (Model A or Model B).`,
     type: AlertType.SUCCESS,
-    targetRole: UserRole.AMBASSADOR,
+    targetRole: "AMBASSADOR",
     targetUserId: data.ambassadorId,
     link: `/ambassador/dashboard`,
     metadata: { apartmentId: data.apartmentId },
@@ -168,7 +168,7 @@ export const notifyAdminOnReportRented = async (data: {
     title: "Apartment Reported Rented",
     message: `"${data.apartmentTitle}" in ${data.city} was reported rented for weekend ${formattedDate} by ${data.hostName} (₪${data.amount} fee paid).`,
     type: AlertType.SUCCESS,
-    targetRole: UserRole.SUPER_ADMIN,
+    targetRole: "SUPER_ADMIN",
     link: `/dashboard/rentals`,
     metadata: { reportRentedId: data.reportRentedId },
   });
@@ -190,7 +190,7 @@ export const notifyOnSwapAccepted = async (data: {
     title: "Apartment Swap Accepted",
     message: `Swap [${data.swapCode}] between "${data.fromApartmentTitle}" and "${data.toApartmentTitle}" has been accepted.`,
     type: AlertType.SUCCESS,
-    targetRole: UserRole.SUPER_ADMIN,
+    targetRole: "SUPER_ADMIN",
     link: `/dashboard/swaps`,
     metadata: { swapId: data.swapId },
   });
@@ -201,7 +201,7 @@ export const notifyOnSwapAccepted = async (data: {
       title: "Swap Request Accepted!",
       message: `Your swap request for "${data.toApartmentTitle}" was accepted.`,
       type: AlertType.SUCCESS,
-      targetRole: UserRole.USER,
+      targetRole: "USER",
       targetUserId: data.fromUserId,
       link: `/swap`,
       metadata: { swapId: data.swapId },
@@ -214,7 +214,7 @@ export const notifyOnSwapAccepted = async (data: {
       title: "Swap Confirmed!",
       message: `Swap with "${data.fromApartmentTitle}" is confirmed.`,
       type: AlertType.SUCCESS,
-      targetRole: UserRole.USER,
+      targetRole: "USER",
       targetUserId: data.toUserId,
       link: `/swap`,
       metadata: { swapId: data.swapId },
@@ -235,7 +235,7 @@ export const notifyAdminOnPayoutRequested = async (data: {
     title: "Ambassador Payout Requested",
     message: `Ambassador ${data.ambassadorName} requested a payout of ₪${data.amount}. Please review in Payout Queue.`,
     type: AlertType.URGENT,
-    targetRole: UserRole.SUPER_ADMIN,
+    targetRole: "SUPER_ADMIN",
     link: `/dashboard/ambassadors`,
     metadata: { payoutId: data.payoutId, ambassadorId: data.ambassadorId },
   });
@@ -256,7 +256,7 @@ export const notifyAdminOnReviewCreated = async (data: {
     title: "New Review Submitted",
     message: `${data.reviewerName} gave ${data.rating}★ for "${data.apartmentTitle}". Review ready for moderation.`,
     type: AlertType.INFO,
-    targetRole: UserRole.SUPER_ADMIN,
+    targetRole: "SUPER_ADMIN",
     link: `/dashboard/reviews`,
     metadata: { reviewId: data.reviewId, apartmentId: data.apartmentId },
   });
@@ -276,7 +276,7 @@ export const notifyAdminOnCallInitiated = async (data: {
     title: "Voice Call Initiated",
     message: `${data.callerName} initiated a masked call to ${data.receiverName}${data.apartmentTitle ? ` regarding "${data.apartmentTitle}"` : ""}.`,
     type: AlertType.INFO,
-    targetRole: UserRole.SUPER_ADMIN,
+    targetRole: "SUPER_ADMIN",
     link: `/dashboard/apartment-calls`,
     metadata: { callLogId: data.callLogId },
   });
@@ -295,7 +295,7 @@ export const notifyAdminOnWhatsAppInitiated = async (data: {
     title: "WhatsApp Contact Initiated",
     message: `${data.callerName} clicked WhatsApp contact for ${data.receiverName}${data.apartmentTitle ? ` regarding "${data.apartmentTitle}"` : ""}.`,
     type: AlertType.INFO,
-    targetRole: UserRole.SUPER_ADMIN,
+    targetRole: "SUPER_ADMIN",
     link: `/dashboard/apartment-calls`,
     metadata: { callLogId: data.callLogId },
   });
@@ -318,7 +318,7 @@ export const notifyOnUserRegisteredViaAmbassador = async (data: {
     title: "New User via Ambassador Referral",
     message: `User "${data.newUserName}" registered using referral code ${data.referralCode} (Ambassador: ${data.ambassadorName}).`,
     type: AlertType.INFO,
-    targetRole: UserRole.SUPER_ADMIN,
+    targetRole: "SUPER_ADMIN",
     link: `/dashboard/ambassadors`,
     metadata: {
       ambassadorId: data.ambassadorId,
@@ -331,7 +331,7 @@ export const notifyOnUserRegisteredViaAmbassador = async (data: {
     title: "New User Joined via Your Link!",
     message: `"${data.newUserName}" just signed up using your referral link. Keep sharing to grow your network!`,
     type: AlertType.SUCCESS,
-    targetRole: UserRole.AMBASSADOR,
+    targetRole: "AMBASSADOR",
     targetUserId: data.ambassadorId,
     link: `/ambassador/dashboard`,
     metadata: { newUserId: data.newUserId },

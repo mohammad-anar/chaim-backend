@@ -11,7 +11,13 @@ const updateUserStatusZodSchema = z.object({
   status: z.enum([UserStatus.ACTIVE, UserStatus.BLOCKED, UserStatus.SUSPENDED]),
 });
 
+const sendPaymentDueReminderZodSchema = z.object({
+  message: z.string().optional(),
+  amount: z.number().positive().optional(),
+});
+
 export const UserValidation = {
   updateProfileZodSchema,
   updateUserStatusZodSchema,
+  sendPaymentDueReminderZodSchema,
 };

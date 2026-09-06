@@ -170,6 +170,35 @@ const deleteApartment = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const blockApartment = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const { isBlocked, reason } = req.body;
+
+  const result = await ApartmentServices.blockApartment(id, isBlocked, reason);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: isBlocked
+      ? "Apartment has been blocked successfully"
+      : "Apartment has been unblocked successfully",
+    data: result,
+  });
+});
+
+const sendAvailabilityReminder = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await ApartmentServices.sendAvailabilityReminder(req.body);
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: result.message,
+      data: result,
+    });
+  },
+);
+
 export const ApartmentController = {
   createApartment,
   getMyAppartment,
@@ -178,5 +207,7 @@ export const ApartmentController = {
   getAdminApartmentDetails,
   updateApartment,
   updateApartmentStatus,
+  blockApartment,
+  sendAvailabilityReminder,
   deleteApartment,
 };

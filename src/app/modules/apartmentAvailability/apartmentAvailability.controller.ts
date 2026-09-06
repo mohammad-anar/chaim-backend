@@ -48,9 +48,26 @@ const getApartmentAvailabilities = catchAsync(async (req: Request, res: Response
   });
 });
 
+const setSpecialWeekend = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const availabilityId = req.params.availabilityId as string;
+  const result = await ApartmentAvailabilityServices.setSpecialWeekend(
+    userId,
+    availabilityId,
+    req.body,
+  );
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Weekend special pricing updated successfully",
+    data: result,
+  });
+});
+
 export const ApartmentAvailabilityController = {
   addAvailability,
   removeAvailability,
   bulkSetAvailability,
   getApartmentAvailabilities,
+  setSpecialWeekend,
 };

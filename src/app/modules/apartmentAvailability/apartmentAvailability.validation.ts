@@ -10,7 +10,23 @@ const bulkSetAvailabilityZodSchema = z.object({
   weekendIds: z.array(z.string()).min(1, "At least one weekend ID is required"),
 });
 
+const setSpecialWeekendZodSchema = z
+  .object({
+    isSpecial: z.boolean(),
+    specialPrice: z.number().positive("Special price must be a positive number").optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.isSpecial && (data.specialPrice === undefined || data.specialPrice === null)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "specialPrice is required when isSpecial is true",
+        path: ["specialPrice"],
+      });
+    }
+  });
+
 export const ApartmentAvailabilityValidation = {
   toggleAvailabilityZodSchema,
   bulkSetAvailabilityZodSchema,
+  setSpecialWeekendZodSchema,
 };

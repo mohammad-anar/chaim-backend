@@ -27,6 +27,14 @@ router.post(
   ApartmentAvailabilityController.bulkSetAvailability,
 );
 
+// Dedicated route to toggle special weekend pricing for a specific availability record
+router.patch(
+  "/:availabilityId/special",
+  auth(),
+  validateRequest(ApartmentAvailabilityValidation.setSpecialWeekendZodSchema),
+  ApartmentAvailabilityController.setSpecialWeekend,
+);
+
 router.get(
   "/:apartmentId",
   ApartmentAvailabilityController.getApartmentAvailabilities,

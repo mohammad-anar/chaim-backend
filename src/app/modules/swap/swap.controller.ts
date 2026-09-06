@@ -43,8 +43,47 @@ const updateSwapStatus = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllSwapsAdmin = catchAsync(async (req: Request, res: Response) => {
+  const filters = {
+    status: req.query.status as any,
+    searchTerm: req.query.searchTerm as string,
+  };
+  const options = {
+    page: req.query.page ? Number(req.query.page) : undefined,
+    limit: req.query.limit ? Number(req.query.limit) : undefined,
+    sortBy: req.query.sortBy as string,
+    sortOrder: req.query.sortOrder as any,
+  };
+
+  const result = await SwapServices.getAllSwapsAdmin(filters, options);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "All swap requests retrieved successfully",
+    meta: result.meta,
+    data: result.data,
+  });
+});
+
+const updateSwapStatusAdmin = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const { status } = req.body;
+
+  const result = await SwapServices.updateSwapStatusAdmin(id, status);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: `Swap request status updated to ${status} successfully`,
+    data: result,
+  });
+});
+
 export const SwapController = {
   createSwapRequest,
   getMySwaps,
   updateSwapStatus,
+  getAllSwapsAdmin,
+  updateSwapStatusAdmin,
 };

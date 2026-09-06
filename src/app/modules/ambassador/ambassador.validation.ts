@@ -55,7 +55,15 @@ const requestPayoutZodSchema = z.object({
 
 const adminReviewApplicationZodSchema = z.object({
   body: z.object({
-    status: z.enum(["APPROVED", "REJECTED"]),
+    status: z.enum([
+      "APPROVED",
+      "REJECTED",
+      "BLOCKED",
+      "SUSPENDED",
+      "ACTIVE",
+      "INACTIVE",
+    ]),
+    reason: z.string().optional(),
     customReferralCode: z.string().optional(),
     rates: z
       .object({

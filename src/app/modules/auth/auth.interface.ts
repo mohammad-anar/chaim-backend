@@ -9,7 +9,7 @@ export type IRegisterUser = {
 };
 
 export type ILoginUser = {
-  email: string;
+  identifier: string; // email or phone
   password: string;
 };
 
@@ -19,16 +19,16 @@ export type IChangePassword = {
 };
 
 export type IForgotPassword = {
-  email: string;
+  identifier: string; // email or phone
 };
 
 export type IVerifyOtp = {
-  email: string;
+  identifier: string; // email or phone
   otp: number;
 };
 
 export type IResetPassword = {
-  email: string;
+  identifier: string; // email or phone
   otp: number;
   newPassword: string;
 };

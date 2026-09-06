@@ -38,6 +38,20 @@ router.get(
   ApartmentController.getApartmentById,
 );
 
+router.post(
+  "/remind-availability",
+  auth(UserRole.SUPER_ADMIN),
+  validateRequest(ApartmentValidation.remindAvailabilityZodSchema),
+  ApartmentController.sendAvailabilityReminder,
+);
+
+router.patch(
+  "/block/:id",
+  auth(UserRole.SUPER_ADMIN),
+  validateRequest(ApartmentValidation.blockApartmentZodSchema),
+  ApartmentController.blockApartment,
+);
+
 router.patch(
   "/status/:id",
   auth(UserRole.SUPER_ADMIN),

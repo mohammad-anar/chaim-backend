@@ -272,6 +272,18 @@ const triggerDeadlineJob = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAmbassadorReferralLink = catchAsync(async (req: Request, res: Response) => {
+  const ambassadorId = req.user.id;
+  const result = await AmbassadorService.getAmbassadorReferralLink(ambassadorId);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Referral link retrieved successfully",
+    data: result,
+  });
+});
+
 export const AmbassadorController = {
   registerAmbassador,
   loginAmbassador,
@@ -295,4 +307,6 @@ export const AmbassadorController = {
   getAllPayoutsAdmin,
   adminProcessPayout,
   triggerDeadlineJob,
+  getAmbassadorReferralLink,
 };
+

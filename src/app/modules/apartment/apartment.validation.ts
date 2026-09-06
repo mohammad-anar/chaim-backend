@@ -47,11 +47,30 @@ const updateApartmentZodSchema = z.object({
 });
 
 const updateApartmentStatusZodSchema = z.object({
-  status: z.enum([ApartmentStatus.PENDING, ApartmentStatus.CONFIRMED, ApartmentStatus.REJECTED, ApartmentStatus.SUSPENDED]),
+  status: z.enum([
+    ApartmentStatus.PENDING,
+    ApartmentStatus.CONFIRMED,
+    ApartmentStatus.REJECTED,
+    ApartmentStatus.SUSPENDED,
+    ApartmentStatus.BLOCKED,
+  ]),
+});
+
+const blockApartmentZodSchema = z.object({
+  isBlocked: z.boolean(),
+  reason: z.string().optional(),
+});
+
+const remindAvailabilityZodSchema = z.object({
+  weekendId: z.string().min(1, "Weekend ID is required"),
+  apartmentId: z.string().optional(),
+  message: z.string().optional(),
 });
 
 export const ApartmentValidation = {
   createApartmentZodSchema,
   updateApartmentZodSchema,
   updateApartmentStatusZodSchema,
+  blockApartmentZodSchema,
+  remindAvailabilityZodSchema,
 };

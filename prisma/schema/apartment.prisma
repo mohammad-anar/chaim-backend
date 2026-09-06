@@ -64,12 +64,24 @@ model ApartmentAvailability {
   id          String   @id @default(uuid())
   apartmentId String   @map("apartment_id")
   weekendId   String   @map("weekend_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  isSpecial    Boolean  @default(false) @map("is_special")
+  specialPrice Float?   @map("special_price")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   apartment Apartment       @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
   weekend   WeekendCalendar @relation(fields: [weekendId], references: [id], onDelete: Cascade)
 
   @@unique([apartmentId, weekendId])
   @@map("apartment_availabilities")
+}
+
+model CitySearchLog {
+  id          String   @id @default(uuid())
+  city        String   @unique
+  searchCount Int      @default(1) @map("search_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("city_search_logs")
 }
