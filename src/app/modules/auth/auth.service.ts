@@ -23,16 +23,19 @@ import {
 } from "./auth.interface.js";
 
 // ---------------------------------------------------------------------------
-// Helper: resolve a user record by email-or-phone identifier
+// Helper: resolve a user record by email, username, or phone identifier
 // ---------------------------------------------------------------------------
 const findUserByIdentifier = async (identifier: string) => {
-  const normalized = identifier.trim().toLowerCase();
-  const phoneOnly = identifier.replace(/\D/g, "");
+  const raw = identifier.trim();
+  const normalizedEmail = raw.toLowerCase();
+  const phoneOnly = raw.replace(/\D/g, "");
 
   return prisma.user.findFirst({
     where: {
       OR: [
-        { email: normalized },
+        { email: { equals: normalizedEmail, mode: "insensitive" } },
+        { username: { equals: raw, mode: "insensitive" } },
+        { phone: raw },
         ...(phoneOnly.length >= 6 ? [{ phone: phoneOnly }] : []),
       ],
     },
@@ -77,8 +80,12 @@ const registerUser = async (payload: IRegisterUser) => {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Passwords do not match");
   }
 
+  const normalizedUsername = payload.username.trim();
+  const normalizedEmail = payload.email ? payload.email.trim().toLowerCase() : null;
+  const normalizedPhone = payload.phone ? payload.phone.trim() : null;
+
   // At least one of email or phone must be provided (also enforced in validation)
-  if (!payload.email && !payload.phone) {
+  if (!normalizedEmail && !normalizedPhone) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "At least one of email or phone number is required",
@@ -86,25 +93,31 @@ const registerUser = async (payload: IRegisterUser) => {
   }
 
   // Check uniqueness within User table
-  const existingUsername = await prisma.user.findUnique({
-    where: { username: payload.username },
+  const existingUsername = await prisma.user.findFirst({
+    where: { username: { equals: normalizedUsername, mode: "insensitive" } },
   });
   if (existingUsername) {
     throw new ApiError(StatusCodes.CONFLICT, "Username already exists");
   }
 
-  if (payload.email) {
-    const existingEmail = await prisma.user.findUnique({
-      where: { email: payload.email },
+  if (normalizedEmail) {
+    const existingEmail = await prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
     });
     if (existingEmail) {
       throw new ApiError(StatusCodes.CONFLICT, "Email already exists");
     }
   }
 
-  if (payload.phone) {
-    const existingPhone = await prisma.user.findUnique({
-      where: { phone: payload.phone },
+  if (normalizedPhone) {
+    const phoneDigits = normalizedPhone.replace(/\D/g, "");
+    const existingPhone = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: normalizedPhone },
+          ...(phoneDigits.length >= 6 ? [{ phone: phoneDigits }] : []),
+        ],
+      },
     });
     if (existingPhone) {
       throw new ApiError(StatusCodes.CONFLICT, "Phone number already exists");
@@ -112,9 +125,9 @@ const registerUser = async (payload: IRegisterUser) => {
   }
 
   // Cross-model uniqueness: email/phone must not exist in Ambassador table either
-  if (payload.email) {
-    const ambassadorWithEmail = await prisma.ambassador.findUnique({
-      where: { email: payload.email.trim().toLowerCase() },
+  if (normalizedEmail) {
+    const ambassadorWithEmail = await prisma.ambassador.findFirst({
+      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
     });
     if (ambassadorWithEmail) {
       throw new ApiError(
@@ -124,10 +137,15 @@ const registerUser = async (payload: IRegisterUser) => {
     }
   }
 
-  if (payload.phone) {
-    const normalizedPhone = payload.phone.replace(/\D/g, "");
-    const ambassadorWithPhone = await prisma.ambassador.findUnique({
-      where: { phone: normalizedPhone },
+  if (normalizedPhone) {
+    const digitsOnly = normalizedPhone.replace(/\D/g, "");
+    const ambassadorWithPhone = await prisma.ambassador.findFirst({
+      where: {
+        OR: [
+          { phone: normalizedPhone },
+          ...(digitsOnly.length >= 6 ? [{ phone: digitsOnly }] : []),
+        ],
+      },
     });
     if (ambassadorWithPhone) {
       throw new ApiError(
@@ -135,6 +153,21 @@ const registerUser = async (payload: IRegisterUser) => {
         "This phone number is already registered as an ambassador account",
       );
     }
+  }
+
+  let marketingPlatformId: string | null = null;
+  if (payload.marketingPlatformId && payload.marketingPlatformId.trim() !== "") {
+    const trimmedId = payload.marketingPlatformId.trim();
+    const existingPlatform = await prisma.marketingPlatform.findUnique({
+      where: { id: trimmedId },
+    });
+    if (!existingPlatform) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Invalid marketing platform ID. Marketing platform not found.",
+      );
+    }
+    marketingPlatformId = trimmedId;
   }
 
   const saltRound = config.bcrypt_salt_round || 10;
@@ -146,12 +179,12 @@ const registerUser = async (payload: IRegisterUser) => {
   const result = await prisma.$transaction(async (tx) => {
     const newUser = await tx.user.create({
       data: {
-        username: payload.username,
-        email: payload.email,
-        phone: payload.phone,
+        username: normalizedUsername,
+        email: normalizedEmail,
+        phone: normalizedPhone,
         password: hashedPassword,
         profileImage: payload.profileImage,
-        marketingPlatformId: payload.marketingPlatformId,
+        marketingPlatformId,
         role: UserRole.USER,
         otp,
         otpExpiry,
