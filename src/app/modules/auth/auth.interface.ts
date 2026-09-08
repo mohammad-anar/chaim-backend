@@ -27,17 +27,18 @@ export type IChangePassword = {
 
 export type IForgotPassword = {
   email?: string;
-  identifier?: string; // email or phone
+  identifier?: string; // email
 };
 
 export type IVerifyOtp = {
-  identifier: string; // email or phone
+  identifier: string; // email
   otp: number;
 };
 
 export type IResetPassword = {
   newPassword: string;
-  confirmNewPassword: string;
+  confirmPassword?: string;
+  confirmNewPassword?: string;
 };
 
 export type IRefreshToken = {
