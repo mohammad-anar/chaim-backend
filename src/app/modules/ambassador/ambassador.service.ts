@@ -189,6 +189,19 @@ const registerAmbassador = async (payload: IRegisterAmbassadorPayload) => {
     },
   });
 
+  // Auto-initialize Ambassador Wallet
+  try {
+    await (prisma as any).wallet?.create({
+      data: {
+        ambassadorId: ambassador.id,
+        balance: 0.0,
+        currency: "ILS",
+      },
+    });
+  } catch (err) {
+    // Wallet creation handled
+  }
+
   // Notify Admin of New Ambassador Application
   await notifyAdminOnAmbassadorRegistered({
     ambassadorId: ambassador.id,

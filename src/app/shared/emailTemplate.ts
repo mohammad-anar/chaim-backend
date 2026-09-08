@@ -158,7 +158,7 @@ const forgetPassword = (values: { email: string; token: string }) => {
     </p>
 
     <div style="text-align:center; margin:30px 0;">
-      <a href="${config.frontend_url}/reset-password?token=${values.token}"
+      <a href="${config.frontend_url || "http://localhost:3000"}/reset-password?token=${values.token}"
          style="
            background:${PRIMARY_COLOR};
            color:#ffffff;

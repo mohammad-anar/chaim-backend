@@ -105,6 +105,11 @@
       "key": "reportRentedId",
       "type": "string",
       "value": "REPORT_RENTED_UUID"
+    },
+    {
+      "key": "resetToken",
+      "type": "string",
+      "value": "RESET_JWT_TOKEN"
     }
   ],
   "item": [
@@ -462,23 +467,44 @@
                 "forgot-password"
               ]
             },
-            "description": "",
+            "description": "Send password reset link to user email with JWT token (pointing to http://localhost:3000/reset-password?token=...). Automatically captures resetToken for Reset Password request.",
             "body": {
               "mode": "raw",
-              "raw": "{\"email\":\"moshe@example.com\"}",
+              "raw": "{\n  \"email\": \"user1@shabosrent.com\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json?.data?.resetToken) {",
+                  "        pm.collectionVariables.set(\"resetToken\", json.data.resetToken);",
+                  "        console.log(\"Saved resetToken to collection variables\");",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "Reset Password",
           "request": {
             "method": "POST",
             "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{resetToken}}"
+              },
               {
                 "key": "Content-Type",
                 "value": "application/json"
@@ -494,10 +520,10 @@
                 "reset-password"
               ]
             },
-            "description": "",
+            "description": "Reset password using the reset JWT token from the email link in the Authorization header. Body contains newPassword and confirmPassword.",
             "body": {
               "mode": "raw",
-              "raw": "{\"email\":\"moshe@example.com\",\"otp\":123456,\"newPassword\":\"NewPass456!\"}",
+              "raw": "{\n  \"newPassword\": \"NewPassword123!\",\n  \"confirmNewPassword\": \"NewPassword123!\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -628,10 +654,6 @@
               {
                 "key": "Authorization",
                 "value": "Bearer {{token}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
               }
             ],
             "url": {
@@ -644,15 +666,23 @@
                 "update-me"
               ]
             },
-            "description": "Fields: username, email, phone",
+            "description": "Update profile with multipart form-data. Metadata passed in JSON format under the data key with optional profile image file attachment.",
             "body": {
-              "mode": "raw",
-              "raw": "{\"username\":\"moshe_updated\",\"email\":\"new@example.com\",\"phone\":\"0549876543\"}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "data",
+                  "type": "text",
+                  "description": "JSON object string with updated user profile details",
+                  "value": "{\n  \"username\": \"moshe_cohen_updated\",\n  \"email\": \"moshe@example.com\",\n  \"phone\": \"0541234567\"\n}"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "description": "Optional profile image / avatar",
+                  "value": ""
                 }
-              }
+              ]
             }
           }
         },

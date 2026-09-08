@@ -40,20 +40,32 @@ const changePasswordZodSchema = z.object({
   newPassword: z.string().min(6, "New password must be at least 6 characters"),
 });
 
-const forgotPasswordZodSchema = z.object({
-  identifier: z.string().min(1, "Email or phone number is required"),
-});
+const forgotPasswordZodSchema = z
+  .object({
+    email: z.string().email("Invalid email format").optional(),
+    identifier: z.string().optional(),
+  })
+  .refine((data) => data.email || data.identifier, {
+    message: "Email or identifier is required",
+    path: ["email"],
+  });
 
 const verifyOtpZodSchema = z.object({
   identifier: z.string().min(1, "Email or phone number is required"),
   otp: z.number().int("OTP must be a number"),
 });
 
-const resetPasswordZodSchema = z.object({
-  identifier: z.string().min(1, "Email or phone number is required"),
-  otp: z.number().int("OTP must be a number"),
-  newPassword: z.string().min(6, "New password must be at least 6 characters"),
-});
+const resetPasswordZodSchema = z
+  .object({
+    newPassword: z.string().min(6, "New password must be at least 6 characters"),
+    confirmNewPassword: z
+      .string()
+      .min(6, "Confirm new password is required"),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    message: "Passwords do not match",
+    path: ["confirmNewPassword"],
+  });
 
 const refreshTokenZodSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token is required"),

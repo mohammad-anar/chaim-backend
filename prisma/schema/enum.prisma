@@ -48,9 +48,6 @@ enum OfferStatus {
 
 enum PaymentMethod {
   NEDARIM_PLUS
-  STRIPE
-  CASH
-  CREDIT_CARD
 }
 
 enum PaymentStatus {

@@ -374,7 +374,7 @@ const markReportAsPaidAdmin = async (reportRentedId: string) => {
           payerId: report.apartment.userId,
           amount: config.fees.report_rented_fee || 10,
           currency: "ILS",
-          paymentMethod: "CASH",
+          paymentMethod: "NEDARIM_PLUS",
           status: "COMPLETED",
           paidAt: now,
           transactionId: txId,

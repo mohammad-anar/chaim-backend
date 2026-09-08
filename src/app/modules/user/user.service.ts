@@ -30,7 +30,6 @@ const getMyProfile = async (userId: string) => {
           listingPayment: true,
         },
       },
-      wallet: true,
       marketingEmail: true,
     },
   });
@@ -187,7 +186,6 @@ const getUserById = async (id: string) => {
       createdAt: true,
       updatedAt: true,
       apartment: true,
-      wallet: true,
     },
   });
 

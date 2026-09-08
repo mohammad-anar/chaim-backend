@@ -204,14 +204,6 @@ const registerUser = async (payload: IRegisterUser) => {
       },
     });
 
-    await tx.wallet.create({
-      data: {
-        userId: newUser.id,
-        balance: 0.0,
-        currency: "ILS",
-      },
-    });
-
     return newUser;
   });
 
@@ -383,28 +375,32 @@ const changePassword = async (userId: string, payload: IChangePassword) => {
 };
 
 const forgotPassword = async (payload: IForgotPassword) => {
-  const user = await findUserByIdentifier(payload.identifier);
-
-  if (!user) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User not found with this email or phone");
+  const identifier = payload.email || payload.identifier;
+  if (!identifier) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Email or identifier is required");
   }
 
-  const otp = generateOTP();
-  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+  const user = await findUserByIdentifier(identifier);
+  if (!user || !user.email) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found with this email");
+  }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { otp, otpExpiry },
-  });
-
-  await deliverOtp(
-    { email: user.email, phone: user.phone, username: user.username },
-    otp,
-    "resetPassword",
+  const resetToken = jwtHelper.createToken(
+    { id: user.id, email: user.email, role: user.role },
+    config.jwt.jwt_secret as Secret,
+    "15m",
   );
 
+  const emailTpl = emailTemplate.forgetPassword({
+    email: user.email,
+    token: resetToken,
+  });
+
+  await emailHelper.sendEmail(emailTpl);
+
   return {
-    message: "OTP sent to your registered email or phone",
+    message: "Password reset link sent to your email successfully",
+    resetToken,
   };
 };
 
@@ -435,19 +431,51 @@ const verifyOtp = async (payload: IVerifyOtp) => {
   return { message: "OTP verified successfully" };
 };
 
-const resetPassword = async (payload: IResetPassword) => {
-  const user = await findUserByIdentifier(payload.identifier);
+const resetPassword = async (
+  tokenFromHeaderOrParam: string | undefined,
+  payload: IResetPassword,
+) => {
+  if (!payload.confirmNewPassword) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "Confirm new password is required",
+    );
+  }
+  if (payload.newPassword !== payload.confirmNewPassword) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Passwords do not match");
+  }
+
+  if (!tokenFromHeaderOrParam) {
+    throw new ApiError(
+      StatusCodes.UNAUTHORIZED,
+      "Reset token is required in Authorization header",
+    );
+  }
+
+  const token = tokenFromHeaderOrParam.startsWith("Bearer ")
+    ? tokenFromHeaderOrParam.split(" ")[1]
+    : tokenFromHeaderOrParam;
+
+  let decoded: any;
+  try {
+    decoded = jwtHelper.verifyToken(token, config.jwt.jwt_secret as Secret);
+  } catch (err: any) {
+    throw new ApiError(
+      StatusCodes.UNAUTHORIZED,
+      "Invalid or expired password reset token",
+    );
+  }
+
+  if (!decoded || !decoded.id) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid token payload");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: decoded.id },
+  });
 
   if (!user) {
     throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
-  }
-
-  if (!user.otp || user.otp !== payload.otp) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid OTP");
-  }
-
-  if (!user.otpExpiry || user.otpExpiry < new Date()) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "OTP has expired");
   }
 
   const saltRound = config.bcrypt_salt_round || 10;
@@ -457,8 +485,6 @@ const resetPassword = async (payload: IResetPassword) => {
     where: { id: user.id },
     data: {
       password: hashedPassword,
-      otp: null,
-      otpExpiry: null,
     },
   });
 

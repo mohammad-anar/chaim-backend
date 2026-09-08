@@ -75,7 +75,11 @@ const verifyOtp = catchAsync(async (req: Request, res: Response) => {
 });
 
 const resetPassword = catchAsync(async (req: Request, res: Response) => {
-  const result = await AuthServices.resetPassword(req.body);
+  const token =
+    req.headers.authorization ||
+    (req.query.token as string) ||
+    req.body.token;
+  const result = await AuthServices.resetPassword(token, req.body);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,

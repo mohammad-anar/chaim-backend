@@ -4,6 +4,7 @@ export type IUpdateProfile = {
   username?: string;
   email?: string;
   phone?: string;
+  marketingPlatformId?: string | null;
 };
 
 export type IUpdateUserStatus = {

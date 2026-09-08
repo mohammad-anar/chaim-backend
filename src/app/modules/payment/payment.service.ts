@@ -618,7 +618,7 @@ const processDirectCardPayment = async (userId: string, payload: IDirectCardPaym
           userId,
           amount: config.fees.apartment_listing_fee || 28,
           currency: "ILS",
-          paymentMethod: "CREDIT_CARD",
+          paymentMethod: "NEDARIM_PLUS",
           status: "PENDING",
         },
       });
@@ -636,7 +636,7 @@ const processDirectCardPayment = async (userId: string, payload: IDirectCardPaym
         where: { id: targetListingPayment.id },
         data: {
           status: "COMPLETED",
-          paymentMethod: "CREDIT_CARD",
+          paymentMethod: "NEDARIM_PLUS",
           paidAt,
           expiresAt,
           transactionId,
@@ -764,7 +764,7 @@ const processDirectCardPayment = async (userId: string, payload: IDirectCardPaym
           payerId: userId,
           amount: config.fees.swap_request_fee || 10,
           currency: "ILS",
-          paymentMethod: "CREDIT_CARD",
+          paymentMethod: "NEDARIM_PLUS",
           status: "PENDING",
         },
       });
@@ -779,7 +779,7 @@ const processDirectCardPayment = async (userId: string, payload: IDirectCardPaym
         where: { id: targetSwapPayment.id },
         data: {
           status: "COMPLETED",
-          paymentMethod: "CREDIT_CARD",
+          paymentMethod: "NEDARIM_PLUS",
           paidAt: new Date(),
           transactionId,
         },
@@ -825,7 +825,7 @@ const processDirectCardPayment = async (userId: string, payload: IDirectCardPaym
           payerId: userId,
           amount: config.fees.report_rented_fee || 10,
           currency: "ILS",
-          paymentMethod: "CREDIT_CARD",
+          paymentMethod: "NEDARIM_PLUS",
           status: "PENDING",
         },
         include: { apartment: true, payer: true, reportRented: true },
@@ -841,7 +841,7 @@ const processDirectCardPayment = async (userId: string, payload: IDirectCardPaym
         where: { id: targetReportPayment.id },
         data: {
           status: "COMPLETED",
-          paymentMethod: "CREDIT_CARD",
+          paymentMethod: "NEDARIM_PLUS",
           paidAt: new Date(),
           transactionId,
         },

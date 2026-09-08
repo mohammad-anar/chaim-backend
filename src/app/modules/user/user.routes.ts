@@ -1,6 +1,7 @@
 import express from "express";
 import { UserRole } from "@prisma/client";
 import auth from "../../middlewares/auth.js";
+import fileUploadHandler from "../../middlewares/fileUploadHandler.js";
 import validateRequest from "../../middlewares/validateRequest.js";
 import { UserController } from "./user.controller.js";
 import { UserValidation } from "./user.validation.js";
@@ -16,6 +17,7 @@ router.get(
 router.patch(
   "/update-me",
   auth(),
+  fileUploadHandler(),
   validateRequest(UserValidation.updateProfileZodSchema),
   UserController.updateMyProfile,
 );

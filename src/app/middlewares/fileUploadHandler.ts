@@ -39,69 +39,112 @@ const fileUploadHandler = () => {
     },
     filename: (req, file, cb) => {
       const fileExt = path.extname(file.originalname);
-      const fileName =
-        file.originalname
-          .replace(fileExt, "")
-          .toLowerCase()
-          .split(" ")
-          .join("-") +
-        "-" +
-        Date.now();
+      const baseName = path
+        .basename(file.originalname, fileExt)
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+      const fileName = (baseName || "file") + "-" + Date.now();
       cb(null, fileName + fileExt);
     },
   });
 
   const filterFilter = (req: Request, file: any, cb: FileFilterCallback) => {
+    // If no file was actually uploaded (empty file field in form-data), skip it cleanly
+    if (!file || !file.originalname || file.originalname.trim() === "") {
+      return cb(null, false);
+    }
+
     const field = file.fieldname.toLowerCase();
+    const ext = path.extname(file.originalname).toLowerCase();
 
     if (
       ["image", "images", "coverimage", "profileimage", "avatar"].includes(field)
     ) {
-      if (
-        file.mimetype === "image/jpeg" ||
-        file.mimetype === "image/png" ||
-        file.mimetype === "image/webp" ||
-        file.mimetype === "image/jpg" ||
-        file.mimetype.startsWith("image/")
-      ) {
+      const isImageMime =
+        file.mimetype &&
+        (file.mimetype.startsWith("image/") ||
+          [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/jpg",
+            "image/gif",
+            "image/svg+xml",
+          ].includes(file.mimetype));
+      const isImageExt = [
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".gif",
+        ".svg",
+        ".heic",
+        ".heif",
+      ].includes(ext);
+
+      if (isImageMime || isImageExt) {
         cb(null, true);
       } else {
         cb(
           new ApiError(
             StatusCodes.BAD_REQUEST,
-            "Only image files (.jpeg, .png, .jpg, .webp) are supported",
+            "Only image files (.jpeg, .png, .jpg, .webp, .svg, .gif, .heic) are supported",
           ),
         );
       }
     } else if (["media", "video", "audio"].includes(field)) {
-      if (
-        file.mimetype === "video/mp4" ||
-        file.mimetype === "audio/mpeg" ||
-        file.mimetype.startsWith("video/") ||
-        file.mimetype.startsWith("audio/")
-      ) {
+      const isMediaMime =
+        file.mimetype &&
+        (file.mimetype.startsWith("video/") ||
+          file.mimetype.startsWith("audio/") ||
+          ["video/mp4", "audio/mpeg", "audio/mp3", "audio/wav"].includes(
+            file.mimetype,
+          ));
+      const isMediaExt = [
+        ".mp4",
+        ".mp3",
+        ".wav",
+        ".m4a",
+        ".webm",
+        ".ogg",
+        ".mov",
+        ".avi",
+      ].includes(ext);
+
+      if (isMediaMime || isMediaExt) {
         cb(null, true);
       } else {
         cb(
           new ApiError(
             StatusCodes.BAD_REQUEST,
-            "Only video and audio files (.mp4, .mp3) are supported",
+            "Only video and audio files (.mp4, .mp3, .wav, .m4a, .webm, .mov) are supported",
           ),
         );
       }
     } else if (["doc", "docs", "document", "csv", "file", "files"].includes(field)) {
-      const ext = path.extname(file.originalname).toLowerCase();
-      if (
-        file.mimetype === "application/pdf" ||
-        file.mimetype === "text/csv" ||
-        file.mimetype === "application/vnd.ms-excel" ||
-        file.mimetype ===
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-        ext === ".csv" ||
-        ext === ".pdf" ||
-        ext === ".xlsx" ||
-        ext === ".xls"
-      ) {
+      const isDocMime =
+        file.mimetype &&
+        [
+          "application/pdf",
+          "text/csv",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ].includes(file.mimetype);
+      const isDocExt = [
+        ".csv",
+        ".pdf",
+        ".xlsx",
+        ".xls",
+        ".doc",
+        ".docx",
+        ".txt",
+      ].includes(ext);
+
+      if (isDocMime || isDocExt) {
         cb(null, true);
       } else {
         cb(

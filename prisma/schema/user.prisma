@@ -26,7 +26,6 @@ model User {
   offers                 Offer[]                   @relation("UserOffers")
   reviews                Review[]
   wishlists              Wishlist[]
-  wallet                 Wallet?
   listingPayment         ApartmentListingPayment?
   reportRentedPayments   ReportRentedPayment[]     @relation("ReportRentedPayer")
   swapPayments           SwapPayment[]             @relation("SwapPayer")
@@ -47,32 +46,4 @@ model MarketingEmail {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("marketing_emails")
-}
-
-model Wallet {
-  id        String   @id @default(uuid())
-  userId    String   @unique @map("user_id")
-  balance   Float    @default(0.0)
-  currency  String   @default("ILS")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions WalletTransaction[]
-
-  @@map("wallets")
-}
-
-model WalletTransaction {
-  id          String          @id @default(uuid())
-  walletId    String          @map("wallet_id")
-  amount      Float
-  type        TransactionType
-  description String?
-  referenceId String?         @map("reference_id")
-  createdAt   DateTime        @default(now()) @map("created_at")
-
-  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
-
-  @@map("wallet_transactions")
 }

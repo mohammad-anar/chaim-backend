@@ -26,7 +26,8 @@ export type IChangePassword = {
 };
 
 export type IForgotPassword = {
-  identifier: string; // email or phone
+  email?: string;
+  identifier?: string; // email or phone
 };
 
 export type IVerifyOtp = {
@@ -35,9 +36,8 @@ export type IVerifyOtp = {
 };
 
 export type IResetPassword = {
-  identifier: string; // email or phone
-  otp: number;
   newPassword: string;
+  confirmNewPassword: string;
 };
 
 export type IRefreshToken = {

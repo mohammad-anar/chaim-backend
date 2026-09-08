@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import catchAsync from "../../shared/catchAsync.js";
+import { getSingleFilePath } from "../../shared/getFilePath.js";
 import pick from "../../../helpers/pick.js";
 import sendResponse from "../../shared/sendResponse.js";
 import { UserServices } from "./user.service.js";
@@ -18,7 +19,17 @@ const getMyProfile = catchAsync(async (req: Request, res: Response) => {
 
 const updateMyProfile = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
-  const result = await UserServices.updateMyProfile(userId, req.body);
+  const profileImage =
+    getSingleFilePath(req.files, "image") ||
+    getSingleFilePath(req.files, "profileImage") ||
+    getSingleFilePath(req.files, "avatar");
+
+  const payload = {
+    ...req.body,
+    ...(profileImage && { profileImage }),
+  };
+
+  const result = await UserServices.updateMyProfile(userId, payload);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
