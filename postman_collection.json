@@ -263,12 +263,7 @@
           "name": "Register User",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/register",
               "host": [
@@ -279,15 +274,23 @@
                 "register"
               ]
             },
-            "description": "referralCode and marketingPlatformId optional.",
+            "description": "Register new user with optional profile image upload via image file field alongside JSON data under data key.",
             "body": {
-              "mode": "raw",
-              "raw": "{\"username\":\"moshe_cohen\",\"email\":\"moshe@example.com\",\"phone\":\"0541234567\",\"password\":\"Password123!\",\"referralCode\":\"AMB-XYZ123\",\"marketingPlatformId\":\"{{marketingPlatformId}}\"}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "data",
+                  "type": "text",
+                  "description": "JSON object string with user registration details",
+                  "value": "{\n  \"username\": \"moshe_cohen\",\n  \"email\": \"moshe@example.com\",\n  \"phone\": \"0541234567\",\n  \"password\": \"Password123!\",\n  \"referralCode\": \"AMB-XYZ123\",\n  \"marketingPlatformId\": \"{{marketingPlatformId}}\"\n}"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "description": "Optional profile image / avatar",
+                  "value": ""
                 }
-              }
+              ]
             }
           }
         },
@@ -843,119 +846,26 @@
               ],
               "path": "apartment"
             },
-            "description": "multipart/form-data with images.",
+            "description": "Create apartment listing. All metadata is passed in JSON format under the data key, with file attachments under coverImage and images.",
             "body": {
               "mode": "formdata",
               "formdata": [
                 {
-                  "key": "title",
+                  "key": "data",
                   "type": "text",
-                  "value": "Shabbat Apt in Tel Aviv"
-                },
-                {
-                  "key": "description",
-                  "type": "text",
-                  "value": "Spacious 3BR near the sea"
-                },
-                {
-                  "key": "city",
-                  "type": "text",
-                  "value": "Tel Aviv"
-                },
-                {
-                  "key": "neighborhood",
-                  "type": "text",
-                  "value": "Neve Tzedek"
-                },
-                {
-                  "key": "street1",
-                  "type": "text",
-                  "value": "Ha-Yarkon 12"
-                },
-                {
-                  "key": "lat",
-                  "type": "text",
-                  "value": "32.0853"
-                },
-                {
-                  "key": "lng",
-                  "type": "text",
-                  "value": "34.7818"
-                },
-                {
-                  "key": "propertyType",
-                  "type": "text",
-                  "description": "APARTMENT|VILLA|PENTHOUSE|STUDIO",
-                  "value": "APARTMENT"
-                },
-                {
-                  "key": "bedrooms",
-                  "type": "text",
-                  "value": "3"
-                },
-                {
-                  "key": "bathrooms",
-                  "type": "text",
-                  "value": "2"
-                },
-                {
-                  "key": "maxGuest",
-                  "type": "text",
-                  "value": "6"
-                },
-                {
-                  "key": "pricePerShabbat",
-                  "type": "text",
-                  "value": "500"
-                },
-                {
-                  "key": "neighborhoodWalkingTime",
-                  "type": "text",
-                  "value": "5 min to shul"
-                },
-                {
-                  "key": "amenities",
-                  "type": "text",
-                  "description": "JSON array string",
-                  "value": "[\"WiFi\",\"Kitchen\",\"Parking\"]"
-                },
-                {
-                  "key": "phoneNumber",
-                  "type": "text",
-                  "value": "+972541234567"
-                },
-                {
-                  "key": "whatsApp",
-                  "type": "text",
-                  "value": "+972541234567"
-                },
-                {
-                  "key": "howToContact",
-                  "type": "text",
-                  "description": "PHONE|WHATSAPP|BOTH",
-                  "value": "BOTH"
-                },
-                {
-                  "key": "additionalDetails",
-                  "type": "text",
-                  "value": "Shabbat elevator available"
-                },
-                {
-                  "key": "referralCode",
-                  "type": "text",
-                  "description": "Optional ambassador code",
-                  "value": "AMB-XYZ123"
+                  "description": "JSON object string with apartment listing details",
+                  "value": "{\n  \"title\": \"Shabbat Apt in Tel Aviv\",\n  \"description\": \"Spacious 3BR near the sea\",\n  \"city\": \"Tel Aviv\",\n  \"neighborhood\": \"Neve Tzedek\",\n  \"street1\": \"Ha-Yarkon 12\",\n  \"lat\": 32.0853,\n  \"lng\": 34.7818,\n  \"propertyType\": \"APARTMENT\",\n  \"bedrooms\": 3,\n  \"bathrooms\": 2,\n  \"maxGuest\": 6,\n  \"pricePerShabbat\": 500,\n  \"neighborhoodWalkingTime\": \"5 min to shul\",\n  \"amenities\": [\n    \"WiFi\",\n    \"Kitchen\",\n    \"Parking\"\n  ],\n  \"phoneNumber\": \"+972541234567\",\n  \"whatsApp\": \"+972541234567\",\n  \"howToContact\": \"BOTH\",\n  \"additionalDetails\": \"Shabbat elevator available\",\n  \"referralCode\": \"AMB-XYZ123\"\n}"
                 },
                 {
                   "key": "coverImage",
                   "type": "file",
-                  "description": "Primary image",
+                  "description": "Primary cover image",
                   "value": ""
                 },
                 {
                   "key": "images",
                   "type": "file",
-                  "description": "Additional images",
+                  "description": "Additional gallery images",
                   "value": ""
                 }
               ]
@@ -1103,28 +1013,26 @@
                 "{{apartmentId}}"
               ]
             },
-            "description": "Partial update, multipart.",
+            "description": "Partial update apartment listing. Data is passed in JSON format under the data key, with optional file attachments under coverImage and images.",
             "body": {
               "mode": "formdata",
               "formdata": [
                 {
-                  "key": "title",
+                  "key": "data",
                   "type": "text",
-                  "value": "Updated Title"
-                },
-                {
-                  "key": "pricePerShabbat",
-                  "type": "text",
-                  "value": "550"
-                },
-                {
-                  "key": "description",
-                  "type": "text",
-                  "value": "Updated desc"
+                  "description": "JSON object string with updated apartment fields",
+                  "value": "{\n  \"title\": \"Updated Shabbat Apt Title\",\n  \"pricePerShabbat\": 550,\n  \"description\": \"Updated description with new amenities\",\n  \"amenities\": [\n    \"WiFi\",\n    \"Kitchen\",\n    \"Parking\",\n    \"Elevator\"\n  ]\n}"
                 },
                 {
                   "key": "coverImage",
                   "type": "file",
+                  "description": "Updated cover image (optional)",
+                  "value": ""
+                },
+                {
+                  "key": "images",
+                  "type": "file",
+                  "description": "Updated gallery images (optional)",
                   "value": ""
                 }
               ]
@@ -3477,6 +3385,29 @@
                   ]
                 },
                 "description": ""
+              }
+            },
+            {
+              "name": "Get Ambassador Referral Link",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{ambassadorToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/ambassador/referral-link",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "ambassador",
+                    "referral-link"
+                  ]
+                },
+                "description": "Get unique ambassador referral link and code."
               }
             }
           ]

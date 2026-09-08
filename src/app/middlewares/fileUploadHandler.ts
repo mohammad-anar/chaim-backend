@@ -120,7 +120,7 @@ const fileUploadHandler = () => {
     storage: storage,
     fileFilter: filterFilter,
     limits: {
-      fileSize: 20 * 1024 * 1024, // 20MB per file
+      fileSize: 500 * 1024 * 1024, // 500MB per file
     },
   }).fields([
     { name: "image", maxCount: 20 },
