@@ -21,6 +21,7 @@ import { UserRouter } from "../modules/user/user.routes.js";
 import { WeekendCalendarRoutes } from "../modules/weekendCalendar/weekendCalendar.routes.js";
 import { WishlistRoutes } from "../modules/wishlist/wishlist.routes.js";
 import { AdminRoutes } from "../modules/admin/admin.routes.js";
+import { OwnerRoutes } from "../modules/owner/owner.routes.js";
 
 const router = express.Router();
 
@@ -112,6 +113,10 @@ const moduleRoutes = [
   {
     path: "/admin",
     route: AdminRoutes,
+  },
+  {
+    path: "/owner",
+    route: OwnerRoutes,
   },
 ];
 

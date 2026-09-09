@@ -22,6 +22,13 @@ router.patch(
   UserController.updateMyProfile,
 );
 
+router.patch(
+  "/notification-preference",
+  auth(),
+  validateRequest(UserValidation.updateNotificationPreferenceZodSchema),
+  UserController.updateNotificationPreference,
+);
+
 router.get(
   "/admin/owners",
   auth(UserRole.SUPER_ADMIN),

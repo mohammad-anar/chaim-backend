@@ -38,6 +38,18 @@ const updateMyProfile = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateNotificationPreference = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const { notificationPreference } = req.body;
+  const result = await UserServices.updateNotificationPreference(userId, notificationPreference);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Notification preference updated successfully",
+    data: result,
+  });
+});
+
 const getAllUsers = catchAsync(async (req: Request, res: Response) => {
   const filters = pick(req.query, ["searchTerm", "role", "status"]);
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
@@ -117,6 +129,7 @@ const sendPaymentDueReminder = catchAsync(
 export const UserController = {
   getMyProfile,
   updateMyProfile,
+  updateNotificationPreference,
   getAllUsers,
   getUserById,
   updateUserStatus,

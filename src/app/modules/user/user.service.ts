@@ -21,6 +21,7 @@ const getMyProfile = async (userId: string) => {
       role: true,
       status: true,
       isVerified: true,
+      notificationPreference: true,
       isDeleted: true,
       createdAt: true,
       updatedAt: true,
@@ -89,6 +90,7 @@ const updateMyProfile = async (userId: string, payload: IUpdateProfile) => {
       role: true,
       status: true,
       isVerified: true,
+      notificationPreference: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -144,6 +146,7 @@ const getAllUsers = async (
       role: true,
       status: true,
       isVerified: true,
+      notificationPreference: true,
       createdAt: true,
       updatedAt: true,
       apartment: {
@@ -182,6 +185,7 @@ const getUserById = async (id: string) => {
       role: true,
       status: true,
       isVerified: true,
+      notificationPreference: true,
       isDeleted: true,
       createdAt: true,
       updatedAt: true,
@@ -483,9 +487,40 @@ const sendPaymentDueReminder = async (
   };
 };
 
+const updateNotificationPreference = async (
+  userId: string,
+  preference: string,
+) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user || user.isDeleted) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      notificationPreference: preference as any,
+    },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      phone: true,
+      notificationPreference: true,
+      updatedAt: true,
+    },
+  });
+
+  return updatedUser;
+};
+
 export const UserServices = {
   getMyProfile,
   updateMyProfile,
+  updateNotificationPreference,
   getAllUsers,
   getUserById,
   updateUserStatus,

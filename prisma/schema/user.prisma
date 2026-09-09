@@ -9,6 +9,7 @@ model User {
   status       UserStatus @default(ACTIVE)
   isDeleted    Boolean    @default(false)
   isVerified   Boolean    @default(false)
+  notificationPreference NotificationPreference @default(EMAIL) @map("notification_preference")
   otp          Int?       @map("otp")
   otpExpiry    DateTime?  @map("otp_expiry")
   createdAt    DateTime   @default(now()) @map("created_at")

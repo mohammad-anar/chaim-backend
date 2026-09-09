@@ -4661,6 +4661,166 @@
       "name": "📡 Socket.IO Reference",
       "description": "Connect: io('http://localhost:5000')\nRegistration events:\n  socket.emit('register', userId)         -- personal alerts\n  socket.emit('join_room', 'admin')       -- admin room\n  socket.emit('join_room', 'ambassadors') -- ambassador room\n\nServer emits:\n  admin_alert        -- admin room, all admin events\n  ambassador_alert   -- ambassadors room\n  new_alert          -- specific user (by userId)\n  newAlert           -- global broadcast (every persisted alert)\n  notification       -- specific user (alias)\n\nBusiness trigger table:\n  Apartment listed          -> admin_alert + newAlert\n  Ambassador registered     -> admin_alert + newAlert\n  Referral attribution      -> admin_alert + ambassador new_alert + newAlert\n  Report rented confirmed   -> admin_alert + newAlert\n  Swap APPROVED             -> admin_alert + new_alert (both parties)\n  Payout requested          -> admin_alert + newAlert\n  Review submitted          -> admin_alert + newAlert (pending moderation)\n  User signup via ref link  -> admin_alert + ambassador new_alert",
       "item": []
+    },
+    {
+      "name": "Owner Management (Admin)",
+      "item": [
+        {
+          "name": "Get All Owners (with Earnings & Dues)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/owner?searchTerm=&hasDue=&page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "owner"
+              ],
+              "query": [
+                {
+                  "key": "searchTerm",
+                  "value": ""
+                },
+                {
+                  "key": "hasDue",
+                  "value": ""
+                },
+                {
+                  "key": "notificationPreference",
+                  "value": ""
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Admin view of all apartment owners, total listings (1), contact info, notification pref, totalEarnings (listing + report rented), totalDue, and unpaid report count."
+          }
+        },
+        {
+          "name": "Get Single Owner Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/owner/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "owner",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "OWNER_USER_ID"
+                }
+              ]
+            },
+            "description": "Get single owner details, apartment info, and financial metrics."
+          }
+        },
+        {
+          "name": "Send Availability Status Reminder",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailSubject\": \"Please update your apartment availability status\",\n  \"emailBody\": \"<p>Dear owner, please update your apartment calendar for the upcoming weekend.</p>\",\n  \"adminPhone\": \"+972500000000\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/owner/:id/availability-reminder",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "owner",
+                ":id",
+                "availability-reminder"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "OWNER_USER_ID"
+                }
+              ]
+            },
+            "description": "Send availability status reminder to owner. Dispatches rich text HTML email if EMAIL/BOTH, and bridges Twilio SIM call to owner if PHONE/BOTH."
+          }
+        },
+        {
+          "name": "Send Payment Due Reminder",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailSubject\": \"Outstanding payment due reminder\",\n  \"emailBody\": \"<p>Dear owner, you have an outstanding payment due on your account. Please pay now.</p>\",\n  \"adminPhone\": \"+972500000000\",\n  \"amount\": 50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/owner/:id/payment-due-reminder",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "owner",
+                ":id",
+                "payment-due-reminder"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "OWNER_USER_ID"
+                }
+              ]
+            },
+            "description": "Send payment due reminder. Automatically calculates dues or accepts custom amount. Dispatches rich text email if EMAIL/BOTH and Twilio call bridge if PHONE/BOTH."
+          }
+        }
+      ]
     }
   ]
 }

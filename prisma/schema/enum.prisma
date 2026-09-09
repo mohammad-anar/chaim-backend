@@ -58,6 +58,12 @@ enum PaymentStatus {
   CANCELLED
 }
 
+enum NotificationPreference {
+  EMAIL
+  PHONE
+  BOTH
+}
+
 enum TransactionType {
   CREDIT
   DEBIT
