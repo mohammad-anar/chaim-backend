@@ -46,7 +46,12 @@ const updateSwapStatus = catchAsync(async (req: Request, res: Response) => {
 const getAllSwapsAdmin = catchAsync(async (req: Request, res: Response) => {
   const filters = {
     status: req.query.status as any,
-    searchTerm: req.query.searchTerm as string,
+    searchTerm: req.query.searchTerm as string | undefined,
+    city: req.query.city as string | undefined,
+    neighborhood: req.query.neighborhood as string | undefined,
+    destLat: req.query.destLat as string | undefined,
+    destLng: req.query.destLng as string | undefined,
+    walkingMinutes: req.query.walkingMinutes as string | undefined,
   };
   const options = {
     page: req.query.page ? Number(req.query.page) : undefined,

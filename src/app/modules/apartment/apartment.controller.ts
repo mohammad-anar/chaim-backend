@@ -69,6 +69,9 @@ const getAllApartments = catchAsync(async (req: Request, res: Response) => {
     "amenities",
     "maxWalkingMinutes",
     "status",
+    "destLat",
+    "destLng",
+    "walkingMinutes",
   ]);
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
   const isUserAdmin = req.user?.role === "SUPER_ADMIN";

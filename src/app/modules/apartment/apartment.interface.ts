@@ -15,6 +15,9 @@ export type ICreateApartment = {
   maxGuest: number;
   pricePerShabbat: number;
   neighborhoodWalkingTime?: string | Date;
+  neighborhoodLat?: number;
+  neighborhoodLng?: number;
+  neighborhoodWalkingMinutes?: number;
   amenities?: string[];
   coverImage?: string;
   images?: string[];
@@ -42,4 +45,8 @@ export type IApartmentFilterRequest = {
   amenities?: string | string[];
   maxWalkingMinutes?: number | string;
   status?: ApartmentStatus;
+  // Targeted destination search — mutually exclusive with city/neighborhood when all 3 are present
+  destLat?: number | string;
+  destLng?: number | string;
+  walkingMinutes?: number | string; // max walking minutes from destLat/destLng
 };

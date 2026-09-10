@@ -12,6 +12,8 @@ import {
 } from "../../../helpers/notificationHelper.js";
 import { emailHelper } from "../../../helpers/emailHelper.js";
 import { smsHelper } from "../../../helpers/smsHelper.js";
+import { walkingMinutesToDestination, walkingMinutesToNeighborhood } from "../../../helpers/distance.js";
+import { NEIGHBORHOOD_CENTROIDS } from "../../../config/neighborhoodCentroids.js";
 import {
   IApartmentFilterRequest,
   ICreateApartment,
@@ -78,6 +80,9 @@ const createApartment = async (
       maxGuest: payload.maxGuest,
       pricePerShabbat: payload.pricePerShabbat,
       neighborhoodWalkingTime: walkingTime,
+      neighborhoodLat: payload.neighborhoodLat,
+      neighborhoodLng: payload.neighborhoodLng,
+      neighborhoodWalkingMinutes: payload.neighborhoodWalkingMinutes,
       amenities: payload.amenities || [],
       coverImage: payload.coverImage,
       images: payload.images || [],
@@ -251,6 +256,7 @@ const getMyAppartment = async (userId: string) => {
 
   return {
     ...apartment,
+    walkingDistanceToNeighborhood: walkingMinutesToNeighborhood(apartment, NEIGHBORHOOD_CENTROIDS),
     upcomingAvailability,
     availabilityMessage: upcomingAvailability.availabilityMessage,
     isListingActive,
@@ -399,7 +405,16 @@ const getAllApartments = async (
     amenities,
     maxWalkingMinutes,
     status,
+    destLat,
+    destLng,
+    walkingMinutes,
   } = filters;
+
+  // Destination mode: all 3 destination params must be valid numbers
+  const parsedDestLat = destLat !== undefined && !isAnyOrEmpty(destLat) ? Number(destLat) : NaN;
+  const parsedDestLng = destLng !== undefined && !isAnyOrEmpty(destLng) ? Number(destLng) : NaN;
+  const parsedWalkingMinutes = walkingMinutes !== undefined && !isAnyOrEmpty(walkingMinutes) ? Number(walkingMinutes) : NaN;
+  const isDestinationMode = !isNaN(parsedDestLat) && !isNaN(parsedDestLng) && !isNaN(parsedWalkingMinutes);
 
   const andConditions: Prisma.ApartmentWhereInput[] = [];
 
@@ -434,13 +449,20 @@ const getAllApartments = async (
     });
   }
 
-  if (!isAnyOrEmpty(city)) {
-    logCitySearch(String(city).trim());
-    andConditions.push({ city: { contains: String(city).trim(), mode: "insensitive" } });
-  }
+  if (isDestinationMode) {
+    // Destination mode: only fetch apartments with coordinates; city/neighborhood filters are skipped
+    andConditions.push({ lat: { not: null } });
+    andConditions.push({ lng: { not: null } });
+  } else {
+    // Standard mode: apply city and neighborhood text filters
+    if (!isAnyOrEmpty(city)) {
+      logCitySearch(String(city).trim());
+      andConditions.push({ city: { contains: String(city).trim(), mode: "insensitive" } });
+    }
 
-  if (!isAnyOrEmpty(neighborhood)) {
-    andConditions.push({ neighborhood: { contains: String(neighborhood).trim(), mode: "insensitive" } });
+    if (!isAnyOrEmpty(neighborhood)) {
+      andConditions.push({ neighborhood: { contains: String(neighborhood).trim(), mode: "insensitive" } });
+    }
   }
 
   if (!isAnyOrEmpty(propertyType)) {
@@ -572,7 +594,7 @@ const getAllApartments = async (
     where: whereConditions,
   });
 
-  const dataWithRating = result.map((apt) => {
+  let dataWithRating = result.map((apt) => {
     const totalReviews = apt.reviews.length;
     const avgRating =
       totalReviews > 0
@@ -585,20 +607,37 @@ const getAllApartments = async (
       weekendId as string,
     );
 
+    const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
+    const walkingDistanceToDestination = isDestinationMode
+      ? walkingMinutesToDestination(apt, parsedDestLat, parsedDestLng)
+      : undefined;
+
     return {
       ...apt,
       averageRating: Number(avgRating.toFixed(1)),
       totalReviews,
       upcomingAvailability,
       availabilityMessage: upcomingAvailability.availabilityMessage,
+      walkingDistanceToNeighborhood,
+      ...(isDestinationMode && { walkingDistanceToDestination }),
     };
   });
+
+  // In destination mode: in-memory filter by walking distance (excludes apts without lat/lng)
+  if (isDestinationMode) {
+    dataWithRating = dataWithRating.filter(
+      (apt) =>
+        apt.walkingDistanceToDestination !== null &&
+        apt.walkingDistanceToDestination !== undefined &&
+        apt.walkingDistanceToDestination <= parsedWalkingMinutes,
+    );
+  }
 
   const responseData = {
     meta: {
       page,
       limit,
-      total,
+      total: isDestinationMode ? dataWithRating.length : total,
     },
     data: dataWithRating,
   };
@@ -675,12 +714,15 @@ const getApartmentById = async (idOrPropertyId: string) => {
     upcomingWeekends,
   );
 
+  const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(apartment, NEIGHBORHOOD_CENTROIDS);
+
   const result = {
     ...apartment,
     averageRating: Number(avgRating.toFixed(1)),
     totalReviews,
     upcomingAvailability,
     availabilityMessage: upcomingAvailability.availabilityMessage,
+    walkingDistanceToNeighborhood,
   };
 
   await setCache(cacheKey, result, 600);

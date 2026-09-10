@@ -9,7 +9,6 @@ model User {
   status       UserStatus @default(ACTIVE)
   isDeleted    Boolean    @default(false)
   isVerified   Boolean    @default(false)
-  notificationPreference NotificationPreference @default(EMAIL) @map("notification_preference")
   otp          Int?       @map("otp")
   otpExpiry    DateTime?  @map("otp_expiry")
   createdAt    DateTime   @default(now()) @map("created_at")
@@ -18,8 +17,9 @@ model User {
   marketingPlatformId    String?                   @map("marketing_platform_id")
   marketingPlatform      MarketingPlatform?        @relation(fields: [marketingPlatformId], references: [id], onDelete: SetNull)
 
-  marketingEmail         MarketingEmail?
-  apartment              Apartment?
+  marketingEmail                MarketingEmail?
+  ownerNotificationPreference   OwnerNotificationPreference?
+  apartment                     Apartment?
   notifyRequestsSent     NotifyRequest[]           @relation("NotifyRequestUser")
   notifyRequestsRecv     NotifyRequest[]           @relation("NotifyRequestOwner")
   interestedRequestsSent InterestedRequest[]       @relation("InterestedRequestUser")
@@ -47,4 +47,20 @@ model MarketingEmail {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("marketing_emails")
+}
+
+model OwnerNotificationPreference {
+  id                String                 @id @default(uuid())
+  userId            String                 @unique @map("user_id")
+  channel           NotificationPreference @default(EMAIL)
+  notificationEmail String?                @map("notification_email")
+  notificationPhone String?                @map("notification_phone")
+  preferredDay      DayOfWeek?             @map("preferred_day")
+  preferredTime     String?                @map("preferred_time") // e.g. "09:00"
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("owner_notification_preferences")
 }

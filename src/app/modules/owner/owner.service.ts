@@ -10,7 +10,9 @@ import { dispatchNotification } from "../../../helpers/notificationHelper.js";
 import { IPaginationOptions } from "../../../types/pagination.js";
 import {
   IOwnerFilterRequest,
+  IOwnerNotificationPreferencePayload,
   ISendReminderPayload,
+  ISendPaymentReminderPayload,
 } from "./owner.interface.js";
 
 const accountSid = config.twilio.account_sid;
@@ -22,7 +24,7 @@ const twilioClient = isValidTwilioSid && authToken ? twilio(accountSid!, authTok
 /**
  * Get all owners with rich metrics:
  * - totalListings (1)
- * - contact info & notificationPreference
+ * - contact info & ownerNotificationPreference
  * - totalEarnings (Listing 28 ILS + Report Rented 50 ILS completed)
  * - totalDue (Unpaid listings + Unpaid reports)
  * - unpaidReportsCount & amount
@@ -34,7 +36,8 @@ const getAllOwners = async (
 ) => {
   const { limit, page, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(options);
-  const { searchTerm, hasDue, status, notificationPreference } = filters;
+  const { searchTerm, hasDue, status, channel, notificationPreference } = filters;
+  const targetChannel = channel || notificationPreference;
 
   const andConditions: Prisma.UserWhereInput[] = [
     { isDeleted: false },
@@ -57,8 +60,12 @@ const getAllOwners = async (
     andConditions.push({ status: status as any });
   }
 
-  if (notificationPreference) {
-    andConditions.push({ notificationPreference: notificationPreference as any });
+  if (targetChannel) {
+    andConditions.push({
+      ownerNotificationPreference: {
+        channel: targetChannel as any,
+      },
+    });
   }
 
   const whereConditions: Prisma.UserWhereInput = { AND: andConditions };
@@ -71,6 +78,7 @@ const getAllOwners = async (
       take: limit,
       orderBy: { [sortBy]: sortOrder },
       include: {
+        ownerNotificationPreference: true,
         apartment: {
           include: {
             availabilities: {
@@ -135,7 +143,8 @@ const getAllOwners = async (
       profileImage: owner.profileImage,
       status: owner.status,
       isVerified: owner.isVerified,
-      notificationPreference: owner.notificationPreference || "EMAIL",
+      notificationPreference: owner.ownerNotificationPreference?.channel || "EMAIL",
+      ownerNotificationPreference: owner.ownerNotificationPreference || null,
       createdAt: owner.createdAt,
       totalListings: apartment ? 1 : 0,
       apartment: apartment
@@ -174,6 +183,7 @@ const getAllOwners = async (
     };
   });
 
+
   // Filter in-memory if hasDue requested
   let result = formattedOwners;
   if (hasDue === "true") {
@@ -199,6 +209,7 @@ const getSingleOwner = async (ownerId: string) => {
   const owner: any = await prisma.user.findUnique({
     where: { id: ownerId, isDeleted: false },
     include: {
+      ownerNotificationPreference: true,
       apartment: {
         include: {
           availabilities: { include: { weekend: true } },
@@ -252,7 +263,8 @@ const getSingleOwner = async (ownerId: string) => {
     profileImage: owner.profileImage,
     status: owner.status,
     isVerified: owner.isVerified,
-    notificationPreference: owner.notificationPreference || "EMAIL",
+    notificationPreference: owner.ownerNotificationPreference?.channel || "EMAIL",
+    ownerNotificationPreference: owner.ownerNotificationPreference || null,
     createdAt: owner.createdAt,
     totalListings: apartment ? 1 : 0,
     apartment,
@@ -278,7 +290,7 @@ const getSingleOwner = async (ownerId: string) => {
 
 /**
  * Send reminder for apartment availability status update:
- * - Reads owner's notificationPreference (EMAIL, PHONE, BOTH)
+ * - Reads owner's ownerNotificationPreference (channel: EMAIL, PHONE, BOTH)
  * - EMAIL: Sends rich text HTML email
  * - PHONE: Initiates Twilio SIM call bridge connecting admin's phone to owner's SIM
  * - BOTH: Executes both
@@ -292,7 +304,7 @@ const sendAvailabilityReminder = async (
     prisma.user.findUnique({ where: { id: adminId } }),
     prisma.user.findUnique({
       where: { id: ownerId, isDeleted: false },
-      include: { apartment: true },
+      include: { apartment: true, ownerNotificationPreference: true },
     }),
   ]);
 
@@ -304,7 +316,7 @@ const sendAvailabilityReminder = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "This user does not have an active apartment listing");
   }
 
-  const pref = owner.notificationPreference || "EMAIL";
+  const pref = payload.channel || owner.ownerNotificationPreference?.channel || "EMAIL";
   const shouldEmail = pref === "EMAIL" || pref === "BOTH";
   const shouldPhone = pref === "PHONE" || pref === "BOTH";
 
@@ -326,7 +338,8 @@ const sendAvailabilityReminder = async (
 
   // 1. Email Channel
   if (shouldEmail) {
-    if (owner.email) {
+    const targetEmail = owner.ownerNotificationPreference?.notificationEmail || owner.email;
+    if (targetEmail) {
       const subject =
         payload.emailSubject ||
         `Please Update Availability Status for "${owner.apartment.title}" - ShabbosRent`;
@@ -349,7 +362,7 @@ const sendAvailabilityReminder = async (
 
       try {
         await emailHelper.sendEmail({
-          to: owner.email,
+          to: targetEmail,
           subject,
           html: finalHtml,
         });
@@ -364,19 +377,22 @@ const sendAvailabilityReminder = async (
 
   // 2. Phone / Twilio SIM Call Channel
   if (shouldPhone) {
-    const ownerPhone = owner.phone || owner.apartment.phoneNumber;
+    const ownerPhone =
+      owner.ownerNotificationPreference?.notificationPhone ||
+      owner.phone ||
+      owner.apartment.phoneNumber;
     const adminPhone = payload.adminPhone || admin?.phone || twilioPhoneNumber;
 
     if (!ownerPhone) {
       notices.push("Owner has no phone number on file for voice call");
     } else if (twilioClient && twilioPhoneNumber) {
       try {
-        const twimlUrl = `${process.env.BACKEND_URL || "http://localhost:5000"}/api/v1/call/twiml?to=${encodeURIComponent(ownerPhone)}`;
+        const twimlUrl = `${process.env.BACKEND_URL || "http://localhost:5000"}/api/v1/call/twiml?to=${encodeURIComponent(adminPhone)}`;
         const statusCallback = `${process.env.BACKEND_URL || "http://localhost:5000"}/api/v1/call/status-webhook`;
 
         const call = await twilioClient.calls.create({
           url: twimlUrl,
-          to: adminPhone,
+          to: ownerPhone,
           from: twilioPhoneNumber,
           statusCallback,
           statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
@@ -408,7 +424,9 @@ const sendAvailabilityReminder = async (
   return {
     success: true,
     message: `Availability reminder processed for ${owner.username}`,
-    notificationPreference: pref,
+    channelUsed: pref,
+    notificationPreference: owner.ownerNotificationPreference?.channel || "EMAIL",
+    ownerNotificationPreference: owner.ownerNotificationPreference || null,
     emailSent,
     callInitiated,
     callSid,
@@ -419,7 +437,7 @@ const sendAvailabilityReminder = async (
 /**
  * Send payment due reminder:
  * - Calculates pending dues (Listing fee + Unpaid report rented count * 50)
- * - Reads owner's notificationPreference (EMAIL, PHONE, BOTH)
+ * - Reads owner's ownerNotificationPreference (EMAIL, PHONE, BOTH)
  * - EMAIL: Sends rich text HTML email with due details and payment link
  * - PHONE: Initiates Twilio SIM call bridge
  * - BOTH: Executes both
@@ -427,13 +445,14 @@ const sendAvailabilityReminder = async (
 const sendPaymentDueReminder = async (
   adminId: string,
   ownerId: string,
-  payload: ISendReminderPayload & { amount?: number },
+  payload: ISendPaymentReminderPayload,
 ) => {
   const [admin, owner]: [any, any] = await Promise.all([
     prisma.user.findUnique({ where: { id: adminId } }),
     prisma.user.findUnique({
       where: { id: ownerId, isDeleted: false },
       include: {
+        ownerNotificationPreference: true,
         apartment: {
           include: {
             listingPayment: true,
@@ -465,7 +484,7 @@ const sendPaymentDueReminder = async (
   const calculatedTotalDue = listingDue + reportsDue;
   const dueAmount = payload.amount !== undefined ? payload.amount : calculatedTotalDue;
 
-  const pref = owner.notificationPreference || "EMAIL";
+  const pref = payload.channel || owner.ownerNotificationPreference?.channel || "EMAIL";
   const shouldEmail = pref === "EMAIL" || pref === "BOTH";
   const shouldPhone = pref === "PHONE" || pref === "BOTH";
 
@@ -490,7 +509,8 @@ const sendPaymentDueReminder = async (
 
   // 1. Email Channel
   if (shouldEmail) {
-    if (owner.email) {
+    const targetEmail = owner.ownerNotificationPreference?.notificationEmail || owner.email;
+    if (targetEmail) {
       const subject =
         payload.emailSubject ||
         `Payment Reminder: Outstanding Dues of ${dueAmount} ILS - ShabbosRent`;
@@ -515,7 +535,7 @@ const sendPaymentDueReminder = async (
 
       try {
         await emailHelper.sendEmail({
-          to: owner.email,
+          to: targetEmail,
           subject,
           html: finalHtml,
         });
@@ -530,19 +550,22 @@ const sendPaymentDueReminder = async (
 
   // 2. Phone / Twilio SIM Call Channel
   if (shouldPhone) {
-    const ownerPhone = owner.phone || owner.apartment.phoneNumber;
+    const ownerPhone =
+      owner.ownerNotificationPreference?.notificationPhone ||
+      owner.phone ||
+      owner.apartment.phoneNumber;
     const adminPhone = payload.adminPhone || admin?.phone || twilioPhoneNumber;
 
     if (!ownerPhone) {
       notices.push("Owner has no phone number on file for voice call");
     } else if (twilioClient && twilioPhoneNumber) {
       try {
-        const twimlUrl = `${process.env.BACKEND_URL || "http://localhost:5000"}/api/v1/call/twiml?to=${encodeURIComponent(ownerPhone)}`;
+        const twimlUrl = `${process.env.BACKEND_URL || "http://localhost:5000"}/api/v1/call/twiml?to=${encodeURIComponent(adminPhone)}`;
         const statusCallback = `${process.env.BACKEND_URL || "http://localhost:5000"}/api/v1/call/status-webhook`;
 
         const call = await twilioClient.calls.create({
           url: twimlUrl,
-          to: adminPhone,
+          to: ownerPhone,
           from: twilioPhoneNumber,
           statusCallback,
           statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
@@ -574,7 +597,9 @@ const sendPaymentDueReminder = async (
     success: true,
     message: `Payment due reminder of ${dueAmount} ILS processed for ${owner.username}`,
     dueAmount,
-    notificationPreference: pref,
+    channelUsed: pref,
+    notificationPreference: owner.ownerNotificationPreference?.channel || "EMAIL",
+    ownerNotificationPreference: owner.ownerNotificationPreference || null,
     emailSent,
     callInitiated,
     callSid,
@@ -582,9 +607,82 @@ const sendPaymentDueReminder = async (
   };
 };
 
+/**
+ * Get current owner's notification preference
+ */
+const getMyNotificationPref = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId, isDeleted: false },
+    include: { ownerNotificationPreference: true },
+  });
+
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+  }
+
+  return (
+    user.ownerNotificationPreference || {
+      userId: user.id,
+      channel: "EMAIL",
+      notificationEmail: user.email || null,
+      notificationPhone: user.phone || null,
+      preferredDay: null,
+      preferredTime: null,
+    }
+  );
+};
+
+/**
+ * Upsert current owner's notification preference
+ */
+const upsertMyNotificationPref = async (
+  userId: string,
+  payload: IOwnerNotificationPreferencePayload,
+) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId, isDeleted: false },
+  });
+
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+  }
+
+  const result = await prisma.ownerNotificationPreference.upsert({
+    where: { userId },
+    update: {
+      ...(payload.channel !== undefined && { channel: payload.channel }),
+      ...(payload.notificationEmail !== undefined && {
+        notificationEmail: payload.notificationEmail,
+      }),
+      ...(payload.notificationPhone !== undefined && {
+        notificationPhone: payload.notificationPhone,
+      }),
+      ...(payload.preferredDay !== undefined && {
+        preferredDay: payload.preferredDay,
+      }),
+      ...(payload.preferredTime !== undefined && {
+        preferredTime: payload.preferredTime,
+      }),
+    },
+    create: {
+      userId,
+      channel: payload.channel || "EMAIL",
+      notificationEmail: payload.notificationEmail ?? user.email ?? null,
+      notificationPhone: payload.notificationPhone ?? user.phone ?? null,
+      preferredDay: payload.preferredDay || null,
+      preferredTime: payload.preferredTime || null,
+    },
+  });
+
+  return result;
+};
+
 export const OwnerServices = {
   getAllOwners,
   getSingleOwner,
   sendAvailabilityReminder,
   sendPaymentDueReminder,
+  getMyNotificationPref,
+  upsertMyNotificationPref,
 };
+

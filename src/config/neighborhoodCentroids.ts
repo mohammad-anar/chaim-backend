@@ -1,0 +1,126 @@
+/**
+ * Neighborhood centroid coordinates for Israel and USA communities.
+ * Used as a fallback to compute walkingDistanceToNeighborhood if the owner/frontend
+ * has not explicitly supplied neighborhoodLat/neighborhoodLng or neighborhoodWalkingMinutes.
+ *
+ * Format: { [neighborhoodName]: { lat, lng } }
+ */
+export const NEIGHBORHOOD_CENTROIDS: Record<string, { lat: number; lng: number }> = {
+  // ==========================================
+  // Jerusalem, Israel
+  // ==========================================
+  "Geula": { lat: 31.7930, lng: 35.2163 },
+  "Mea Shearim": { lat: 31.7891, lng: 35.2230 },
+  "Har Nof": { lat: 31.7776, lng: 35.1650 },
+  "Ramot": { lat: 31.8230, lng: 35.1850 },
+  "Givat Shaul": { lat: 31.7910, lng: 35.1870 },
+  "Sanhedria": { lat: 31.8020, lng: 35.2270 },
+  "Kiryat Moshe": { lat: 31.7850, lng: 35.1980 },
+  "Kiryat Belz": { lat: 31.7920, lng: 35.2010 },
+  "Romema": { lat: 31.7950, lng: 35.2050 },
+  "Bayit VeGan": { lat: 31.7700, lng: 35.1920 },
+  "Bayit Vegan": { lat: 31.7700, lng: 35.1920 },
+  "Ein Kerem": { lat: 31.7630, lng: 35.1530 },
+  "Malha": { lat: 31.7510, lng: 35.1870 },
+  "Talpiot": { lat: 31.7560, lng: 35.2290 },
+  "Arnona": { lat: 31.7480, lng: 35.2210 },
+  "Katamon": { lat: 31.7660, lng: 35.2040 },
+  "Old Katamon": { lat: 31.7630, lng: 35.2080 },
+  "Rehavia": { lat: 31.7750, lng: 35.2130 },
+  "Rechavia": { lat: 31.7750, lng: 35.2130 },
+  "Talbieh": { lat: 31.7720, lng: 35.2160 },
+  "German Colony": { lat: 31.7610, lng: 35.2150 },
+  "Baka": { lat: 31.7580, lng: 35.2190 },
+  "Old City": { lat: 31.7767, lng: 35.2345 },
+  "Jewish Quarter": { lat: 31.7750, lng: 35.2320 },
+  "City Center": { lat: 31.7835, lng: 35.2107 },
+  "Beit HaKerem": { lat: 31.7820, lng: 35.1800 },
+  "Pisgat Zeev": { lat: 31.8320, lng: 35.2460 },
+  "French Hill": { lat: 31.8020, lng: 35.2380 },
+  "Neve Yaakov": { lat: 31.8500, lng: 35.2430 },
+  "Ramot Eshkol": { lat: 31.8090, lng: 35.2310 },
+  "Shmuel HaNavi": { lat: 31.7990, lng: 35.2240 },
+  "Har Hotzvim": { lat: 31.8050, lng: 35.2020 },
+  "Makor Baruch": { lat: 31.7900, lng: 35.2110 },
+  "Kerem Avraham": { lat: 31.7915, lng: 35.2185 },
+
+  // ==========================================
+  // Central & Other Cities in Israel
+  // ==========================================
+  "Bnei Brak": { lat: 32.0837, lng: 34.8338 },
+  "Ramat Gan": { lat: 32.0706, lng: 34.8235 },
+  "Tel Aviv": { lat: 32.0853, lng: 34.7818 },
+  "Petah Tikva": { lat: 32.0841, lng: 34.8878 },
+  "Bat Yam": { lat: 32.0237, lng: 34.7515 },
+  "Netanya": { lat: 32.3215, lng: 34.8532 },
+  "Kiryat Sanz": { lat: 32.3480, lng: 34.8590 },
+  "Ashdod": { lat: 31.8044, lng: 34.6553 },
+  "Beit Shemesh": { lat: 31.7450, lng: 34.9920 },
+  "Ramat Beit Shemesh": { lat: 31.7100, lng: 34.9850 },
+  "Modiin Illit": { lat: 31.9320, lng: 35.0380 },
+  "Beitar Illit": { lat: 31.6910, lng: 35.1280 },
+  "Kiryat Sefer": { lat: 31.9280, lng: 35.0330 },
+  "Elad": { lat: 32.0510, lng: 34.9520 },
+  "Tzfat": { lat: 32.9646, lng: 35.4961 },
+  "Safed": { lat: 32.9646, lng: 35.4961 },
+  "Tiberias": { lat: 32.7959, lng: 35.5312 },
+  "Haifa": { lat: 32.7940, lng: 34.9896 },
+
+  // ==========================================
+  // United States — New York & Tri-State
+  // ==========================================
+  "Borough Park": { lat: 40.6350, lng: -73.9921 },
+  "Boro Park": { lat: 40.6350, lng: -73.9921 },
+  "Crown Heights": { lat: 40.6694, lng: -73.9422 },
+  "Williamsburg": { lat: 40.7081, lng: -73.9571 },
+  "Flatbush": { lat: 40.6323, lng: -73.9604 },
+  "Midwood": { lat: 40.6190, lng: -73.9620 },
+  "Kensington": { lat: 40.6400, lng: -73.9780 },
+  "Sheepshead Bay": { lat: 40.5900, lng: -73.9550 },
+  "Manhattan Beach": { lat: 40.5780, lng: -73.9400 },
+  "Marine Park": { lat: 40.6060, lng: -73.9310 },
+  "Upper West Side": { lat: 40.7870, lng: -73.9754 },
+  "Washington Heights": { lat: 40.8510, lng: -73.9360 },
+  "Monsey": { lat: 41.1090, lng: -74.0682 },
+  "Spring Valley": { lat: 41.1130, lng: -74.0435 },
+  "New Square": { lat: 41.1440, lng: -74.0320 },
+  "Kiryas Joel": { lat: 41.3410, lng: -74.1680 },
+  "Five Towns": { lat: 40.6254, lng: -73.7299 },
+  "Cedarhurst": { lat: 40.6254, lng: -73.7299 },
+  "Lawrence": { lat: 40.6162, lng: -73.7315 },
+  "Woodmere": { lat: 40.6350, lng: -73.7120 },
+  "Hewlett": { lat: 40.6430, lng: -73.6960 },
+  "Inwood": { lat: 40.6220, lng: -73.7470 },
+  "Far Rockaway": { lat: 40.6050, lng: -73.7550 },
+  "Lakewood": { lat: 40.0968, lng: -74.2174 },
+  "Passaic": { lat: 40.8568, lng: -74.1285 },
+  "Teaneck": { lat: 40.8937, lng: -74.0118 },
+  "Englewood": { lat: 40.8929, lng: -73.9726 },
+  "Bergenfield": { lat: 40.9276, lng: -73.9974 },
+  "Clifton": { lat: 40.8584, lng: -74.1638 },
+  "Deal": { lat: 40.2440, lng: -74.0010 },
+
+  // ==========================================
+  // United States — Florida & Other States
+  // ==========================================
+  "Miami Beach": { lat: 25.7907, lng: -80.1300 },
+  "South Beach": { lat: 25.7826, lng: -80.1341 },
+  "Mid Beach": { lat: 25.8115, lng: -80.1230 },
+  "Surfside": { lat: 25.8784, lng: -80.1242 },
+  "Bal Harbour": { lat: 25.8926, lng: -80.1264 },
+  "Bay Harbor Islands": { lat: 25.8900, lng: -80.1350 },
+  "Aventura": { lat: 25.9565, lng: -80.1392 },
+  "North Miami Beach": { lat: 25.9331, lng: -80.1625 },
+  "Hollywood": { lat: 26.0112, lng: -80.1495 },
+  "Boca Raton": { lat: 26.3683, lng: -80.1289 },
+  "West Rogers Park": { lat: 42.0080, lng: -87.6970 },
+  "Chicago": { lat: 42.0080, lng: -87.6970 },
+  "Pico-Robertson": { lat: 34.0538, lng: -118.3900 },
+  "Los Angeles": { lat: 34.0538, lng: -118.3900 },
+  "La Brea": { lat: 34.0760, lng: -118.3440 },
+  "Valley Village": { lat: 34.1620, lng: -118.3970 },
+  "Pikesville": { lat: 40.8368, lng: -76.7111 },
+  "Baltimore": { lat: 39.3640, lng: -76.7020 },
+  "Cleveland": { lat: 41.5030, lng: -81.5340 },
+  "University Heights": { lat: 41.4980, lng: -81.5360 },
+};

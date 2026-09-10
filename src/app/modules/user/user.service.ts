@@ -21,7 +21,7 @@ const getMyProfile = async (userId: string) => {
       role: true,
       status: true,
       isVerified: true,
-      notificationPreference: true,
+      ownerNotificationPreference: true,
       isDeleted: true,
       createdAt: true,
       updatedAt: true,
@@ -78,9 +78,24 @@ const updateMyProfile = async (userId: string, payload: IUpdateProfile) => {
     }
   }
 
+  const { notificationPreference, ...userData } = payload;
+
+  if (notificationPreference) {
+    await prisma.ownerNotificationPreference.upsert({
+      where: { userId },
+      update: { channel: notificationPreference as any },
+      create: {
+        userId,
+        channel: notificationPreference as any,
+        notificationEmail: payload.email ?? user.email ?? null,
+        notificationPhone: payload.phone ?? user.phone ?? null,
+      },
+    });
+  }
+
   const updatedUser = await prisma.user.update({
     where: { id: userId },
-    data: payload,
+    data: userData,
     select: {
       id: true,
       username: true,
@@ -90,13 +105,14 @@ const updateMyProfile = async (userId: string, payload: IUpdateProfile) => {
       role: true,
       status: true,
       isVerified: true,
-      notificationPreference: true,
+      ownerNotificationPreference: true,
       createdAt: true,
       updatedAt: true,
     },
   });
 
   return updatedUser;
+
 };
 
 const getAllUsers = async (
@@ -146,7 +162,7 @@ const getAllUsers = async (
       role: true,
       status: true,
       isVerified: true,
-      notificationPreference: true,
+      ownerNotificationPreference: true,
       createdAt: true,
       updatedAt: true,
       apartment: {
@@ -185,7 +201,7 @@ const getUserById = async (id: string) => {
       role: true,
       status: true,
       isVerified: true,
-      notificationPreference: true,
+      ownerNotificationPreference: true,
       isDeleted: true,
       createdAt: true,
       updatedAt: true,
@@ -499,22 +515,28 @@ const updateNotificationPreference = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
   }
 
-  const updatedUser = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      notificationPreference: preference as any,
+  const pref = await prisma.ownerNotificationPreference.upsert({
+    where: { userId },
+    update: {
+      channel: preference as any,
     },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      phone: true,
-      notificationPreference: true,
-      updatedAt: true,
+    create: {
+      userId,
+      channel: preference as any,
+      notificationEmail: user.email || null,
+      notificationPhone: user.phone || null,
     },
   });
 
-  return updatedUser;
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    phone: user.phone,
+    notificationPreference: pref.channel,
+    ownerNotificationPreference: pref,
+    updatedAt: pref.updatedAt,
+  };
 };
 
 export const UserServices = {

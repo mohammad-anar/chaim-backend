@@ -5,6 +5,8 @@ import { paginationHelper } from "../../../helpers/paginationHelper.js";
 import { parseFlexibleDate } from "../../../helpers/parseDate.js";
 import { prisma } from "../../../helpers/prisma.js";
 import { IPaginationOptions } from "../../../types/pagination.js";
+import { walkingMinutesToDestination, walkingMinutesToNeighborhood } from "../../../helpers/distance.js";
+import { NEIGHBORHOOD_CENTROIDS } from "../../../config/neighborhoodCentroids.js";
 import {
   ICreateOrUpdateSwapPreference,
   ISwapPreferenceFilterRequest,
@@ -53,6 +55,15 @@ const createOrUpdateSwapPreference = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "You have not listed an apartment yet");
   }
 
+  const existingPreference = await prisma.swapPreference.findUnique({
+    where: { apartmentId: apartment.id },
+  });
+
+  const willBeEnabled =
+    payload.isEnabled !== undefined
+      ? payload.isEnabled
+      : (existingPreference?.isEnabled ?? true);
+
   let parsedWeekend: Date | undefined = undefined;
   if (payload.weekend) {
     const d = parseFlexibleDate(payload.weekend);
@@ -82,6 +93,16 @@ const createOrUpdateSwapPreference = async (
     }
 
     parsedWeekend = weekendCalendarRecord.date;
+  }
+
+  if (willBeEnabled) {
+    const finalWeekend = parsedWeekend || existingPreference?.weekend;
+    if (!finalWeekend) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "A valid weekend date from the Weekend Calendar is required when enabling swap preference.",
+      );
+    }
   }
 
   const result = await prisma.swapPreference.upsert({
@@ -115,6 +136,18 @@ const createOrUpdateSwapPreference = async (
           city: true,
           neighborhood: true,
           coverImage: true,
+          phoneNumber: true,
+          whatsApp: true,
+          howToContact: true,
+          user: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              phone: true,
+              profileImage: true,
+            },
+          },
         },
       },
     },
@@ -170,21 +203,52 @@ const getAllSwapPreferences = async (
     );
   }
 
+  if (!userApartment.swapPreference.weekend) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "You must select a weekend in your swap preference before you can view swappable properties",
+    );
+  }
+
   const { limit, page, skip, sortBy, sortOrder } =
     paginationHelper.calculatePagination(options);
-  const { city, neighborhood, rooms, beds, isEnabled } = filters;
+  const { city, neighborhood, rooms, beds, isEnabled, destLat, destLng, walkingMinutes } = filters;
+
+  // Destination mode: all 3 destination params must be valid numbers
+  const parsedDestLat = destLat !== undefined ? Number(destLat) : NaN;
+  const parsedDestLng = destLng !== undefined ? Number(destLng) : NaN;
+  const parsedWalkingMinutes = walkingMinutes !== undefined ? Number(walkingMinutes) : NaN;
+  const isDestinationMode = !isNaN(parsedDestLat) && !isNaN(parsedDestLng) && !isNaN(parsedWalkingMinutes);
+
+  const userWeekend = new Date(userApartment.swapPreference.weekend);
+  const startOfDay = new Date(userWeekend);
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const endOfDay = new Date(userWeekend);
+  endOfDay.setUTCHours(23, 59, 59, 999);
 
   const andConditions: Prisma.SwapPreferenceWhereInput[] = [
     { isEnabled: isEnabled !== undefined ? String(isEnabled) === "true" : true },
     { apartmentId: { not: userApartment.id } },
+    {
+      weekend: {
+        gte: startOfDay,
+        lte: endOfDay,
+      },
+    },
   ];
 
-  if (city && city !== "any") {
-    andConditions.push({ city: { contains: city, mode: "insensitive" } });
-  }
-
-  if (neighborhood && neighborhood !== "any") {
-    andConditions.push({ neighborhood: { contains: neighborhood, mode: "insensitive" } });
+  if (isDestinationMode) {
+    // Destination mode: only fetch swaps where the apartment has coordinates; skip city/neighborhood
+    andConditions.push({ apartment: { lat: { not: null } } });
+    andConditions.push({ apartment: { lng: { not: null } } });
+  } else {
+    // Standard mode: apply city and neighborhood text filters
+    if (city && city !== "any") {
+      andConditions.push({ city: { contains: city, mode: "insensitive" } });
+    }
+    if (neighborhood && neighborhood !== "any") {
+      andConditions.push({ neighborhood: { contains: neighborhood, mode: "insensitive" } });
+    }
   }
 
   if (rooms && !isNaN(Number(rooms))) {
@@ -210,6 +274,8 @@ const getAllSwapPreferences = async (
             select: {
               id: true,
               username: true,
+              email: true,
+              phone: true,
               profileImage: true,
             },
           },
@@ -222,15 +288,42 @@ const getAllSwapPreferences = async (
     where: whereConditions,
   });
 
-  const enrichedData = await Promise.all(
+  let enrichedData = await Promise.all(
     result.map((p) => attachWeekendCalendar(p)),
   );
+
+  // Attach walking distance fields to each apartment
+  enrichedData = enrichedData.map((p: any) => {
+    const apt = p.apartment;
+    const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
+    const walkingDistanceToDestination = isDestinationMode
+      ? walkingMinutesToDestination(apt, parsedDestLat, parsedDestLng)
+      : undefined;
+    return {
+      ...p,
+      apartment: {
+        ...apt,
+        walkingDistanceToNeighborhood,
+        ...(isDestinationMode && { walkingDistanceToDestination }),
+      },
+    };
+  });
+
+  // In destination mode: in-memory filter by walking distance
+  if (isDestinationMode) {
+    enrichedData = enrichedData.filter(
+      (p: any) =>
+        p.apartment.walkingDistanceToDestination !== null &&
+        p.apartment.walkingDistanceToDestination !== undefined &&
+        p.apartment.walkingDistanceToDestination <= parsedWalkingMinutes,
+    );
+  }
 
   return {
     meta: {
       page,
       limit,
-      total,
+      total: isDestinationMode ? enrichedData.length : total,
     },
     data: enrichedData,
   };
@@ -239,6 +332,7 @@ const getAllSwapPreferences = async (
 const getMatchedSwapableProperties = async (
   userId: string,
   options?: IPaginationOptions,
+  filters?: { destLat?: string; destLng?: string; walkingMinutes?: string },
 ) => {
   const userApartment = await prisma.apartment.findUnique({
     where: { userId },
@@ -261,11 +355,39 @@ const getMatchedSwapableProperties = async (
     );
   }
 
-  const allPreferences = await prisma.swapPreference.findMany({
-    where: {
-      isEnabled: true,
-      apartmentId: { not: userApartment.id },
+  if (!pref.weekend) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      "You must select a weekend in your swap preference before you can view swappable properties",
+    );
+  }
+
+  // Destination mode
+  const parsedDestLat = filters?.destLat ? Number(filters.destLat) : NaN;
+  const parsedDestLng = filters?.destLng ? Number(filters.destLng) : NaN;
+  const parsedWalkingMinutes = filters?.walkingMinutes ? Number(filters.walkingMinutes) : NaN;
+  const isDestinationMode = !isNaN(parsedDestLat) && !isNaN(parsedDestLng) && !isNaN(parsedWalkingMinutes);
+
+  const userWeekend = new Date(pref.weekend);
+  const startOfDay = new Date(userWeekend);
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const endOfDay = new Date(userWeekend);
+  endOfDay.setUTCHours(23, 59, 59, 999);
+
+  const whereClause: Prisma.SwapPreferenceWhereInput = {
+    isEnabled: true,
+    apartmentId: { not: userApartment.id },
+    weekend: {
+      gte: startOfDay,
+      lte: endOfDay,
     },
+    ...(isDestinationMode && {
+      apartment: { lat: { not: null }, lng: { not: null } },
+    }),
+  };
+
+  const allPreferences = await prisma.swapPreference.findMany({
+    where: whereClause,
     include: {
       apartment: {
         include: {
@@ -289,7 +411,18 @@ const getMatchedSwapableProperties = async (
     orderBy: { createdAt: "desc" },
   });
 
-  const scoredData = allPreferences.map((p) => {
+  // Attach walking distance fields and apply destination filter
+  let filteredPreferences: typeof allPreferences = allPreferences;
+  if (isDestinationMode) {
+    filteredPreferences = allPreferences.filter((p) => {
+      const apt = p.apartment;
+      if (apt.lat == null || apt.lng == null) return false;
+      const mins = walkingMinutesToDestination(apt, parsedDestLat, parsedDestLng);
+      return mins !== null && mins <= parsedWalkingMinutes;
+    });
+  }
+
+  const scoredData = filteredPreferences.map((p) => {
     let score = 0;
     const apt = p.apartment;
 
@@ -324,17 +457,32 @@ const getMatchedSwapableProperties = async (
       }
     }
 
+    // Attach walking distance fields
+    const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
+    const walkingDistanceToDestination = isDestinationMode
+      ? walkingMinutesToDestination(apt, parsedDestLat, parsedDestLng)
+      : undefined;
+
     return {
       ...p,
       isMatch: score > 0,
       matchScore: score,
+      apartment: {
+        ...apt,
+        walkingDistanceToNeighborhood,
+        ...(isDestinationMode && { walkingDistanceToDestination }),
+      },
     };
   });
 
-  const matched = scoredData.filter((p) => p.isMatch);
-  matched.sort((a, b) => b.matchScore - a.matchScore);
+  const enrichedScoredData = await Promise.all(
+    scoredData.map((p) => attachWeekendCalendar(p)),
+  );
 
-  const unmatched = scoredData.filter((p) => !p.isMatch);
+  const matched = enrichedScoredData.filter((p: any) => p.isMatch);
+  matched.sort((a: any, b: any) => b.matchScore - a.matchScore);
+
+  const unmatched = enrichedScoredData.filter((p: any) => !p.isMatch);
 
   const isPreferenceMatched = matched.length > 0;
 
@@ -342,7 +490,7 @@ const getMatchedSwapableProperties = async (
 
   const matchedPaginated = matched.slice(skip, skip + limit);
   const unmatchedPaginated = unmatched.slice(skip, skip + limit);
-  const allPaginated = scoredData.slice(skip, skip + limit);
+  const allPaginated = enrichedScoredData.slice(skip, skip + limit);
 
   const primaryData = isPreferenceMatched ? matchedPaginated : allPaginated;
   const primaryTotal = isPreferenceMatched ? matched.length : scoredData.length;

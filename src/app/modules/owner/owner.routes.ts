@@ -8,6 +8,19 @@ import { OwnerValidation } from "./owner.validation.js";
 const router = express.Router();
 
 router.get(
+  "/me/notification-pref",
+  auth(UserRole.USER, UserRole.SUPER_ADMIN),
+  OwnerController.getMyNotificationPref,
+);
+
+router.patch(
+  "/me/notification-pref",
+  auth(UserRole.USER, UserRole.SUPER_ADMIN),
+  validateRequest(OwnerValidation.upsertOwnerNotificationPrefZodSchema),
+  OwnerController.upsertMyNotificationPref,
+);
+
+router.get(
   "/",
   auth(UserRole.SUPER_ADMIN),
   OwnerController.getAllOwners,
@@ -34,3 +47,4 @@ router.post(
 );
 
 export const OwnerRoutes = router;
+

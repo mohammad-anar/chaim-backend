@@ -28,7 +28,10 @@ model Apartment {
   bathrooms               Int
   maxGuest                Int             @map("max_guest")
   pricePerShabbat         Float           @map("price_per_shabbat")
-  neighborhoodWalkingTime DateTime?       @map("neighborhood_wolking_time")
+  neighborhoodWalkingTime    DateTime?       @map("neighborhood_wolking_time")
+  neighborhoodLat            Float?          @map("neighborhood_lat")
+  neighborhoodLng            Float?          @map("neighborhood_lng")
+  neighborhoodWalkingMinutes Int?            @map("neighborhood_walking_minutes")
   amenities               String[]
   coverImage              String?         @map("cover_image")
   images                  String[]

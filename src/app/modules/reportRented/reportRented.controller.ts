@@ -28,6 +28,55 @@ const getMyReportedRented = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getReportRentedStats = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const result = await ReportRentedServices.getReportRentedStats(userId);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Report rented statistics retrieved successfully",
+    data: result,
+  });
+});
+
+const getMyReportRentedDues = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const result = await ReportRentedServices.getMyReportRentedDues(userId);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Unpaid report rented dues retrieved successfully",
+    data: result,
+  });
+});
+
+const paySingleReportRented = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const { id } = req.params;
+  const result = await ReportRentedServices.paySingleReportRented(userId, id as string, req.body);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.message,
+    data: result,
+  });
+});
+
+const payAllReportRentedDues = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const result = await ReportRentedServices.payAllReportRentedDues(userId, req.body);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.message,
+    data: result,
+  });
+});
+
 const getAllReportRentedAdmin = catchAsync(async (req: Request, res: Response) => {
   const result = await ReportRentedServices.getAllReportRentedAdmin();
 
@@ -54,6 +103,10 @@ const markReportAsPaidAdmin = catchAsync(async (req: Request, res: Response) => 
 export const ReportRentedController = {
   createReportRentedIntent,
   getMyReportedRented,
+  getReportRentedStats,
+  getMyReportRentedDues,
+  paySingleReportRented,
+  payAllReportRentedDues,
   getAllReportRentedAdmin,
   markReportAsPaidAdmin,
 };

@@ -10,6 +10,7 @@ const getAllOwners = catchAsync(async (req: Request, res: Response) => {
     "searchTerm",
     "hasDue",
     "status",
+    "channel",
     "notificationPreference",
   ]);
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
@@ -74,9 +75,43 @@ const sendPaymentDueReminder = catchAsync(
   },
 );
 
+const getMyNotificationPref = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user.id;
+    const result = await OwnerServices.getMyNotificationPref(userId);
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: "Owner notification preference retrieved successfully",
+      data: result,
+    });
+  },
+);
+
+const upsertMyNotificationPref = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user.id;
+    const result = await OwnerServices.upsertMyNotificationPref(
+      userId,
+      req.body,
+    );
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: "Owner notification preference updated successfully",
+      data: result,
+    });
+  },
+);
+
 export const OwnerController = {
   getAllOwners,
   getSingleOwner,
   sendAvailabilityReminder,
   sendPaymentDueReminder,
+  getMyNotificationPref,
+  upsertMyNotificationPref,
 };
+
