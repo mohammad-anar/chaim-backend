@@ -118,6 +118,10 @@ const moduleRoutes = [
     path: "/owner",
     route: OwnerRoutes,
   },
+  {
+    path: "/owners",
+    route: OwnerRoutes,
+  },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

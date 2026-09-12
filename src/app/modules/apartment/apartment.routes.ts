@@ -1,6 +1,6 @@
 import express from "express";
 import { UserRole } from "@prisma/client";
-import auth from "../../middlewares/auth.js";
+import auth, { optionalAuth } from "../../middlewares/auth.js";
 import fileUploadHandler from "../../middlewares/fileUploadHandler.js";
 import validateRequest from "../../middlewares/validateRequest.js";
 import { ApartmentController } from "./apartment.controller.js";
@@ -25,6 +25,12 @@ router.get(
 );
 
 router.get(
+  "/admin/all",
+  auth(UserRole.SUPER_ADMIN),
+  ApartmentController.getAllApartmentsAdmin,
+);
+
+router.get(
   "/admin-details/:id",
   auth(UserRole.SUPER_ADMIN),
   ApartmentController.getAdminApartmentDetails,
@@ -32,6 +38,7 @@ router.get(
 
 router.get(
   "/",
+  optionalAuth(),
   ApartmentController.getAllApartments,
 );
 

@@ -91,6 +91,43 @@ const getAllApartments = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllApartmentsAdmin = catchAsync(async (req: Request, res: Response) => {
+  const filters = pick(req.query, [
+    "searchTerm",
+    "city",
+    "neighborhood",
+    "propertyType",
+    "minPrice",
+    "maxPrice",
+    "bedrooms",
+    "bathrooms",
+    "maxGuest",
+    "guestCount",
+    "weekendId",
+    "amenities",
+    "maxWalkingMinutes",
+    "status",
+    "destLat",
+    "destLng",
+    "walkingMinutes",
+  ]);
+  const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
+
+  const result = await ApartmentServices.getAllApartments(
+    filters as any,
+    options as any,
+    true,
+  );
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "All apartments retrieved successfully for admin",
+    meta: result.meta,
+    data: result.data,
+  });
+});
+
 const getApartmentById = catchAsync(async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const result = await ApartmentServices.getApartmentById(id);
@@ -206,6 +243,7 @@ export const ApartmentController = {
   createApartment,
   getMyAppartment,
   getAllApartments,
+  getAllApartmentsAdmin,
   getApartmentById,
   getAdminApartmentDetails,
   updateApartment,

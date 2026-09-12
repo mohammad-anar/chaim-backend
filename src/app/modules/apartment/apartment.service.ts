@@ -62,6 +62,23 @@ const createApartment = async (
 
   const propertyId = await generatePropertyId();
 
+  const toFloatOrNull = (val: any) =>
+    val !== undefined && val !== null && val !== "" && !isNaN(Number(val)) ? Number(val) : null;
+  const toIntOrNull = (val: any) =>
+    val !== undefined && val !== null && val !== "" && !isNaN(Number(val)) ? Math.round(Number(val)) : null;
+
+  let amenities: string[] = [];
+  if (Array.isArray(payload.amenities)) {
+    amenities = payload.amenities;
+  } else if (typeof payload.amenities === "string") {
+    try {
+      const parsed = JSON.parse(payload.amenities);
+      if (Array.isArray(parsed)) amenities = parsed;
+    } catch {
+      amenities = (payload.amenities as string).split(",").map((s: string) => s.trim()).filter(Boolean);
+    }
+  }
+
   const apartment = await prisma.apartment.create({
     data: {
       userId,
@@ -72,18 +89,18 @@ const createApartment = async (
       neighborhood: payload.neighborhood,
       street1: payload.street1,
       street2: payload.street2,
-      lat: payload.lat,
-      lng: payload.lng,
+      lat: toFloatOrNull(payload.lat),
+      lng: toFloatOrNull(payload.lng),
       propertyType: payload.propertyType,
-      bedrooms: payload.bedrooms,
-      bathrooms: payload.bathrooms,
-      maxGuest: payload.maxGuest,
-      pricePerShabbat: payload.pricePerShabbat,
+      bedrooms: Number(payload.bedrooms),
+      bathrooms: Number(payload.bathrooms),
+      maxGuest: Number(payload.maxGuest),
+      pricePerShabbat: Number(payload.pricePerShabbat),
       neighborhoodWalkingTime: walkingTime,
-      neighborhoodLat: payload.neighborhoodLat,
-      neighborhoodLng: payload.neighborhoodLng,
-      neighborhoodWalkingMinutes: payload.neighborhoodWalkingMinutes,
-      amenities: payload.amenities || [],
+      neighborhoodLat: toFloatOrNull(payload.neighborhoodLat),
+      neighborhoodLng: toFloatOrNull(payload.neighborhoodLng),
+      neighborhoodWalkingMinutes: toIntOrNull(payload.neighborhoodWalkingMinutes),
+      amenities,
       coverImage: payload.coverImage,
       images: payload.images || [],
       phoneNumber: payload.phoneNumber,
@@ -193,6 +210,8 @@ const createApartment = async (
   } catch (ambassadorErr) {
     console.error("[AmbassadorAttribution] Error linking apartment to ambassador:", ambassadorErr);
   }
+
+  await deleteCacheByPattern("apartment:*");
 
   return apartment;
 };
@@ -748,6 +767,34 @@ const updateApartment = async (
   }
 
   const updateData: any = { ...payload };
+
+  const toFloatOrNull = (val: any) =>
+    val !== undefined && val !== null && val !== "" && !isNaN(Number(val)) ? Number(val) : null;
+  const toIntOrNull = (val: any) =>
+    val !== undefined && val !== null && val !== "" && !isNaN(Number(val)) ? Math.round(Number(val)) : null;
+
+  if (payload.lat !== undefined) updateData.lat = toFloatOrNull(payload.lat);
+  if (payload.lng !== undefined) updateData.lng = toFloatOrNull(payload.lng);
+  if (payload.bedrooms !== undefined) updateData.bedrooms = Number(payload.bedrooms);
+  if (payload.bathrooms !== undefined) updateData.bathrooms = Number(payload.bathrooms);
+  if (payload.maxGuest !== undefined) updateData.maxGuest = Number(payload.maxGuest);
+  if (payload.pricePerShabbat !== undefined) updateData.pricePerShabbat = Number(payload.pricePerShabbat);
+  if (payload.neighborhoodLat !== undefined) updateData.neighborhoodLat = toFloatOrNull(payload.neighborhoodLat);
+  if (payload.neighborhoodLng !== undefined) updateData.neighborhoodLng = toFloatOrNull(payload.neighborhoodLng);
+  if (payload.neighborhoodWalkingMinutes !== undefined) updateData.neighborhoodWalkingMinutes = toIntOrNull(payload.neighborhoodWalkingMinutes);
+
+  if (payload.amenities !== undefined) {
+    if (Array.isArray(payload.amenities)) {
+      updateData.amenities = payload.amenities;
+    } else if (typeof payload.amenities === "string") {
+      try {
+        const parsed = JSON.parse(payload.amenities);
+        if (Array.isArray(parsed)) updateData.amenities = parsed;
+      } catch {
+        updateData.amenities = (payload.amenities as string).split(",").map((s: string) => s.trim()).filter(Boolean);
+      }
+    }
+  }
 
   if (payload.neighborhoodWalkingTime) {
     const parsed = new Date(payload.neighborhoodWalkingTime);

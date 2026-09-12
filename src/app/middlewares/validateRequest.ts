@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import { ZodObject } from "zod";
+import { ZodTypeAny } from "zod";
 
 const validateRequest =
-  (schema: ZodObject<any>) =>
+  (schema: ZodTypeAny) =>
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       let parsedBody: any = {};
@@ -16,9 +16,12 @@ const validateRequest =
           parsedBody = req.body;
         }
       }
-      await schema.parseAsync(parsedBody);
 
-      req.body = parsedBody;
+      const validatedData = (await schema.parseAsync(parsedBody)) as Record<string, any>;
+
+      req.body = typeof validatedData === "object" && validatedData !== null
+        ? { ...parsedBody, ...validatedData }
+        : validatedData;
       next();
     } catch (error) {
       console.log(error);
