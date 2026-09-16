@@ -529,7 +529,7 @@ const demoLogin = async (payload: IDemoLogin) => {
     // User with listing
     user = await prisma.user.findFirst({
       where: {
-        apartment: { isNot: null },
+        apartments: { some: {} },
         role: UserRole.USER,
         isDeleted: false,
       },
@@ -543,7 +543,7 @@ const demoLogin = async (payload: IDemoLogin) => {
     // Fresh user without listing
     user = await prisma.user.findFirst({
       where: {
-        apartment: null,
+        apartments: { none: {} },
         role: UserRole.USER,
         isDeleted: false,
       },

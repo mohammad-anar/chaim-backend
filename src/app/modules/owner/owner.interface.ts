@@ -5,7 +5,10 @@ export type IOwnerNotificationPreferencePayload = {
   notificationEmail?: string | null;
   notificationPhone?: string | null;
   preferredDay?: DayOfWeek | null;
-  preferredTime?: string | null; // e.g. "09:00"
+  preferredTime?: string | null; // e.g. "06:00 PM"
+  isPaused?: boolean;
+  allowReminder?: boolean;
+  specificReminderDate?: string | Date | null;
 };
 
 export type IOwnerFilterRequest = {
@@ -17,6 +20,7 @@ export type IOwnerFilterRequest = {
 };
 
 export type ISendReminderPayload = {
+  apartmentId?: string;
   emailSubject?: string;
   emailBody?: string; // HTML body from frontend rich text editor
   adminPhone?: string; // Admin phone number used to bridge Twilio call to owner SIM

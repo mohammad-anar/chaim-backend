@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const createOrUpdateSwapPreferenceZodSchema = z.object({
+  apartmentId: z.string().optional(),
   isEnabled: z.boolean().optional(),
   city: z.string().optional(),
   neighborhood: z.string().optional(),

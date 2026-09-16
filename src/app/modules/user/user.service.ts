@@ -25,7 +25,7 @@ const getMyProfile = async (userId: string) => {
       isDeleted: true,
       createdAt: true,
       updatedAt: true,
-      apartment: {
+      apartments: {
         include: {
           availabilities: true,
           listingPayment: true,
@@ -78,7 +78,14 @@ const updateMyProfile = async (userId: string, payload: IUpdateProfile) => {
     }
   }
 
-  const { notificationPreference, ...userData } = payload;
+  const {
+    username,
+    email,
+    phone,
+    profileImage,
+    marketingPlatformId,
+    notificationPreference,
+  } = payload;
 
   if (notificationPreference) {
     await prisma.ownerNotificationPreference.upsert({
@@ -87,15 +94,26 @@ const updateMyProfile = async (userId: string, payload: IUpdateProfile) => {
       create: {
         userId,
         channel: notificationPreference as any,
-        notificationEmail: payload.email ?? user.email ?? null,
-        notificationPhone: payload.phone ?? user.phone ?? null,
+        notificationEmail: email ?? user.email ?? null,
+        notificationPhone: phone ?? user.phone ?? null,
       },
     });
   }
 
+  const updateData: Prisma.UserUpdateInput = {};
+  if (username !== undefined) updateData.username = username;
+  if (email !== undefined) updateData.email = email;
+  if (phone !== undefined) updateData.phone = phone;
+  if (profileImage !== undefined) updateData.profileImage = profileImage;
+  if (marketingPlatformId !== undefined) {
+    updateData.marketingPlatform = marketingPlatformId
+      ? { connect: { id: marketingPlatformId } }
+      : { disconnect: true };
+  }
+
   const updatedUser = await prisma.user.update({
     where: { id: userId },
-    data: userData,
+    data: updateData,
     select: {
       id: true,
       username: true,
@@ -138,52 +156,65 @@ const getAllUsers = async (
   }
 
   if (role) {
-    andConditions.push({ role });
+    andConditions.push({
+      role: (typeof role === "string" ? role.toUpperCase() : role) as UserRole,
+    });
   }
 
   if (status) {
-    andConditions.push({ status });
+    andConditions.push({
+      status: (typeof status === "string" ? status.toUpperCase() : status) as UserStatus,
+    });
   }
 
   const whereConditions: Prisma.UserWhereInput =
     andConditions.length > 0 ? { AND: andConditions } : {};
 
-  const result = await prisma.user.findMany({
-    where: whereConditions,
-    skip,
-    take: limit,
-    orderBy: { [sortBy]: sortOrder },
-    select: {
-      id: true,
-      username: true,
-      email: true,
-      phone: true,
-      profileImage: true,
-      role: true,
-      status: true,
-      isVerified: true,
-      ownerNotificationPreference: true,
-      createdAt: true,
-      updatedAt: true,
-      apartment: {
-        select: {
-          id: true,
-          title: true,
-          city: true,
+  const [total, result] = await Promise.all([
+    prisma.user.count({
+      where: whereConditions,
+    }),
+    prisma.user.findMany({
+      where: whereConditions,
+      skip,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        phone: true,
+        profileImage: true,
+        role: true,
+        status: true,
+        isVerified: true,
+        ownerNotificationPreference: true,
+        createdAt: true,
+        updatedAt: true,
+        marketingPlatform: {
+          select: {
+            id: true,
+            title: true,
+            platform: true,
+          },
+        },
+        apartments: {
+          select: {
+            id: true,
+            title: true,
+            city: true,
+          },
         },
       },
-    },
-  });
-
-  const total = await prisma.user.count({
-    where: whereConditions,
-  });
+    }),
+  ]);
 
   return {
     meta: {
       page,
       limit,
       total,
+      totalPage: Math.ceil(total / limit),
     },
     data: result,
   };
@@ -205,7 +236,7 @@ const getUserById = async (id: string) => {
       isDeleted: true,
       createdAt: true,
       updatedAt: true,
-      apartment: true,
+      apartments: true,
     },
   });
 
@@ -266,7 +297,7 @@ const getAllOwnersAdmin = async (
 
   const andConditions: Prisma.UserWhereInput[] = [
     { isDeleted: false },
-    { apartment: { isNot: null } },
+    { apartments: { some: {} } },
   ];
 
   if (filters.searchTerm) {
@@ -276,13 +307,13 @@ const getAllOwnersAdmin = async (
         { email: { contains: filters.searchTerm, mode: "insensitive" } },
         { phone: { contains: filters.searchTerm, mode: "insensitive" } },
         {
-          apartment: {
-            title: { contains: filters.searchTerm, mode: "insensitive" },
-          },
-        },
-        {
-          apartment: {
-            city: { contains: filters.searchTerm, mode: "insensitive" },
+          apartments: {
+            some: {
+              OR: [
+                { title: { contains: filters.searchTerm, mode: "insensitive" } },
+                { city: { contains: filters.searchTerm, mode: "insensitive" } },
+              ],
+            },
           },
         },
       ],
@@ -307,7 +338,7 @@ const getAllOwnersAdmin = async (
         profileImage: true,
         status: true,
         createdAt: true,
-        apartment: {
+        apartments: {
           select: {
             id: true,
             propertyId: true,
@@ -341,10 +372,16 @@ const getAllOwnersAdmin = async (
   ]);
 
   const enrichedOwners = users.map((owner) => {
-    const listingPayment = owner.apartment?.listingPayment;
-    const isListingPending =
-      listingPayment?.status === PaymentStatus.PENDING;
-    const listingDueAmount = isListingPending ? listingPayment?.amount || 0 : 0;
+    const apartments = owner.apartments || [];
+    let listingDueAmount = 0;
+    let hasPendingListing = false;
+
+    apartments.forEach((apt) => {
+      if (apt.listingPayment?.status === PaymentStatus.PENDING) {
+        listingDueAmount += apt.listingPayment?.amount || 0;
+        hasPendingListing = true;
+      }
+    });
 
     const reportRentedDueAmount = owner.reportRentedPayments.reduce(
       (sum, p) => sum + (p.amount || 0),
@@ -367,12 +404,13 @@ const getAllOwnersAdmin = async (
       profileImage: owner.profileImage,
       status: owner.status,
       createdAt: owner.createdAt,
-      apartment: owner.apartment,
+      apartment: apartments[0] || null,
+      apartments,
       dues: {
         hasOverduePayment,
         totalDueAmount,
         listingDue: {
-          isPending: isListingPending,
+          isPending: hasPendingListing,
           amount: listingDueAmount,
         },
         reportRentedDue: {
@@ -412,7 +450,7 @@ const sendPaymentDueReminder = async (
   const owner = await prisma.user.findUnique({
     where: { id: ownerId, isDeleted: false },
     include: {
-      apartment: {
+      apartments: {
         include: {
           listingPayment: true,
         },
@@ -430,7 +468,8 @@ const sendPaymentDueReminder = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "Owner not found");
   }
 
-  if (!owner.apartment) {
+  const apartments = owner.apartments || [];
+  if (apartments.length === 0) {
     throw new ApiError(
       StatusCodes.BAD_REQUEST,
       "This user is not registered as an apartment owner",
@@ -438,10 +477,13 @@ const sendPaymentDueReminder = async (
   }
 
   // Calculate actual pending dues
-  const listingDue =
-    owner.apartment.listingPayment?.status === PaymentStatus.PENDING
-      ? owner.apartment.listingPayment.amount
-      : 0;
+  let listingDue = 0;
+  apartments.forEach((apt) => {
+    if (apt.listingPayment?.status === PaymentStatus.PENDING) {
+      listingDue += apt.listingPayment?.amount || 0;
+    }
+  });
+
   const reportDue = owner.reportRentedPayments.reduce(
     (sum, p) => sum + (p.amount || 0),
     0,
@@ -455,7 +497,8 @@ const sendPaymentDueReminder = async (
   const dueAmount =
     payload?.amount !== undefined ? payload.amount : calculatedTotalDue;
 
-  const defaultMsg = `Dear ${owner.username}, you have an outstanding payment due of ${dueAmount} ILS on your account for apartment "${owner.apartment.title}". Please log in to complete payment.`;
+  const firstApt = apartments[0];
+  const defaultMsg = `Dear ${owner.username}, you have an outstanding payment due of ${dueAmount} ILS on your account. Please log in to complete payment.`;
   const finalMsg = payload?.message || defaultMsg;
 
   // In-app alert
@@ -467,7 +510,7 @@ const sendPaymentDueReminder = async (
     link: "/user-dashboard",
     metadata: {
       dueAmount,
-      apartmentId: owner.apartment.id,
+      apartmentId: firstApt.id,
     },
   });
 
@@ -485,7 +528,7 @@ const sendPaymentDueReminder = async (
   }
 
   // SMS
-  const phone = owner.phone || owner.apartment.phoneNumber;
+  const phone = owner.phone || firstApt.phoneNumber;
   if (phone) {
     try {
       await smsHelper.sendSms({
@@ -544,6 +587,7 @@ export const UserServices = {
   updateMyProfile,
   updateNotificationPreference,
   getAllUsers,
+  getAllUsersAdmin: getAllUsers,
   getUserById,
   updateUserStatus,
   deleteUser,

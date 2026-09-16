@@ -161,7 +161,7 @@ const createReportRentedPaymentIntent = async (
   userId: string,
   payload: ICreateReportRentedPaymentPayload,
 ) => {
-  const apartment = await prisma.apartment.findUnique({
+  const apartment = await prisma.apartment.findFirst({
     where: { userId },
     include: { user: { select: { username: true, email: true, phone: true } } },
   });

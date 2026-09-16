@@ -95,10 +95,15 @@ const createReportRentedIntent = async (
   userId: string,
   payload: ICreateReportRentedIntent,
 ) => {
-  const apartment = await prisma.apartment.findUnique({
-    where: { userId },
-    include: { user: { select: { username: true, email: true, phone: true } } },
-  });
+  const apartment = payload.apartmentId
+    ? await prisma.apartment.findFirst({
+        where: { id: payload.apartmentId, userId },
+        include: { user: { select: { username: true, email: true, phone: true } } },
+      })
+    : await prisma.apartment.findFirst({
+        where: { userId },
+        include: { user: { select: { username: true, email: true, phone: true } } },
+      });
 
   if (!apartment) {
     throw new ApiError(StatusCodes.NOT_FOUND, "You do not have an active apartment listing");
@@ -321,7 +326,7 @@ const createReportRentedIntent = async (
 };
 
 const getMyReportedRented = async (userId: string) => {
-  const apartment = await prisma.apartment.findUnique({
+  const apartment = await prisma.apartment.findFirst({
     where: { userId },
   });
 
@@ -391,7 +396,7 @@ const getMyReportedRented = async (userId: string) => {
  * Report Rented Stats for Owner
  */
 const getReportRentedStats = async (userId: string): Promise<IReportRentedStats> => {
-  const apartment = await prisma.apartment.findUnique({
+  const apartment = await prisma.apartment.findFirst({
     where: { userId },
   });
 
@@ -444,7 +449,7 @@ const getReportRentedStats = async (userId: string): Promise<IReportRentedStats>
  * Get all unpaid dues summary and report list for Owner
  */
 const getMyReportRentedDues = async (userId: string): Promise<IReportRentedDuesSummary> => {
-  const apartment = await prisma.apartment.findUnique({
+  const apartment = await prisma.apartment.findFirst({
     where: { userId },
   });
 
@@ -516,7 +521,7 @@ const paySingleReportRented = async (
   reportRentedId: string,
   payload: IPayReportRentedPayload,
 ) => {
-  const apartment = await prisma.apartment.findUnique({
+  const apartment = await prisma.apartment.findFirst({
     where: { userId },
   });
 
@@ -636,7 +641,7 @@ const payAllReportRentedDues = async (
   userId: string,
   payload: IPayAllReportRentedDuesPayload,
 ) => {
-  const apartment = await prisma.apartment.findUnique({
+  const apartment = await prisma.apartment.findFirst({
     where: { userId },
     include: { user: true },
   });

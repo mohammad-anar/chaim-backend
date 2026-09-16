@@ -28,12 +28,6 @@ enum PropertyType {
   STUDIO
 }
 
-enum HowToContact {
-  PHONE
-  WHATSAPP
-  BOTH
-}
-
 enum SwapStatus {
   PENDING
   APPROVED

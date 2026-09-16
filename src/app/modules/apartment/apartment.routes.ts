@@ -88,8 +88,14 @@ router.patch(
 );
 
 router.delete(
+  "/admin/:id",
+  auth(UserRole.SUPER_ADMIN),
+  ApartmentController.deleteApartment,
+);
+
+router.delete(
   "/:id",
-  auth(),
+  auth(UserRole.USER, UserRole.SUPER_ADMIN),
   ApartmentController.deleteApartment,
 );
 

@@ -62,16 +62,25 @@ const getAllApartments = catchAsync(async (req: Request, res: Response) => {
     "minPrice",
     "maxPrice",
     "bedrooms",
+    "rooms",
     "bathrooms",
     "maxGuest",
     "guestCount",
+    "guests",
+    "seats",
     "weekendId",
+    "weekend",
+    "date",
     "amenities",
     "maxWalkingMinutes",
+    "walkingMinutes",
+    "walkingTime",
     "status",
     "destLat",
     "destLng",
-    "walkingMinutes",
+    "targetDestination",
+    "shulAddress",
+    "destination",
   ]);
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
   const isUserAdmin = req.user?.role === "SUPER_ADMIN";
@@ -87,6 +96,7 @@ const getAllApartments = catchAsync(async (req: Request, res: Response) => {
     success: true,
     message: "Apartments retrieved successfully",
     meta: result.meta,
+    markers: result.markers,
     data: result.data,
   });
 });
@@ -100,16 +110,25 @@ const getAllApartmentsAdmin = catchAsync(async (req: Request, res: Response) => 
     "minPrice",
     "maxPrice",
     "bedrooms",
+    "rooms",
     "bathrooms",
     "maxGuest",
     "guestCount",
+    "guests",
+    "seats",
     "weekendId",
+    "weekend",
+    "date",
     "amenities",
     "maxWalkingMinutes",
+    "walkingMinutes",
+    "walkingTime",
     "status",
     "destLat",
     "destLng",
-    "walkingMinutes",
+    "targetDestination",
+    "shulAddress",
+    "destination",
   ]);
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
 
@@ -124,6 +143,7 @@ const getAllApartmentsAdmin = catchAsync(async (req: Request, res: Response) => 
     success: true,
     message: "All apartments retrieved successfully for admin",
     meta: result.meta,
+    markers: result.markers,
     data: result.data,
   });
 });

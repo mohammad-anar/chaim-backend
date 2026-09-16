@@ -20,6 +20,12 @@ router.patch(
   OwnerController.upsertMyNotificationPref,
 );
 
+router.post(
+  "/me/test-reminder",
+  auth(UserRole.USER, UserRole.SUPER_ADMIN),
+  OwnerController.testReminderNow,
+);
+
 router.get(
   "/",
   auth(UserRole.SUPER_ADMIN),

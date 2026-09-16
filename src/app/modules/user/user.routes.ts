@@ -30,6 +30,12 @@ router.patch(
 );
 
 router.get(
+  "/admin/users",
+  auth(UserRole.SUPER_ADMIN),
+  UserController.getAllUsers,
+);
+
+router.get(
   "/admin/owners",
   auth(UserRole.SUPER_ADMIN),
   UserController.getAllOwnersAdmin,

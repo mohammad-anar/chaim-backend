@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { HowToContact, PropertyType, ApartmentStatus } from "@prisma/client";
+import { PropertyType, ApartmentStatus } from "@prisma/client";
 
 const parseOptionalNumber = z.preprocess((val) => {
   if (val === "" || val === null || val === undefined || val === "undefined" || val === "null") {
@@ -41,6 +41,23 @@ const parseAmenities = z.preprocess((val) => {
   return val;
 }, z.array(z.string()).optional());
 
+const parseOptionalBoolean = z.preprocess((val) => {
+  if (val === "" || val === null || val === undefined || val === "undefined" || val === "null") {
+    return undefined;
+  }
+  if (typeof val === "boolean") return val;
+  if (typeof val === "string") {
+    const lower = val.trim().toLowerCase();
+    if (lower === "true" || lower === "1") return true;
+    if (lower === "false" || lower === "0") return false;
+  }
+  if (typeof val === "number") {
+    if (val === 1) return true;
+    if (val === 0) return false;
+  }
+  return val;
+}, z.boolean().optional());
+
 const parseOptionalString = z.preprocess((val) => {
   if (val === "" || val === null || val === undefined || val === "undefined" || val === "null") {
     return undefined;
@@ -69,7 +86,12 @@ const createApartmentZodSchema = z.object({
   amenities: parseAmenities,
   phoneNumber: parseOptionalString,
   whatsApp: parseOptionalString,
-  howToContact: z.enum([HowToContact.PHONE, HowToContact.WHATSAPP, HowToContact.BOTH]).optional(),
+  phone: parseOptionalBoolean,
+  whatsapp: parseOptionalBoolean,
+  email: parseOptionalBoolean,
+  unavailable: parseOptionalBoolean,
+  receiveRequestWhenUnavailable: parseOptionalBoolean,
+  isActive: parseOptionalBoolean,
   additionalDetails: parseOptionalString,
   referralCode: parseOptionalString,
 });
@@ -95,7 +117,12 @@ const updateApartmentZodSchema = z.object({
   amenities: parseAmenities,
   phoneNumber: parseOptionalString,
   whatsApp: parseOptionalString,
-  howToContact: z.enum([HowToContact.PHONE, HowToContact.WHATSAPP, HowToContact.BOTH]).optional(),
+  phone: parseOptionalBoolean,
+  whatsapp: parseOptionalBoolean,
+  email: parseOptionalBoolean,
+  unavailable: parseOptionalBoolean,
+  receiveRequestWhenUnavailable: parseOptionalBoolean,
+  isActive: parseOptionalBoolean,
   additionalDetails: parseOptionalString,
 });
 

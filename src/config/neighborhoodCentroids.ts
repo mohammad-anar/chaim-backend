@@ -1,13 +1,27 @@
 /**
- * Neighborhood centroid coordinates for Israel and USA communities.
- * Used as a fallback to compute walkingDistanceToNeighborhood if the owner/frontend
- * has not explicitly supplied neighborhoodLat/neighborhoodLng or neighborhoodWalkingMinutes.
+ * Neighborhood & Landmark centroid coordinates for Israel and USA communities.
+ * Used as a fallback to compute walking distance if the owner/frontend
+ * has not explicitly supplied neighborhoodLat/neighborhoodLng or coordinates.
  *
- * Format: { [neighborhoodName]: { lat, lng } }
+ * Format: { [neighborhoodOrLandmarkName]: { lat, lng } }
  */
 export const NEIGHBORHOOD_CENTROIDS: Record<string, { lat: number; lng: number }> = {
   // ==========================================
-  // Jerusalem, Israel
+  // Jerusalem, Israel — Landmarks & Shuls
+  // ==========================================
+  "Kotel": { lat: 31.7767, lng: 35.2345 },
+  "Western Wall": { lat: 31.7767, lng: 35.2345 },
+  "Western Wall / Kotel": { lat: 31.7767, lng: 35.2345 },
+  "Great Synagogue": { lat: 31.7758, lng: 35.2173 },
+  "Jerusalem Great Synagogue": { lat: 31.7758, lng: 35.2173 },
+  "Mamilla": { lat: 31.7770, lng: 35.2210 },
+  "Mamilla Mall": { lat: 31.7770, lng: 35.2210 },
+  "Jaffa Gate": { lat: 31.7766, lng: 35.2276 },
+  "Belz": { lat: 31.7920, lng: 35.2010 },
+  "Belz Great Synagogue": { lat: 31.7920, lng: 35.2010 },
+
+  // ==========================================
+  // Jerusalem, Israel — Neighborhoods
   // ==========================================
   "Geula": { lat: 31.7930, lng: 35.2163 },
   "Mea Shearim": { lat: 31.7891, lng: 35.2230 },
@@ -57,6 +71,7 @@ export const NEIGHBORHOOD_CENTROIDS: Record<string, { lat: number; lng: number }
   "Ashdod": { lat: 31.8044, lng: 34.6553 },
   "Beit Shemesh": { lat: 31.7450, lng: 34.9920 },
   "Ramat Beit Shemesh": { lat: 31.7100, lng: 34.9850 },
+  "RBS": { lat: 31.7100, lng: 34.9850 },
   "Modiin Illit": { lat: 31.9320, lng: 35.0380 },
   "Beitar Illit": { lat: 31.6910, lng: 35.1280 },
   "Kiryat Sefer": { lat: 31.9280, lng: 35.0330 },
@@ -69,6 +84,10 @@ export const NEIGHBORHOOD_CENTROIDS: Record<string, { lat: number; lng: number }
   // ==========================================
   // United States — New York & Tri-State
   // ==========================================
+  "770": { lat: 40.6694, lng: -73.9422 },
+  "770 Eastern Parkway": { lat: 40.6694, lng: -73.9422 },
+  "BMG": { lat: 40.0968, lng: -74.2174 },
+  "Beth Medrash Govoha": { lat: 40.0968, lng: -74.2174 },
   "Borough Park": { lat: 40.6350, lng: -73.9921 },
   "Boro Park": { lat: 40.6350, lng: -73.9921 },
   "Crown Heights": { lat: 40.6694, lng: -73.9422 },

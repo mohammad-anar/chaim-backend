@@ -131,6 +131,7 @@ export const UserController = {
   updateMyProfile,
   updateNotificationPreference,
   getAllUsers,
+  getAllUsersAdmin: getAllUsers,
   getUserById,
   updateUserStatus,
   deleteUser,

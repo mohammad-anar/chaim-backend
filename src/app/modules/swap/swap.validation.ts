@@ -3,6 +3,7 @@ import { SwapStatus } from "@prisma/client";
 
 const createSwapRequestZodSchema = z.object({
   toAppId: z.string().min(1, "Target apartment ID (toAppId) is required"),
+  fromAppId: z.string().optional(),
 });
 
 const updateSwapStatusZodSchema = z.object({

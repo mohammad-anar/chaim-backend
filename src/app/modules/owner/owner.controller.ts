@@ -106,6 +106,20 @@ const upsertMyNotificationPref = catchAsync(
   },
 );
 
+const testReminderNow = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user.id;
+    const result = await OwnerServices.testReminderNow(userId);
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: result.message,
+      data: result,
+    });
+  },
+);
+
 export const OwnerController = {
   getAllOwners,
   getSingleOwner,
@@ -113,5 +127,6 @@ export const OwnerController = {
   sendPaymentDueReminder,
   getMyNotificationPref,
   upsertMyNotificationPref,
+  testReminderNow,
 };
 

@@ -1,4 +1,5 @@
 export type ICreateOrUpdateSwapPreference = {
+  apartmentId?: string;
   isEnabled?: boolean;
   city?: string;
   neighborhood?: string;

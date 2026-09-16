@@ -14,7 +14,7 @@ model WeekendCalendar {
 model Apartment {
   id                      String          @id @default(uuid())
   propertyId              String?         @unique @map("property_id")
-  userId                  String          @unique @map("user_id") // One user can list only one apartment
+  userId                  String          @map("user_id")
   title                   String
   description             String?
   city                    String
@@ -37,7 +37,12 @@ model Apartment {
   images                  String[]
   phoneNumber             String?         @map("phone_number")
   whatsApp                String?         @map("whats_app")
-  howToContact            HowToContact    @default(BOTH) @map("how_to_contact")
+  phone                   Boolean         @default(true) @map("phone")
+  whatsapp                Boolean         @default(false) @map("whatsapp")
+  email                   Boolean         @default(false) @map("email")
+  unavailable             Boolean         @default(false) @map("unavailable")
+  receiveRequestWhenUnavailable Boolean   @default(false) @map("receive_request_when_unavailable")
+  isActive                Boolean         @default(true) @map("is_active")
   additionalDetails       String?         @map("additional_details")
   status                  ApartmentStatus @default(PENDING) @map("status")
   createdAt               DateTime        @default(now()) @map("created_at")

@@ -2,7 +2,7 @@
 model ApartmentListingPayment {
   id            String        @id @default(uuid())
   apartmentId   String        @unique @map("apartment_id") // One-time payment per apartment
-  userId        String        @unique @map("user_id")      // One listing payment per user
+  userId        String        @map("user_id")              // Multiple listing payments per user (one per apartment)
   amount        Float
   currency      String        @default("ILS")
   paymentMethod PaymentMethod @default(NEDARIM_PLUS) @map("payment_method")

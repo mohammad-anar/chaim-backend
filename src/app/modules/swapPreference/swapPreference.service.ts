@@ -47,9 +47,13 @@ const createOrUpdateSwapPreference = async (
   userId: string,
   payload: ICreateOrUpdateSwapPreference,
 ) => {
-  const apartment = await prisma.apartment.findUnique({
-    where: { userId },
-  });
+  const apartment = payload.apartmentId
+    ? await prisma.apartment.findFirst({
+        where: { id: payload.apartmentId, userId },
+      })
+    : await prisma.apartment.findFirst({
+        where: { userId },
+      });
 
   if (!apartment) {
     throw new ApiError(StatusCodes.NOT_FOUND, "You have not listed an apartment yet");
@@ -138,7 +142,9 @@ const createOrUpdateSwapPreference = async (
           coverImage: true,
           phoneNumber: true,
           whatsApp: true,
-          howToContact: true,
+          phone: true,
+          whatsapp: true,
+          email: true,
           user: {
             select: {
               id: true,
@@ -157,7 +163,7 @@ const createOrUpdateSwapPreference = async (
 };
 
 const getMySwapPreference = async (userId: string) => {
-  const apartment = await prisma.apartment.findUnique({
+  const apartment = await prisma.apartment.findFirst({
     where: { userId },
   });
 
@@ -184,7 +190,7 @@ const getAllSwapPreferences = async (
   filters: ISwapPreferenceFilterRequest,
   options: IPaginationOptions,
 ) => {
-  const userApartment = await prisma.apartment.findUnique({
+  const userApartment = await prisma.apartment.findFirst({
     where: { userId },
     include: { swapPreference: true },
   });
@@ -334,7 +340,7 @@ const getMatchedSwapableProperties = async (
   options?: IPaginationOptions,
   filters?: { destLat?: string; destLng?: string; walkingMinutes?: string },
 ) => {
-  const userApartment = await prisma.apartment.findUnique({
+  const userApartment = await prisma.apartment.findFirst({
     where: { userId },
     include: { swapPreference: true },
   });

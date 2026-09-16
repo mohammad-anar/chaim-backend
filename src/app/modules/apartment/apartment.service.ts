@@ -44,14 +44,6 @@ const createApartment = async (
   userId: string,
   payload: ICreateApartment,
 ) => {
-  const existingApartment = await prisma.apartment.findUnique({
-    where: { userId },
-  });
-
-  if (existingApartment) {
-    throw new ApiError(StatusCodes.CONFLICT, "You can list only one apartment");
-  }
-
   let walkingTime: Date | null = null;
   if (payload.neighborhoodWalkingTime) {
     const parsed = new Date(payload.neighborhoodWalkingTime);
@@ -105,7 +97,12 @@ const createApartment = async (
       images: payload.images || [],
       phoneNumber: payload.phoneNumber,
       whatsApp: payload.whatsApp,
-      howToContact: payload.howToContact || "BOTH",
+      phone: payload.phone !== undefined ? Boolean(payload.phone) : true,
+      whatsapp: payload.whatsapp !== undefined ? Boolean(payload.whatsapp) : false,
+      email: payload.email !== undefined ? Boolean(payload.email) : false,
+      unavailable: payload.unavailable !== undefined ? Boolean(payload.unavailable) : false,
+      receiveRequestWhenUnavailable: payload.receiveRequestWhenUnavailable !== undefined ? Boolean(payload.receiveRequestWhenUnavailable) : false,
+      isActive: payload.isActive !== undefined ? Boolean(payload.isActive) : true,
       additionalDetails: payload.additionalDetails,
       status: "PENDING",
     },
@@ -217,8 +214,8 @@ const createApartment = async (
 };
 
 const getMyAppartment = async (userId: string) => {
-  const [apartment, upcomingWeekends] = await Promise.all([
-    prisma.apartment.findUnique({
+  const [apartments, upcomingWeekends] = await Promise.all([
+    prisma.apartment.findMany({
       where: { userId },
       include: {
         availabilities: {
@@ -240,54 +237,101 @@ const getMyAppartment = async (userId: string) => {
           },
         },
       },
+      orderBy: { createdAt: "desc" },
     }),
     getUpcomingWeekends(),
   ]);
 
-  if (!apartment) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "You have not listed an apartment yet");
-  }
-
-  const upcomingAvailability = computeUpcomingAvailability(
-    apartment.availabilities,
-    upcomingWeekends,
-  );
-
   const now = new Date();
-  const isListingActive = Boolean(
-    apartment.listingPayment &&
-    apartment.listingPayment.status === "COMPLETED" &&
-    (!apartment.listingPayment.expiresAt || new Date(apartment.listingPayment.expiresAt) > now)
-  );
 
-  const isListingExpired = Boolean(
-    apartment.listingPayment &&
-    apartment.listingPayment.status === "COMPLETED" &&
-    apartment.listingPayment.expiresAt &&
-    new Date(apartment.listingPayment.expiresAt) <= now
-  );
+  const formattedApartments = apartments.map((apartment) => {
+    const upcomingAvailability = computeUpcomingAvailability(
+      apartment.availabilities,
+      upcomingWeekends,
+    );
 
-  let daysRemaining: number | null = null;
-  if (apartment.listingPayment?.expiresAt) {
-    const diffTime = new Date(apartment.listingPayment.expiresAt).getTime() - now.getTime();
-    daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-  }
+    const isListingActive = Boolean(
+      apartment.listingPayment &&
+      apartment.listingPayment.status === "COMPLETED" &&
+      (!apartment.listingPayment.expiresAt || new Date(apartment.listingPayment.expiresAt) > now)
+    );
 
-  return {
-    ...apartment,
-    walkingDistanceToNeighborhood: walkingMinutesToNeighborhood(apartment, NEIGHBORHOOD_CENTROIDS),
-    upcomingAvailability,
-    availabilityMessage: upcomingAvailability.availabilityMessage,
-    isListingActive,
-    isListingExpired,
-    daysRemaining,
-  };
+    const isListingExpired = Boolean(
+      apartment.listingPayment &&
+      apartment.listingPayment.status === "COMPLETED" &&
+      apartment.listingPayment.expiresAt &&
+      new Date(apartment.listingPayment.expiresAt) <= now
+    );
+
+    let daysRemaining: number | null = null;
+    if (apartment.listingPayment?.expiresAt) {
+      const diffTime = new Date(apartment.listingPayment.expiresAt).getTime() - now.getTime();
+      daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    }
+
+    const marker = resolveApartmentMarker(apartment);
+
+    return {
+      ...apartment,
+      marker,
+      walkingDistanceToNeighborhood: walkingMinutesToNeighborhood(apartment, NEIGHBORHOOD_CENTROIDS),
+      upcomingAvailability,
+      availabilityMessage: upcomingAvailability.availabilityMessage,
+      isListingActive,
+      isListingExpired,
+      daysRemaining,
+    };
+  });
+
+  return formattedApartments;
 };
 
 const isAnyOrEmpty = (val: any): boolean => {
   if (val === undefined || val === null || val === "") return true;
   const str = String(val).trim().toLowerCase();
   return str === "any" || str === "all";
+};
+
+const resolveApartmentMarker = (apt: any) => {
+  if (!apt) return null;
+  let resolvedLat = apt.lat ?? apt.neighborhoodLat ?? null;
+  let resolvedLng = apt.lng ?? apt.neighborhoodLng ?? null;
+
+  if (resolvedLat == null || resolvedLng == null) {
+    const neighNorm = (apt.neighborhood || "").trim().toLowerCase();
+    const cityNorm = (apt.city || "").trim().toLowerCase();
+    const centroid =
+      NEIGHBORHOOD_CENTROIDS[apt.neighborhood] ??
+      NEIGHBORHOOD_CENTROIDS[neighNorm] ??
+      NEIGHBORHOOD_CENTROIDS[apt.city] ??
+      NEIGHBORHOOD_CENTROIDS[cityNorm];
+
+    if (centroid) {
+      resolvedLat = resolvedLat ?? centroid.lat;
+      resolvedLng = resolvedLng ?? centroid.lng;
+    }
+  }
+
+  if (resolvedLat == null || resolvedLng == null) {
+    return null;
+  }
+
+  return {
+    id: apt.id,
+    propertyId: apt.propertyId ?? null,
+    title: apt.title,
+    lat: resolvedLat,
+    lng: resolvedLng,
+    city: apt.city ?? null,
+    neighborhood: apt.neighborhood ?? null,
+    street1: apt.street1 ?? null,
+    propertyType: apt.propertyType ?? null,
+    bedrooms: apt.bedrooms ?? null,
+    bathrooms: apt.bathrooms ?? null,
+    maxGuest: apt.maxGuest ?? null,
+    pricePerShabbat: apt.pricePerShabbat ?? null,
+    coverImage: apt.coverImage ?? null,
+  };
 };
 
 const getUpcomingWeekends = async () => {
@@ -397,6 +441,41 @@ const computeUpcomingAvailability = (
   };
 };
 
+const AMENITY_SYNONYMS: Record<string, string[]> = {
+  "wifi": ["Wifi", "WiFi", "wifi", "Internet", "Wireless Internet"],
+  "air conditioning": ["Air Conditioning", "Air Condition", "AC", "A/C", "Central AC"],
+  "parking": ["Parking", "Free Parking", "Private Parking", "Street Parking"],
+  "washing machine": ["Washing Machine", "Washer", "Laundry"],
+  "kosher kitchen": ["Kosher Kitchen", "Kosher", "Mehadrin Kitchen", "Strict Mehadrin"],
+  "shabbos elevator": ["Shabbos Elevator", "Shabbat Elevator", "Elevator"],
+  "shabbat elevator": ["Shabbos Elevator", "Shabbat Elevator", "Elevator"],
+  "elevator": ["Shabbos Elevator", "Shabbat Elevator", "Elevator"],
+  "shabbos plata": ["Shabbos Plata", "Shabbat Plata", "Plata", "Hot Plate"],
+  "shabbat plata": ["Shabbos Plata", "Shabbat Plata", "Plata", "Hot Plate"],
+  "plata": ["Shabbos Plata", "Shabbat Plata", "Plata", "Hot Plate"],
+  "hot water urn": ["Hot Water Urn", "Shabbat Urn", "Shabbos Urn", "Urn", "Hot Water"],
+  "shabbat urn": ["Hot Water Urn", "Shabbat Urn", "Shabbos Urn", "Urn", "Hot Water"],
+  "urn": ["Hot Water Urn", "Shabbat Urn", "Shabbos Urn", "Urn", "Hot Water"],
+  "shabbos clock": ["Shabbos Clock", "Shabbat Clock", "Timer", "Timers", "Shabbat Timers"],
+  "shabbat clock": ["Shabbos Clock", "Shabbat Clock", "Timer", "Timers", "Shabbat Timers"],
+  "balcony": ["Balcony", "Terrace", "Sukkah Balcony", "Sukkot Porch"],
+  "sukkah balcony": ["Sukkah Balcony", "Sukkot Porch", "Sukkah", "Balcony", "Terrace"],
+  "sukkot porch": ["Sukkah Balcony", "Sukkot Porch", "Sukkah", "Balcony", "Terrace"],
+  "private garden": ["Private Garden", "Garden", "Courtyard", "Lawn"],
+  "garden": ["Private Garden", "Garden", "Courtyard", "Lawn"],
+  "baby crib": ["Baby Crib", "Crib Available", "Crib", "Cot"],
+  "crib available": ["Baby Crib", "Crib Available", "Crib", "Cot"],
+  "wheelchair accessible": ["Wheelchair Accessible", "Wheelchair", "Accessible", "Elevator Access"],
+  "wheelchair": ["Wheelchair Accessible", "Wheelchair", "Accessible"],
+  "sea view": ["Sea View", "Ocean View", "Beach View", "Lake View", "Water View"],
+  "ocean view": ["Sea View", "Ocean View", "Beach View", "Lake View", "Water View"],
+  "swimming pool": ["Swimming Pool", "Private Pool", "Pool Access", "Pool"],
+  "pool": ["Swimming Pool", "Private Pool", "Pool Access", "Pool"],
+  "towels & linen": ["Towels & Linen", "Linen Provided", "Linens", "Towels", "Linen"],
+  "linen provided": ["Towels & Linen", "Linen Provided", "Linens", "Towels", "Linen"],
+  "coffee machine": ["Coffee Machine", "Coffee Maker", "Nespresso"],
+};
+
 const getAllApartments = async (
   filters: IApartmentFilterRequest,
   options: IPaginationOptions,
@@ -417,22 +496,64 @@ const getAllApartments = async (
     minPrice,
     maxPrice,
     bedrooms,
+    rooms,
     bathrooms,
     maxGuest,
     guestCount,
+    guests,
+    seats,
     weekendId,
+    weekend,
+    date,
     amenities,
     maxWalkingMinutes,
+    walkingMinutes,
+    walkingTime,
     status,
     destLat,
     destLng,
-    walkingMinutes,
+    targetDestination,
+    shulAddress,
+    destination,
   } = filters;
 
-  // Destination mode: all 3 destination params must be valid numbers
-  const parsedDestLat = destLat !== undefined && !isAnyOrEmpty(destLat) ? Number(destLat) : NaN;
-  const parsedDestLng = destLng !== undefined && !isAnyOrEmpty(destLng) ? Number(destLng) : NaN;
-  const parsedWalkingMinutes = walkingMinutes !== undefined && !isAnyOrEmpty(walkingMinutes) ? Number(walkingMinutes) : NaN;
+  // Resolve Target Destination Coordinates
+  let parsedDestLat = destLat !== undefined && !isAnyOrEmpty(destLat) ? Number(destLat) : NaN;
+  let parsedDestLng = destLng !== undefined && !isAnyOrEmpty(destLng) ? Number(destLng) : NaN;
+  const destText = !isAnyOrEmpty(targetDestination)
+    ? String(targetDestination).trim()
+    : !isAnyOrEmpty(shulAddress)
+    ? String(shulAddress).trim()
+    : !isAnyOrEmpty(destination)
+    ? String(destination).trim()
+    : "";
+
+  if ((isNaN(parsedDestLat) || isNaN(parsedDestLng)) && destText !== "") {
+    const norm = destText.toLowerCase();
+    const match =
+      NEIGHBORHOOD_CENTROIDS[destText] ??
+      NEIGHBORHOOD_CENTROIDS[norm] ??
+      Object.entries(NEIGHBORHOOD_CENTROIDS).find(([k]) => {
+        const kLower = k.toLowerCase();
+        return kLower === norm || norm.includes(kLower) || kLower.includes(norm);
+      })?.[1];
+    if (match) {
+      parsedDestLat = match.lat;
+      parsedDestLng = match.lng;
+    }
+  }
+
+  const rawWalkingMinutes = !isAnyOrEmpty(walkingMinutes)
+    ? walkingMinutes
+    : !isAnyOrEmpty(walkingTime)
+    ? walkingTime
+    : maxWalkingMinutes;
+
+  const parsedWalkingMinutes =
+    rawWalkingMinutes !== undefined && !isAnyOrEmpty(rawWalkingMinutes)
+      ? Number(String(rawWalkingMinutes).replace(/\D/g, ""))
+      : NaN;
+
   const isDestinationMode = !isNaN(parsedDestLat) && !isNaN(parsedDestLng) && !isNaN(parsedWalkingMinutes);
 
   const andConditions: Prisma.ApartmentWhereInput[] = [];
@@ -440,6 +561,18 @@ const getAllApartments = async (
   if (!isUserAdmin) {
     andConditions.push({
       status: "CONFIRMED",
+      isActive: true,
+      OR: [
+        { unavailable: false },
+        {
+          AND: [
+            { unavailable: true },
+            { receiveRequestWhenUnavailable: true },
+          ],
+        },
+      ],
+    });
+    andConditions.push({
       OR: [
         { listingPayment: null },
         {
@@ -469,7 +602,7 @@ const getAllApartments = async (
   }
 
   if (isDestinationMode) {
-    // Destination mode: only fetch apartments with coordinates; city/neighborhood filters are skipped
+    // Destination mode: only fetch apartments with coordinates; city/neighborhood filters are optional/supplementary
     andConditions.push({ lat: { not: null } });
     andConditions.push({ lng: { not: null } });
   } else {
@@ -484,31 +617,34 @@ const getAllApartments = async (
     }
   }
 
+  // Property Type Filter (supports string, array, comma-separated, case-insensitive)
   if (!isAnyOrEmpty(propertyType)) {
+    const normalizeType = (t: string): PropertyType | null => {
+      const upper = String(t).trim().toUpperCase();
+      return Object.values(PropertyType).includes(upper as PropertyType)
+        ? (upper as PropertyType)
+        : null;
+    };
+
+    let typesList: PropertyType[] = [];
     if (Array.isArray(propertyType)) {
-      const validTypes = propertyType.filter((pt) => !isAnyOrEmpty(pt)) as PropertyType[];
-      if (validTypes.length > 0) {
-        andConditions.push({ propertyType: { in: validTypes } });
-      }
+      typesList = propertyType
+        .map((pt) => normalizeType(String(pt)))
+        .filter((pt): pt is PropertyType => pt !== null);
     } else {
       const typeStr = String(propertyType).trim();
-      if (typeStr.includes(",")) {
-        const typesList = typeStr
-          .split(",")
-          .map((t) => t.trim().toUpperCase())
-          .filter((t) => Object.values(PropertyType).includes(t as PropertyType)) as PropertyType[];
-        if (typesList.length > 0) {
-          andConditions.push({ propertyType: { in: typesList } });
-        }
-      } else {
-        const uppercaseType = typeStr.toUpperCase();
-        if (Object.values(PropertyType).includes(uppercaseType as PropertyType)) {
-          andConditions.push({ propertyType: uppercaseType as PropertyType });
-        }
-      }
+      typesList = typeStr
+        .split(",")
+        .map((t) => normalizeType(t))
+        .filter((pt): pt is PropertyType => pt !== null);
+    }
+
+    if (typesList.length > 0) {
+      andConditions.push({ propertyType: { in: typesList } });
     }
   }
 
+  // Price Range Filter
   const parsedMinPrice = !isAnyOrEmpty(minPrice) ? Number(minPrice) : undefined;
   const parsedMaxPrice = !isAnyOrEmpty(maxPrice) ? Number(maxPrice) : undefined;
 
@@ -524,29 +660,83 @@ const getAllApartments = async (
     });
   }
 
-  if (!isAnyOrEmpty(bedrooms) && !isNaN(Number(bedrooms))) {
-    andConditions.push({ bedrooms: { gte: Number(bedrooms) } });
+  // Rooms / Bedrooms Filter
+  const effectiveBedrooms = !isAnyOrEmpty(bedrooms) ? bedrooms : rooms;
+  if (!isAnyOrEmpty(effectiveBedrooms) && !isNaN(Number(effectiveBedrooms))) {
+    andConditions.push({ bedrooms: { gte: Number(effectiveBedrooms) } });
   }
 
+  // Bathrooms Filter
   if (!isAnyOrEmpty(bathrooms) && !isNaN(Number(bathrooms))) {
     andConditions.push({ bathrooms: { gte: Number(bathrooms) } });
   }
 
-  const effectiveGuestCount = !isAnyOrEmpty(guestCount) ? guestCount : maxGuest;
+  // Guests / Seats Filter
+  const effectiveGuestCount = !isAnyOrEmpty(guestCount)
+    ? guestCount
+    : !isAnyOrEmpty(maxGuest)
+    ? maxGuest
+    : !isAnyOrEmpty(guests)
+    ? guests
+    : seats;
   if (!isAnyOrEmpty(effectiveGuestCount) && !isNaN(Number(effectiveGuestCount))) {
     andConditions.push({ maxGuest: { gte: Number(effectiveGuestCount) } });
   }
 
-  if (!isAnyOrEmpty(weekendId)) {
-    andConditions.push({
-      availabilities: {
-        some: {
-          weekendId: String(weekendId).trim(),
-        },
+  // Weekend / Date Filter
+  const rawWeekend = !isAnyOrEmpty(weekendId)
+    ? weekendId
+    : !isAnyOrEmpty(weekend)
+    ? weekend
+    : date;
+
+  let filteredWeekendRecordId: string | undefined = undefined;
+
+  if (!isAnyOrEmpty(rawWeekend)) {
+    const wStr = String(rawWeekend).trim();
+    const isDateValid = !isNaN(new Date(wStr).getTime());
+
+    const matchingWeekend = await prisma.weekendCalendar.findFirst({
+      where: {
+        OR: [
+          { id: wStr },
+          { title: { equals: wStr, mode: "insensitive" } },
+          ...(isDateValid
+            ? [
+                {
+                  date: {
+                    gte: new Date(new Date(wStr).setHours(0, 0, 0, 0)),
+                    lte: new Date(new Date(wStr).setHours(23, 59, 59, 999)),
+                  },
+                },
+              ]
+            : []),
+        ],
       },
     });
+
+    if (matchingWeekend) {
+      filteredWeekendRecordId = matchingWeekend.id;
+      andConditions.push({
+        availabilities: {
+          some: {
+            weekendId: matchingWeekend.id,
+          },
+        },
+      });
+    } else {
+      filteredWeekendRecordId = wStr;
+      andConditions.push({
+        availabilities: {
+          some: {
+            weekendId: wStr,
+          },
+        },
+      });
+    }
   }
 
+  // Amenities Filter (with synonym mapping for UI checkboxes)
   if (!isAnyOrEmpty(amenities)) {
     let amenitiesList: string[] = [];
     if (Array.isArray(amenities)) {
@@ -558,21 +748,20 @@ const getAllApartments = async (
         .filter((a) => !isAnyOrEmpty(a));
     }
 
-    if (amenitiesList.length > 0) {
+    for (const item of amenitiesList) {
+      const key = item.toLowerCase();
+      const variants = AMENITY_SYNONYMS[key] || [
+        item,
+        item.toLowerCase(),
+        item.charAt(0).toUpperCase() + item.slice(1),
+      ];
+
       andConditions.push({
         amenities: {
-          hasEvery: amenitiesList,
+          hasSome: variants,
         },
       });
     }
-  }
-
-  if (!isAnyOrEmpty(maxWalkingMinutes)) {
-    andConditions.push({
-      neighborhoodWalkingTime: {
-        not: null,
-      },
-    });
   }
 
   const whereConditions: Prisma.ApartmentWhereInput =
@@ -623,7 +812,7 @@ const getAllApartments = async (
     const upcomingAvailability = computeUpcomingAvailability(
       apt.availabilities,
       upcomingWeekends,
-      weekendId as string,
+      filteredWeekendRecordId,
     );
 
     const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
@@ -631,8 +820,11 @@ const getAllApartments = async (
       ? walkingMinutesToDestination(apt, parsedDestLat, parsedDestLng)
       : undefined;
 
+    const marker = resolveApartmentMarker(apt);
+
     return {
       ...apt,
+      marker,
       averageRating: Number(avgRating.toFixed(1)),
       totalReviews,
       upcomingAvailability,
@@ -652,12 +844,17 @@ const getAllApartments = async (
     );
   }
 
+  const markers = dataWithRating
+    .map((apt) => apt.marker)
+    .filter((m): m is NonNullable<typeof m> => m !== null);
+
   const responseData = {
     meta: {
       page,
       limit,
       total: isDestinationMode ? dataWithRating.length : total,
     },
+    markers,
     data: dataWithRating,
   };
 
@@ -735,8 +932,11 @@ const getApartmentById = async (idOrPropertyId: string) => {
 
   const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(apartment, NEIGHBORHOOD_CENTROIDS);
 
+  const marker = resolveApartmentMarker(apartment);
+
   const result = {
     ...apartment,
+    marker,
     averageRating: Number(avgRating.toFixed(1)),
     totalReviews,
     upcomingAvailability,
@@ -782,6 +982,13 @@ const updateApartment = async (
   if (payload.neighborhoodLat !== undefined) updateData.neighborhoodLat = toFloatOrNull(payload.neighborhoodLat);
   if (payload.neighborhoodLng !== undefined) updateData.neighborhoodLng = toFloatOrNull(payload.neighborhoodLng);
   if (payload.neighborhoodWalkingMinutes !== undefined) updateData.neighborhoodWalkingMinutes = toIntOrNull(payload.neighborhoodWalkingMinutes);
+
+  if (payload.phone !== undefined) updateData.phone = Boolean(payload.phone);
+  if (payload.whatsapp !== undefined) updateData.whatsapp = Boolean(payload.whatsapp);
+  if (payload.email !== undefined) updateData.email = Boolean(payload.email);
+  if (payload.unavailable !== undefined) updateData.unavailable = Boolean(payload.unavailable);
+  if (payload.receiveRequestWhenUnavailable !== undefined) updateData.receiveRequestWhenUnavailable = Boolean(payload.receiveRequestWhenUnavailable);
+  if (payload.isActive !== undefined) updateData.isActive = Boolean(payload.isActive);
 
   if (payload.amenities !== undefined) {
     if (Array.isArray(payload.amenities)) {
@@ -850,8 +1057,13 @@ const deleteApartment = async (
   apartmentId: string,
   isAdmin: boolean = false,
 ) => {
-  const apartment = await prisma.apartment.findUnique({
-    where: { id: apartmentId },
+  const apartment = await prisma.apartment.findFirst({
+    where: {
+      OR: [
+        { id: apartmentId },
+        { propertyId: apartmentId },
+      ],
+    },
   });
 
   if (!apartment) {
@@ -863,7 +1075,7 @@ const deleteApartment = async (
   }
 
   await prisma.apartment.delete({
-    where: { id: apartmentId },
+    where: { id: apartment.id },
   });
 
   await deleteCacheByPattern("apartment:*");
@@ -976,8 +1188,11 @@ const getAdminApartmentDetails = async (idOrPropertyId: string) => {
       ? apartment.reviews.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews
       : 0;
 
+  const marker = resolveApartmentMarker(apartment);
+
   return {
     ...apartment,
+    marker,
     averageRating: Number(avgRating.toFixed(1)),
     totalReviews,
   };

@@ -36,7 +36,12 @@ const apartmentComprehensiveSelect = {
   images: true,
   phoneNumber: true,
   whatsApp: true,
-  howToContact: true,
+  phone: true,
+  whatsapp: true,
+  email: true,
+  unavailable: true,
+  receiveRequestWhenUnavailable: true,
+  isActive: true,
   additionalDetails: true,
   status: true,
   user: {
@@ -103,10 +108,15 @@ const enrichSwap = async (
 };
 
 const createSwapRequest = async (userId: string, payload: ICreateSwapRequest) => {
-  const fromApartment = await prisma.apartment.findUnique({
-    where: { userId },
-    include: { swapPreference: true },
-  });
+  const fromApartment = payload.fromAppId
+    ? await prisma.apartment.findFirst({
+        where: { id: payload.fromAppId, userId },
+        include: { swapPreference: true },
+      })
+    : await prisma.apartment.findFirst({
+        where: { userId },
+        include: { swapPreference: true },
+      });
 
   if (!fromApartment) {
     throw new ApiError(StatusCodes.NOT_FOUND, "You have not listed an apartment to swap");
@@ -233,17 +243,20 @@ const createSwapRequest = async (userId: string, payload: ICreateSwapRequest) =>
 };
 
 const getMySwaps = async (userId: string) => {
-  const userApartment = await prisma.apartment.findUnique({
+  const userApartments = await prisma.apartment.findMany({
     where: { userId },
+    select: { id: true },
   });
 
-  if (!userApartment) {
+  const aptIds = userApartments.map((a) => a.id);
+
+  if (aptIds.length === 0) {
     return { sent: [], received: [] };
   }
 
   const [sent, received] = await Promise.all([
     prisma.swap.findMany({
-      where: { fromAppId: userApartment.id },
+      where: { fromAppId: { in: aptIds } },
       include: {
         payments: true,
         fromApartment: { select: apartmentComprehensiveSelect },
@@ -252,7 +265,7 @@ const getMySwaps = async (userId: string) => {
       orderBy: { createdAt: "desc" },
     }),
     prisma.swap.findMany({
-      where: { toAppId: userApartment.id },
+      where: { toAppId: { in: aptIds } },
       include: {
         payments: true,
         fromApartment: { select: apartmentComprehensiveSelect },

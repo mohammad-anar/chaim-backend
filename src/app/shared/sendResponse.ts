@@ -7,10 +7,12 @@ const sendResponse = <T>(
     success: boolean;
     message: string;
     meta?: {
-      page: number;
-      limit: number;
+      page?: number;
+      limit?: number;
       total: number;
+      totalPage?: number;
     };
+    markers?: any[];
     data?: T | null | undefined;
   },
 ) => {
@@ -18,6 +20,7 @@ const sendResponse = <T>(
     success: jsonData.success,
     message: jsonData.message,
     meta: jsonData.meta || null || undefined,
+    ...(jsonData.markers !== undefined && { markers: jsonData.markers }),
     data: jsonData.data || null || undefined,
   });
 };

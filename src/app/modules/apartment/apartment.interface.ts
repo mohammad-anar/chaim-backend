@@ -1,4 +1,4 @@
-import { HowToContact, PropertyType, ApartmentStatus } from "@prisma/client";
+import { PropertyType, ApartmentStatus } from "@prisma/client";
 
 export type ICreateApartment = {
   title: string;
@@ -23,7 +23,12 @@ export type ICreateApartment = {
   images?: string[];
   phoneNumber?: string;
   whatsApp?: string;
-  howToContact?: HowToContact;
+  phone?: boolean;
+  whatsapp?: boolean;
+  email?: boolean;
+  unavailable?: boolean;
+  receiveRequestWhenUnavailable?: boolean;
+  isActive?: boolean;
   additionalDetails?: string;
   referralCode?: string;
 };
@@ -38,15 +43,27 @@ export type IApartmentFilterRequest = {
   minPrice?: number | string;
   maxPrice?: number | string;
   bedrooms?: number | string;
+  rooms?: number | string;
   bathrooms?: number | string;
   maxGuest?: number | string;
   guestCount?: number | string;
+  guests?: number | string;
+  seats?: number | string;
   weekendId?: string;
+  weekend?: string;
+  date?: string;
   amenities?: string | string[];
   maxWalkingMinutes?: number | string;
+  walkingMinutes?: number | string;
+  walkingTime?: number | string;
   status?: ApartmentStatus;
-  // Targeted destination search — mutually exclusive with city/neighborhood when all 3 are present
+  isActive?: boolean | string;
+  unavailable?: boolean | string;
+  receiveRequestWhenUnavailable?: boolean | string;
+  // Targeted destination search
   destLat?: number | string;
   destLng?: number | string;
-  walkingMinutes?: number | string; // max walking minutes from destLat/destLng
+  targetDestination?: string;
+  shulAddress?: string;
+  destination?: string;
 };

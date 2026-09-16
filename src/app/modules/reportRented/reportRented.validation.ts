@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const createReportRentedIntentZodSchema = z
   .object({
+    apartmentId: z.string().optional(),
     reportType: z.enum(["RENT", "SWAP"]).optional(),
     targetApartmentId: z.string().optional(),
     weekend: z.string().optional(),

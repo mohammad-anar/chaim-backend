@@ -6,6 +6,7 @@ export type IUpdateProfile = {
   username?: string;
   email?: string;
   phone?: string;
+  profileImage?: string;
   notificationPreference?: NotificationPreference;
   marketingPlatformId?: string | null;
 };

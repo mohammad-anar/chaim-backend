@@ -2,6 +2,7 @@ import { SwapStatus } from "@prisma/client";
 
 export type ICreateSwapRequest = {
   toAppId: string;
+  fromAppId?: string;
 };
 
 export type IUpdateSwapStatus = {

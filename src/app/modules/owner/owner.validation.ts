@@ -1,7 +1,25 @@
 import { z } from "zod";
 import { DayOfWeek, NotificationPreference } from "@prisma/client";
 
+const parseOptionalBoolean = z.preprocess((val) => {
+  if (val === "" || val === null || val === undefined || val === "undefined" || val === "null") {
+    return undefined;
+  }
+  if (typeof val === "boolean") return val;
+  if (typeof val === "string") {
+    const lower = val.trim().toLowerCase();
+    if (lower === "true" || lower === "1") return true;
+    if (lower === "false" || lower === "0") return false;
+  }
+  if (typeof val === "number") {
+    if (val === 1) return true;
+    if (val === 0) return false;
+  }
+  return val;
+}, z.boolean().optional());
+
 const sendAvailabilityReminderZodSchema = z.object({
+  apartmentId: z.string().optional(),
   emailSubject: z.string().optional(),
   emailBody: z.string().optional(),
   adminPhone: z.string().optional(),
@@ -13,6 +31,7 @@ const sendAvailabilityReminderZodSchema = z.object({
 });
 
 const sendPaymentDueReminderZodSchema = z.object({
+  apartmentId: z.string().optional(),
   emailSubject: z.string().optional(),
   emailBody: z.string().optional(),
   adminPhone: z.string().optional(),
@@ -41,11 +60,10 @@ const upsertOwnerNotificationPrefZodSchema = z.object({
     DayOfWeek.FRIDAY,
     DayOfWeek.SATURDAY,
   ]).optional().nullable(),
-  preferredTime: z
-    .string()
-    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:mm)")
-    .optional()
-    .nullable(),
+  preferredTime: z.string().optional().nullable(),
+  isPaused: parseOptionalBoolean,
+  allowReminder: parseOptionalBoolean,
+  specificReminderDate: z.union([z.string(), z.date()]).optional().nullable(),
 });
 
 export const OwnerValidation = {

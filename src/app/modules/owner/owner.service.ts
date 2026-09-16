@@ -21,9 +21,19 @@ const twilioPhoneNumber = config.twilio.phone_number || "+97225007890";
 const isValidTwilioSid = accountSid?.startsWith("AC");
 const twilioClient = isValidTwilioSid && authToken ? twilio(accountSid!, authToken) : null;
 
+const DAYS_OF_WEEK = [
+  "SUNDAY",
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+];
+
 /**
- * Get all owners with rich metrics:
- * - totalListings (1)
+ * Get all owners with rich metrics across all their listings:
+ * - totalListings
  * - contact info & ownerNotificationPreference
  * - totalEarnings (Listing 28 ILS + Report Rented 50 ILS completed)
  * - totalDue (Unpaid listings + Unpaid reports)
@@ -41,7 +51,7 @@ const getAllOwners = async (
 
   const andConditions: Prisma.UserWhereInput[] = [
     { isDeleted: false },
-    { apartment: { isNot: null } },
+    { apartments: { some: {} } },
   ];
 
   if (searchTerm) {
@@ -50,8 +60,17 @@ const getAllOwners = async (
         { username: { contains: searchTerm, mode: "insensitive" } },
         { email: { contains: searchTerm, mode: "insensitive" } },
         { phone: { contains: searchTerm, mode: "insensitive" } },
-        { apartment: { title: { contains: searchTerm, mode: "insensitive" } } },
-        { apartment: { city: { contains: searchTerm, mode: "insensitive" } } },
+        {
+          apartments: {
+            some: {
+              OR: [
+                { title: { contains: searchTerm, mode: "insensitive" } },
+                { city: { contains: searchTerm, mode: "insensitive" } },
+                { propertyId: { contains: searchTerm, mode: "insensitive" } },
+              ],
+            },
+          },
+        },
       ],
     });
   }
@@ -79,7 +98,7 @@ const getAllOwners = async (
       orderBy: { [sortBy]: sortOrder },
       include: {
         ownerNotificationPreference: true,
-        apartment: {
+        apartments: {
           include: {
             availabilities: {
               include: { weekend: true },
@@ -102,26 +121,32 @@ const getAllOwners = async (
   const reportRentedFee = config.fees.report_rented_fee || 50;
 
   const formattedOwners = owners.map((owner: any) => {
-    const apartment = owner.apartment;
-    const listingPayment = apartment?.listingPayment;
+    const apartments: any[] = owner.apartments || [];
 
-    // Listing financial status
-    const isListingPaid = listingPayment?.status === PaymentStatus.COMPLETED;
-    const listingEarnings = isListingPaid ? listingPayment?.amount || listingFee : 0;
-    const listingDue = isListingPaid ? 0 : listingPayment?.amount || listingFee;
+    let totalListingEarnings = 0;
+    let totalListingDue = 0;
+    let totalUnpaidReportsCount = 0;
+    let totalPaidReportsCount = 0;
 
-    // Report rented metrics
-    const reports: any[] = apartment?.reportRented || [];
-    const unpaidReports = reports.filter((r) => !r.paidAt);
-    const paidReports = reports.filter((r) => !!r.paidAt);
+    apartments.forEach((apt) => {
+      const listingPayment = apt.listingPayment;
+      const isListingPaid = listingPayment?.status === PaymentStatus.COMPLETED;
+      if (isListingPaid) {
+        totalListingEarnings += listingPayment?.amount || listingFee;
+      } else {
+        totalListingDue += listingPayment?.amount || listingFee;
+      }
 
-    const unpaidReportsCount = unpaidReports.length;
-    const unpaidReportsAmount = unpaidReportsCount * reportRentedFee;
+      const reports: any[] = apt.reportRented || [];
+      const unpaid = reports.filter((r) => !r.paidAt);
+      const paid = reports.filter((r) => !!r.paidAt);
+      totalUnpaidReportsCount += unpaid.length;
+      totalPaidReportsCount += paid.length;
+    });
 
-    const paidReportsCount = paidReports.length;
-    const paidReportsAmount = paidReportsCount * reportRentedFee;
+    const unpaidReportsAmount = totalUnpaidReportsCount * reportRentedFee;
+    const paidReportsAmount = totalPaidReportsCount * reportRentedFee;
 
-    // Completed report rented payments
     const completedReportPayments: any[] = (owner.reportRentedPayments || []).filter(
       (p: any) => p.status === PaymentStatus.COMPLETED,
     );
@@ -130,10 +155,11 @@ const getAllOwners = async (
         ? completedReportPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
         : paidReportsAmount;
 
-    // Total calculations (Listing + Report Rented)
-    const totalEarnings = listingEarnings + reportRentedEarnings;
-    const totalDue = listingDue + unpaidReportsAmount;
+    const totalEarnings = totalListingEarnings + reportRentedEarnings;
+    const totalDue = totalListingDue + unpaidReportsAmount;
     const hasOverduePayment = totalDue > 0;
+
+    const firstApt = apartments[0] || null;
 
     return {
       id: owner.id,
@@ -146,36 +172,42 @@ const getAllOwners = async (
       notificationPreference: owner.ownerNotificationPreference?.channel || "EMAIL",
       ownerNotificationPreference: owner.ownerNotificationPreference || null,
       createdAt: owner.createdAt,
-      totalListings: apartment ? 1 : 0,
-      apartment: apartment
+      totalListings: apartments.length,
+      apartment: firstApt
         ? {
-            id: apartment.id,
-            propertyId: apartment.propertyId,
-            title: apartment.title,
-            city: apartment.city,
-            address: apartment.address,
-            price: apartment.price,
-            status: apartment.status,
-            phoneNumber: apartment.phoneNumber,
-            isKosher: apartment.isKosher,
-            isAvailable: apartment.isAvailable,
-            availabilities: apartment.availabilities,
-            listingPayment: apartment.listingPayment,
+            id: firstApt.id,
+            propertyId: firstApt.propertyId,
+            title: firstApt.title,
+            city: firstApt.city,
+            phoneNumber: firstApt.phoneNumber,
+            status: firstApt.status,
+            availabilities: firstApt.availabilities,
+            listingPayment: firstApt.listingPayment,
           }
         : null,
+      apartments: apartments.map((apt) => ({
+        id: apt.id,
+        propertyId: apt.propertyId,
+        title: apt.title,
+        city: apt.city,
+        phoneNumber: apt.phoneNumber,
+        status: apt.status,
+        availabilities: apt.availabilities,
+        listingPayment: apt.listingPayment,
+      })),
       financials: {
         totalEarnings,
         totalDue,
         hasOverduePayment,
         listing: {
-          isPaid: isListingPaid,
-          earnings: listingEarnings,
-          due: listingDue,
+          isPaid: totalListingDue === 0,
+          earnings: totalListingEarnings,
+          due: totalListingDue,
         },
         reportRented: {
-          unpaidCount: unpaidReportsCount,
+          unpaidCount: totalUnpaidReportsCount,
           unpaidAmount: unpaidReportsAmount,
-          paidCount: paidReportsCount,
+          paidCount: totalPaidReportsCount,
           paidAmount: paidReportsAmount,
           earnings: reportRentedEarnings,
         },
@@ -210,7 +242,7 @@ const getSingleOwner = async (ownerId: string) => {
     where: { id: ownerId, isDeleted: false },
     include: {
       ownerNotificationPreference: true,
-      apartment: {
+      apartments: {
         include: {
           availabilities: { include: { weekend: true } },
           listingPayment: true,
@@ -228,21 +260,31 @@ const getSingleOwner = async (ownerId: string) => {
   const listingFee = config.fees.apartment_listing_fee || 28;
   const reportRentedFee = config.fees.report_rented_fee || 50;
 
-  const apartment = owner.apartment;
-  const listingPayment = apartment?.listingPayment;
-  const isListingPaid = listingPayment?.status === PaymentStatus.COMPLETED;
-  const listingEarnings = isListingPaid ? listingPayment?.amount || listingFee : 0;
-  const listingDue = isListingPaid ? 0 : listingPayment?.amount || listingFee;
+  const apartments: any[] = owner.apartments || [];
 
-  const reports: any[] = apartment?.reportRented || [];
-  const unpaidReports = reports.filter((r) => !r.paidAt);
-  const paidReports = reports.filter((r) => !!r.paidAt);
+  let totalListingEarnings = 0;
+  let totalListingDue = 0;
+  let totalUnpaidReportsCount = 0;
+  let totalPaidReportsCount = 0;
 
-  const unpaidReportsCount = unpaidReports.length;
-  const unpaidReportsAmount = unpaidReportsCount * reportRentedFee;
+  apartments.forEach((apt) => {
+    const listingPayment = apt.listingPayment;
+    const isListingPaid = listingPayment?.status === PaymentStatus.COMPLETED;
+    if (isListingPaid) {
+      totalListingEarnings += listingPayment?.amount || listingFee;
+    } else {
+      totalListingDue += listingPayment?.amount || listingFee;
+    }
 
-  const paidReportsCount = paidReports.length;
-  const paidReportsAmount = paidReportsCount * reportRentedFee;
+    const reports: any[] = apt.reportRented || [];
+    const unpaid = reports.filter((r) => !r.paidAt);
+    const paid = reports.filter((r) => !!r.paidAt);
+    totalUnpaidReportsCount += unpaid.length;
+    totalPaidReportsCount += paid.length;
+  });
+
+  const unpaidReportsAmount = totalUnpaidReportsCount * reportRentedFee;
+  const paidReportsAmount = totalPaidReportsCount * reportRentedFee;
 
   const completedReportPayments: any[] = (owner.reportRentedPayments || []).filter(
     (p: any) => p.status === PaymentStatus.COMPLETED,
@@ -252,8 +294,10 @@ const getSingleOwner = async (ownerId: string) => {
       ? completedReportPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
       : paidReportsAmount;
 
-  const totalEarnings = listingEarnings + reportRentedEarnings;
-  const totalDue = listingDue + unpaidReportsAmount;
+  const totalEarnings = totalListingEarnings + reportRentedEarnings;
+  const totalDue = totalListingDue + unpaidReportsAmount;
+
+  const firstApt = apartments[0] || null;
 
   return {
     id: owner.id,
@@ -266,21 +310,22 @@ const getSingleOwner = async (ownerId: string) => {
     notificationPreference: owner.ownerNotificationPreference?.channel || "EMAIL",
     ownerNotificationPreference: owner.ownerNotificationPreference || null,
     createdAt: owner.createdAt,
-    totalListings: apartment ? 1 : 0,
-    apartment,
+    totalListings: apartments.length,
+    apartment: firstApt,
+    apartments,
     financials: {
       totalEarnings,
       totalDue,
       hasOverduePayment: totalDue > 0,
       listing: {
-        isPaid: isListingPaid,
-        earnings: listingEarnings,
-        due: listingDue,
+        isPaid: totalListingDue === 0,
+        earnings: totalListingEarnings,
+        due: totalListingDue,
       },
       reportRented: {
-        unpaidCount: unpaidReportsCount,
+        unpaidCount: totalUnpaidReportsCount,
         unpaidAmount: unpaidReportsAmount,
-        paidCount: paidReportsCount,
+        paidCount: totalPaidReportsCount,
         paidAmount: paidReportsAmount,
         earnings: reportRentedEarnings,
       },
@@ -289,8 +334,47 @@ const getSingleOwner = async (ownerId: string) => {
 };
 
 /**
+ * Validate if admin can send reminder to owner based on preferences
+ */
+const validateOwnerReminderPermission = (owner: any) => {
+  const pref = owner.ownerNotificationPreference;
+  if (!pref) return;
+
+  if (pref.isPaused || pref.allowReminder === false) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "Owner has paused/disabled automated reminder notifications",
+    );
+  }
+
+  // Check preferredDay restriction
+  if (pref.preferredDay) {
+    const currentDay = DAYS_OF_WEEK[new Date().getDay()];
+    if (pref.preferredDay !== currentDay) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Owner has scheduled reminders for ${pref.preferredDay}. Today is ${currentDay}. Reminders cannot be sent on other days.`,
+      );
+    }
+  }
+
+  // Check specificReminderDate restriction
+  if (pref.specificReminderDate) {
+    const scheduledDate = new Date(pref.specificReminderDate).toISOString().split("T")[0];
+    const today = new Date().toISOString().split("T")[0];
+    if (scheduledDate !== today) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Owner has scheduled reminder specifically for ${scheduledDate}. Today is ${today}.`,
+      );
+    }
+  }
+};
+
+/**
  * Send reminder for apartment availability status update:
  * - Reads owner's ownerNotificationPreference (channel: EMAIL, PHONE, BOTH)
+ * - Validates owner's reminder schedule and pause settings
  * - EMAIL: Sends rich text HTML email
  * - PHONE: Initiates Twilio SIM call bridge connecting admin's phone to owner's SIM
  * - BOTH: Executes both
@@ -304,7 +388,7 @@ const sendAvailabilityReminder = async (
     prisma.user.findUnique({ where: { id: adminId } }),
     prisma.user.findUnique({
       where: { id: ownerId, isDeleted: false },
-      include: { apartment: true, ownerNotificationPreference: true },
+      include: { apartments: true, ownerNotificationPreference: true },
     }),
   ]);
 
@@ -312,9 +396,19 @@ const sendAvailabilityReminder = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "Owner not found");
   }
 
-  if (!owner.apartment) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "This user does not have an active apartment listing");
+  const apartments = owner.apartments || [];
+  if (apartments.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "This user does not have any apartment listings");
   }
+
+  // Enforce owner reminder settings
+  validateOwnerReminderPermission(owner);
+
+  const targetApartment = payload.apartmentId
+    ? apartments.find((a: any) => a.id === payload.apartmentId) || apartments[0]
+    : apartments[0];
+
+  const aptTitles = apartments.map((a: any) => `"${a.title}"`).join(", ");
 
   const pref = payload.channel || owner.ownerNotificationPreference?.channel || "EMAIL";
   const shouldEmail = pref === "EMAIL" || pref === "BOTH";
@@ -326,14 +420,17 @@ const sendAvailabilityReminder = async (
   const notices: string[] = [];
 
   // In-app alert notification
-  const inAppMessage = `Please update your apartment availability status for "${owner.apartment.title}".`;
+  const inAppMessage = payload.apartmentId
+    ? `Please update your apartment availability status for "${targetApartment.title}".`
+    : `Please update your apartment availability status for ${aptTitles}.`;
+
   await dispatchNotification({
     title: "Apartment Availability Reminder",
     message: inAppMessage,
     type: AlertType.INFO,
     targetUserId: owner.id,
     link: "/user-dashboard",
-    metadata: { apartmentId: owner.apartment.id },
+    metadata: { apartmentId: targetApartment.id },
   });
 
   // 1. Email Channel
@@ -342,13 +439,13 @@ const sendAvailabilityReminder = async (
     if (targetEmail) {
       const subject =
         payload.emailSubject ||
-        `Please Update Availability Status for "${owner.apartment.title}" - ShabbosRent`;
+        `Please Update Availability Status for "${targetApartment.title}" - ShabbosRent`;
 
       const defaultHtml = `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
           <h2 style="color: #2563eb;">Apartment Availability Status Update</h2>
           <p>Dear <strong>${owner.username}</strong>,</p>
-          <p>Please update the availability status of your apartment <strong>"${owner.apartment.title}"</strong> for the upcoming weekends so guests know when it is open for booking.</p>
+          <p>Please update the availability status of your apartment <strong>"${targetApartment.title}"</strong> for the upcoming weekends so guests know when it is open for booking.</p>
           <div style="margin: 24px 0;">
             <a href="https://shabbos-rent-website.vercel.app/user-dashboard" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
               Update Availability Calendar
@@ -380,7 +477,7 @@ const sendAvailabilityReminder = async (
     const ownerPhone =
       owner.ownerNotificationPreference?.notificationPhone ||
       owner.phone ||
-      owner.apartment.phoneNumber;
+      targetApartment.phoneNumber;
     const adminPhone = payload.adminPhone || admin?.phone || twilioPhoneNumber;
 
     if (!ownerPhone) {
@@ -402,12 +499,11 @@ const sendAvailabilityReminder = async (
         callInitiated = true;
         callSid = call.sid;
 
-        // Log call to CallLog table
         await prisma.callLog.create({
           data: {
             callerId: adminId,
             receiverId: owner.id,
-            apartmentId: owner.apartment.id,
+            apartmentId: targetApartment.id,
             channel: "VOICE",
             twilioCallSid: call.sid,
             status: call.status || "INITIATED",
@@ -420,6 +516,13 @@ const sendAvailabilityReminder = async (
       notices.push("Twilio voice credentials not configured or valid");
     }
   }
+
+  // Record lastReminderSentAt
+  await prisma.ownerNotificationPreference.upsert({
+    where: { userId: owner.id },
+    update: { lastReminderSentAt: new Date() },
+    create: { userId: owner.id, lastReminderSentAt: new Date() },
+  });
 
   return {
     success: true,
@@ -436,8 +539,8 @@ const sendAvailabilityReminder = async (
 
 /**
  * Send payment due reminder:
- * - Calculates pending dues (Listing fee + Unpaid report rented count * 50)
- * - Reads owner's ownerNotificationPreference (EMAIL, PHONE, BOTH)
+ * - Calculates pending dues across owner's listings
+ * - Validates owner's reminder schedule and pause settings
  * - EMAIL: Sends rich text HTML email with due details and payment link
  * - PHONE: Initiates Twilio SIM call bridge
  * - BOTH: Executes both
@@ -453,7 +556,7 @@ const sendPaymentDueReminder = async (
       where: { id: ownerId, isDeleted: false },
       include: {
         ownerNotificationPreference: true,
-        apartment: {
+        apartments: {
           include: {
             listingPayment: true,
             reportRented: true,
@@ -467,22 +570,35 @@ const sendPaymentDueReminder = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "Owner not found");
   }
 
-  if (!owner.apartment) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "This user does not have an active apartment listing");
+  const apartments = owner.apartments || [];
+  if (apartments.length === 0) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "This user does not have any apartment listings");
   }
 
-  // Calculate actual due
+  // Enforce owner reminder settings
+  validateOwnerReminderPermission(owner);
+
   const listingFee = config.fees.apartment_listing_fee || 28;
   const reportRentedFee = config.fees.report_rented_fee || 50;
 
-  const isListingPaid = owner.apartment.listingPayment?.status === PaymentStatus.COMPLETED;
-  const listingDue = isListingPaid ? 0 : owner.apartment.listingPayment?.amount || listingFee;
+  let totalListingDue = 0;
+  let totalReportsDue = 0;
 
-  const unpaidReports = (owner.apartment.reportRented || []).filter((r: any) => !r.paidAt);
-  const reportsDue = unpaidReports.length * reportRentedFee;
+  apartments.forEach((apt: any) => {
+    const isPaid = apt.listingPayment?.status === PaymentStatus.COMPLETED;
+    if (!isPaid) {
+      totalListingDue += apt.listingPayment?.amount || listingFee;
+    }
+    const unpaidReports = (apt.reportRented || []).filter((r: any) => !r.paidAt);
+    totalReportsDue += unpaidReports.length * reportRentedFee;
+  });
 
-  const calculatedTotalDue = listingDue + reportsDue;
+  const calculatedTotalDue = totalListingDue + totalReportsDue;
   const dueAmount = payload.amount !== undefined ? payload.amount : calculatedTotalDue;
+
+  const targetApartment = payload.apartmentId
+    ? apartments.find((a: any) => a.id === payload.apartmentId) || apartments[0]
+    : apartments[0];
 
   const pref = payload.channel || owner.ownerNotificationPreference?.channel || "EMAIL";
   const shouldEmail = pref === "EMAIL" || pref === "BOTH";
@@ -503,7 +619,7 @@ const sendPaymentDueReminder = async (
     link: "/user-dashboard",
     metadata: {
       dueAmount,
-      apartmentId: owner.apartment.id,
+      apartmentId: targetApartment.id,
     },
   });
 
@@ -519,15 +635,17 @@ const sendPaymentDueReminder = async (
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
           <h2 style="color: #dc2626;">Outstanding Payment Due Reminder</h2>
           <p>Dear <strong>${owner.username}</strong>,</p>
-          <p>You have an outstanding payment balance of <strong>${dueAmount} ILS</strong> associated with your apartment <strong>"${owner.apartment.title}"</strong>.</p>
-          ${unpaidReports.length > 0 ? `<p>Unpaid Reported Rentals: <strong>${unpaidReports.length}</strong> (${unpaidReports.length * reportRentedFee} ILS)</p>` : ""}
-          ${listingDue > 0 ? `<p>Pending Listing Fee: <strong>${listingDue} ILS</strong></p>` : ""}
+          <p>You have an outstanding payment balance of <strong>${dueAmount} ILS</strong> associated with your apartment listings on ShabbosRent.</p>
+          <div style="background-color: #fef2f2; border: 1px solid #fecaca; padding: 16px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; font-weight: bold; color: #991b1b;">Total Amount Due: ${dueAmount} ILS</p>
+          </div>
+          <p>Please log into your owner dashboard and complete your pending payment to ensure uninterrupted service.</p>
           <div style="margin: 24px 0;">
             <a href="https://shabbos-rent-website.vercel.app/user-dashboard" style="background-color: #dc2626; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-              Pay Outstanding Dues Now
+              Complete Payment Now
             </a>
           </div>
-          <p style="font-size: 13px; color: #666;">Thank you for your prompt payment.</p>
+          <p style="font-size: 13px; color: #666;">Thank you for your cooperation.<br>ShabbosRent Billing Team</p>
         </div>
       `;
 
@@ -553,7 +671,7 @@ const sendPaymentDueReminder = async (
     const ownerPhone =
       owner.ownerNotificationPreference?.notificationPhone ||
       owner.phone ||
-      owner.apartment.phoneNumber;
+      targetApartment.phoneNumber;
     const adminPhone = payload.adminPhone || admin?.phone || twilioPhoneNumber;
 
     if (!ownerPhone) {
@@ -579,7 +697,7 @@ const sendPaymentDueReminder = async (
           data: {
             callerId: adminId,
             receiverId: owner.id,
-            apartmentId: owner.apartment.id,
+            apartmentId: targetApartment.id,
             channel: "VOICE",
             twilioCallSid: call.sid,
             status: call.status || "INITIATED",
@@ -592,6 +710,13 @@ const sendPaymentDueReminder = async (
       notices.push("Twilio voice credentials not configured or valid");
     }
   }
+
+  // Record lastReminderSentAt
+  await prisma.ownerNotificationPreference.upsert({
+    where: { userId: owner.id },
+    update: { lastReminderSentAt: new Date() },
+    create: { userId: owner.id, lastReminderSentAt: new Date() },
+  });
 
   return {
     success: true,
@@ -628,6 +753,10 @@ const getMyNotificationPref = async (userId: string) => {
       notificationPhone: user.phone || null,
       preferredDay: null,
       preferredTime: null,
+      isPaused: false,
+      allowReminder: true,
+      specificReminderDate: null,
+      lastReminderSentAt: null,
     }
   );
 };
@@ -647,6 +776,24 @@ const upsertMyNotificationPref = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
   }
 
+  const isPaused = payload.isPaused !== undefined ? payload.isPaused : undefined;
+  const allowReminder =
+    payload.allowReminder !== undefined
+      ? payload.allowReminder
+      : isPaused !== undefined
+      ? !isPaused
+      : undefined;
+
+  let specificReminderDate: Date | null | undefined = undefined;
+  if (payload.specificReminderDate !== undefined) {
+    if (payload.specificReminderDate === null || payload.specificReminderDate === "") {
+      specificReminderDate = null;
+    } else {
+      const parsed = new Date(payload.specificReminderDate);
+      specificReminderDate = !isNaN(parsed.getTime()) ? parsed : null;
+    }
+  }
+
   const result = await prisma.ownerNotificationPreference.upsert({
     where: { userId },
     update: {
@@ -663,6 +810,9 @@ const upsertMyNotificationPref = async (
       ...(payload.preferredTime !== undefined && {
         preferredTime: payload.preferredTime,
       }),
+      ...(isPaused !== undefined && { isPaused }),
+      ...(allowReminder !== undefined && { allowReminder }),
+      ...(specificReminderDate !== undefined && { specificReminderDate }),
     },
     create: {
       userId,
@@ -671,10 +821,132 @@ const upsertMyNotificationPref = async (
       notificationPhone: payload.notificationPhone ?? user.phone ?? null,
       preferredDay: payload.preferredDay || null,
       preferredTime: payload.preferredTime || null,
+      isPaused: isPaused ?? false,
+      allowReminder: allowReminder ?? true,
+      specificReminderDate: specificReminderDate ?? null,
     },
   });
 
   return result;
+};
+
+/**
+ * Send an immediate test reminder for owner self-service
+ */
+const testReminderNow = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId, isDeleted: false },
+    include: {
+      ownerNotificationPreference: true,
+      apartments: { take: 1 },
+    },
+  });
+
+  if (!user) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+  }
+
+  const pref = user.ownerNotificationPreference?.channel || "EMAIL";
+  const shouldEmail = pref === "EMAIL" || pref === "BOTH";
+  const shouldPhone = pref === "PHONE" || pref === "BOTH";
+
+  let emailSent = false;
+  let callInitiated = false;
+  let callSid: string | null = null;
+  const notices: string[] = [];
+
+  const aptTitle = user.apartments?.[0]?.title || "your apartment";
+
+  // In-app alert notification
+  await dispatchNotification({
+    title: "Test Availability Reminder",
+    message: `This is a test availability reminder for "${aptTitle}". Your reminder preferences are functioning!`,
+    type: AlertType.INFO,
+    targetUserId: user.id,
+    link: "/user-dashboard",
+    metadata: { test: true },
+  });
+
+  // 1. Email Channel
+  if (shouldEmail) {
+    const targetEmail = user.ownerNotificationPreference?.notificationEmail || user.email;
+    if (targetEmail) {
+      try {
+        await emailHelper.sendEmail({
+          to: targetEmail,
+          subject: "Test Availability Reminder - ShabbosRent",
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+              <h2 style="color: #2563eb;">Test Reminder Received</h2>
+              <p>Dear <strong>${user.username}</strong>,</p>
+              <p>This is a test availability reminder for <strong>"${aptTitle}"</strong>. Your automated reminder preferences are functioning properly.</p>
+              <div style="margin: 24px 0;">
+                <a href="https://shabbos-rent-website.vercel.app/user-dashboard" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                  Go to Dashboard
+                </a>
+              </div>
+              <p style="font-size: 13px; color: #666;">ShabbosRent Team</p>
+            </div>
+          `,
+        });
+        emailSent = true;
+      } catch (err: any) {
+        notices.push(`Email error: ${err?.message || "Failed to send email"}`);
+      }
+    } else {
+      notices.push("No email address configured for notifications");
+    }
+  }
+
+  // 2. Phone / Twilio Voice Channel
+  if (shouldPhone) {
+    const targetPhone =
+      user.ownerNotificationPreference?.notificationPhone ||
+      user.phone ||
+      user.apartments?.[0]?.phoneNumber;
+
+    if (!targetPhone) {
+      notices.push("No phone number configured for notifications");
+    } else if (twilioClient && twilioPhoneNumber) {
+      try {
+        const twimlUrl = `${process.env.BACKEND_URL || "http://localhost:5000"}/api/v1/call/twiml?to=${encodeURIComponent(twilioPhoneNumber)}`;
+        const call = await twilioClient.calls.create({
+          url: twimlUrl,
+          to: targetPhone,
+          from: twilioPhoneNumber,
+        });
+        callInitiated = true;
+        callSid = call.sid;
+      } catch (err: any) {
+        notices.push(`Twilio error: ${err?.message || "Failed to trigger voice call"}`);
+      }
+    } else {
+      notices.push("Twilio voice credentials not configured or valid");
+    }
+  }
+
+  // Update lastReminderSentAt
+  await prisma.ownerNotificationPreference.upsert({
+    where: { userId: user.id },
+    update: { lastReminderSentAt: new Date() },
+    create: {
+      userId: user.id,
+      channel: pref,
+      notificationEmail: user.email || null,
+      notificationPhone: user.phone || null,
+      lastReminderSentAt: new Date(),
+    },
+  });
+
+  return {
+    success: true,
+    message: "Test reminder processed successfully",
+    channelUsed: pref,
+    emailSent,
+    callInitiated,
+    callSid,
+    notices: notices.length > 0 ? notices : undefined,
+  };
 };
 
 export const OwnerServices = {
@@ -684,5 +956,5 @@ export const OwnerServices = {
   sendPaymentDueReminder,
   getMyNotificationPref,
   upsertMyNotificationPref,
+  testReminderNow,
 };
-

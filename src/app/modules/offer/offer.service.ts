@@ -45,9 +45,11 @@ const createOffer = async (userId: string, payload: ICreateOffer) => {
 };
 
 const getMyOffers = async (userId: string) => {
-  const userApartment = await prisma.apartment.findUnique({
+  const userApartments = await prisma.apartment.findMany({
     where: { userId },
+    select: { id: true },
   });
+  const aptIds = userApartments.map((a) => a.id);
 
   const sent = await prisma.offer.findMany({
     where: { ownerId: userId },
@@ -71,9 +73,9 @@ const getMyOffers = async (userId: string) => {
   });
 
   let received: any[] = [];
-  if (userApartment) {
+  if (aptIds.length > 0) {
     received = await prisma.offer.findMany({
-      where: { apartmentId: userApartment.id },
+      where: { apartmentId: { in: aptIds } },
       include: {
         owner: {
           select: {
