@@ -32,6 +32,7 @@ model User {
   swapPayments           SwapPayment[]             @relation("SwapPayer")
   callsMade              CallLog[]                 @relation("CallsMade")
   callsReceived          CallLog[]                 @relation("CallsReceived")
+  apartmentViewHistories ApartmentViewHistory[]
 
   @@map("users")
 }

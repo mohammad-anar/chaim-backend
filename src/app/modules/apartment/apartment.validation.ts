@@ -92,6 +92,7 @@ const createApartmentZodSchema = z.object({
   unavailable: parseOptionalBoolean,
   receiveRequestWhenUnavailable: parseOptionalBoolean,
   isActive: parseOptionalBoolean,
+  inactiveNote: parseOptionalString,
   additionalDetails: parseOptionalString,
   referralCode: parseOptionalString,
 });
@@ -123,6 +124,7 @@ const updateApartmentZodSchema = z.object({
   unavailable: parseOptionalBoolean,
   receiveRequestWhenUnavailable: parseOptionalBoolean,
   isActive: parseOptionalBoolean,
+  inactiveNote: parseOptionalString,
   additionalDetails: parseOptionalString,
 });
 

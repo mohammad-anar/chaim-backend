@@ -8,6 +8,7 @@ import { excelImportQueue } from "../../../helpers/bullQueue.js";
 import { paginationHelper } from "../../../helpers/paginationHelper.js";
 import { parseFlexibleDate } from "../../../helpers/parseDate.js";
 import { prisma } from "../../../helpers/prisma.js";
+import { deleteCacheByPattern } from "../../../helpers/redis.js";
 import { IPaginationOptions } from "../../../types/pagination.js";
 import {
   ICreateWeekendCalendar,
@@ -41,6 +42,8 @@ const createWeekendCalendar = async (payload: ICreateWeekendCalendar) => {
       date: dateObj,
     },
   });
+
+  await deleteCacheByPattern("apartment:*");
 
   return result;
 };
@@ -149,6 +152,10 @@ const processExcelFile = async (filePath: string) => {
   }
 
   console.log(`[ExcelImport] Complete. Total: ${rows.length}, Inserted: ${insertedCount}, Skipped: ${skippedCount}`);
+
+  if (insertedCount > 0) {
+    await deleteCacheByPattern("apartment:*");
+  }
 
   return {
     totalRows: rows.length,
@@ -301,6 +308,8 @@ const updateWeekendCalendar = async (
     data: updateData,
   });
 
+  await deleteCacheByPattern("apartment:*");
+
   return result;
 };
 
@@ -316,6 +325,8 @@ const deleteWeekendCalendar = async (id: string) => {
   await prisma.weekendCalendar.delete({
     where: { id },
   });
+
+  await deleteCacheByPattern("apartment:*");
 
   return { message: "Weekend calendar deleted successfully" };
 };

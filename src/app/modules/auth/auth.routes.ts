@@ -4,8 +4,15 @@ import fileUploadHandler from "../../middlewares/fileUploadHandler.js";
 import validateRequest from "../../middlewares/validateRequest.js";
 import { AuthController } from "./auth.controller.js";
 import { AuthValidation } from "./auth.validation.js";
+import { UserController } from "../user/user.controller.js";
 
 const router = express.Router();
+
+router.get(
+  "/me",
+  auth(),
+  UserController.getMyProfile,
+);
 
 router.post(
   "/register",

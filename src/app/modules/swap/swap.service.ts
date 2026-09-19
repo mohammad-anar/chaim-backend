@@ -4,8 +4,11 @@ import ApiError from "../../../errors/ApiError.js";
 import { notifyOnSwapAccepted } from "../../../helpers/notificationHelper.js";
 import { paginationHelper } from "../../../helpers/paginationHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
+import { deleteCacheByPattern } from "../../../helpers/redis.js";
 import { IPaginationOptions } from "../../../types/pagination.js";
 import {
+  distanceKmToDestination,
+  distanceKmToNeighborhood,
   walkingMinutesToDestination,
   walkingMinutesToNeighborhood,
 } from "../../../helpers/distance.js";
@@ -88,16 +91,28 @@ const enrichSwap = async (
       apt,
       NEIGHBORHOOD_CENTROIDS,
     );
+    const distanceKmNeighborhood = distanceKmToNeighborhood(
+      apt,
+      NEIGHBORHOOD_CENTROIDS,
+    );
     const walkingDistanceToDestination = destinationFilter
       ? walkingMinutesToDestination(apt, destinationFilter.destLat, destinationFilter.destLng)
+      : undefined;
+    const distanceKmDest = destinationFilter
+      ? distanceKmToDestination(apt, destinationFilter.destLat, destinationFilter.destLng)
       : undefined;
 
     return {
       ...apt,
       walkingDistanceToNeighborhood,
-      ...(destinationFilter && { walkingDistanceToDestination }),
+      distanceKmToNeighborhood: distanceKmNeighborhood,
+      ...(destinationFilter && {
+        walkingDistanceToDestination,
+        distanceKmToDestination: distanceKmDest,
+      }),
     };
   };
+
 
   return {
     ...swap,
@@ -337,6 +352,7 @@ const updateSwapStatus = async (
             apartmentId: { in: [swap.fromAppId, swap.toAppId] },
           },
         });
+        await deleteCacheByPattern("apartment:*");
       }
 
       // Reset / disable swap preference for both apartments to prevent double-swapping
@@ -519,6 +535,7 @@ const updateSwapStatusAdmin = async (
             apartmentId: { in: [swap.fromAppId, swap.toAppId] },
           },
         });
+        await deleteCacheByPattern("apartment:*");
       }
 
       await prisma.swapPreference.updateMany({

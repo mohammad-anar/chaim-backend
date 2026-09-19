@@ -43,6 +43,7 @@ model Apartment {
   unavailable             Boolean         @default(false) @map("unavailable")
   receiveRequestWhenUnavailable Boolean   @default(false) @map("receive_request_when_unavailable")
   isActive                Boolean         @default(true) @map("is_active")
+  inactiveNote            String?         @map("inactive_note")
   additionalDetails       String?         @map("additional_details")
   status                  ApartmentStatus @default(PENDING) @map("status")
   createdAt               DateTime        @default(now()) @map("created_at")
@@ -64,6 +65,7 @@ model Apartment {
   reportRentedPayments ReportRentedPayment[]
   callLogs             CallLog[]
   ambassadorAttribution AmbassadorAttribution?
+  viewHistories        ApartmentViewHistory[]
 
   @@map("apartments")
 }
@@ -92,4 +94,20 @@ model CitySearchLog {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("city_search_logs")
+}
+
+model ApartmentViewHistory {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  apartmentId String   @map("apartment_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, apartmentId])
+  @@index([apartmentId])
+  @@index([userId])
+  @@map("apartment_view_histories")
 }

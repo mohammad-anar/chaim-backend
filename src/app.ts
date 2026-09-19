@@ -8,26 +8,42 @@ import { getIO } from "./helpers/socketHelper.js";
 
 const app: Application = express();
 
-const allowedOrigins = [
+const parseOrigins = (raw?: string): string[] => {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+};
+
+const configuredOrigins = [
+  ...parseOrigins(config.cors_origin),
+  ...parseOrigins(config.frontend_url),
+];
+
+const defaultOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "http://localhost:5173",
   "http://10.10.7.102:3000",
   "https://shabbos-rent-website.vercel.app",
-  ...(config.cors_origin ? [config.cors_origin] : []),
-  ...(config.frontend_url ? [config.frontend_url] : []),
 ];
+
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...configuredOrigins]));
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // allow requests with no origin (e.g. mobile apps, curl)
+      // allow requests with no origin (e.g. mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
+
+      const normalizedOrigin = origin.trim().replace(/\/+$/, "");
+
       if (
-        allowedOrigins.includes(origin) ||
-        origin.endsWith(".vercel.app") ||
-        origin.includes("localhost") ||
-        origin.includes("127.0.0.1")
+        allowedOrigins.includes(normalizedOrigin) ||
+        normalizedOrigin.endsWith(".vercel.app") ||
+        normalizedOrigin.includes("localhost") ||
+        normalizedOrigin.includes("127.0.0.1")
       ) {
         return callback(null, true);
       }
@@ -38,6 +54,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   }),
 );
+
 
 //parser
 app.use(express.json({ limit: "500mb" }));

@@ -2,6 +2,7 @@ import app from "./app.js";
 import config from "./config/index.js";
 import { seedSuperAdmin } from "./db/seedSuperAdmin.js";
 import { initAmbassadorDeadlineScheduler } from "./helpers/ambassadorDeadlineCron.js";
+import { initSelfPingScheduler } from "./helpers/selfPingCron.js";
 import { initSocket } from "./helpers/socketHelper.js";
 import "./helpers/bullQueue.js";
 
@@ -26,7 +27,11 @@ async function bootstrap() {
 
     // ambassador deadline cron runner
     initAmbassadorDeadlineScheduler();
+
+    // keep-alive self-ping cron runner (pings "/" every 14-15 minutes)
+    initSelfPingScheduler();
   } catch (error) {
+
     console.error("Error during server startup:", error);
     process.exit(1);
   }

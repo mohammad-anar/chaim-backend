@@ -11,7 +11,7 @@ const createReportRentedIntent = catchAsync(async (req: Request, res: Response) 
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
     success: true,
-    message: "Report rented payment intent created successfully for 50 ILS fee",
+    message: `Report rented payment intent created successfully for ${result.length} weekend(s)`,
     data: result,
   });
 });

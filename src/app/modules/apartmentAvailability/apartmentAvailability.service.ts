@@ -1,6 +1,7 @@
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiError.js";
 import { prisma } from "../../../helpers/prisma.js";
+import { deleteCacheByPattern } from "../../../helpers/redis.js";
 import {
   IBulkSetAvailability,
   ISetSpecialWeekend,
@@ -58,6 +59,8 @@ const addAvailability = async (userId: string, payload: IToggleAvailability) => 
     },
   });
 
+  await deleteCacheByPattern("apartment:*");
+
   return result;
 };
 
@@ -90,6 +93,8 @@ const removeAvailability = async (userId: string, payload: IToggleAvailability) 
   await prisma.apartmentAvailability.delete({
     where: { id: existing.id },
   });
+
+  await deleteCacheByPattern("apartment:*");
 
   return { message: "Availability removed successfully" };
 };
@@ -127,6 +132,8 @@ const bulkSetAvailability = async (userId: string, payload: IBulkSetAvailability
       include: { weekend: true },
     });
   });
+
+  await deleteCacheByPattern("apartment:*");
 
   return result;
 };
@@ -196,6 +203,8 @@ const setSpecialWeekend = async (
     include: { weekend: true },
   });
 
+  await deleteCacheByPattern("apartment:*");
+
   return updated;
 };
 
@@ -237,6 +246,8 @@ const setSpecialWeekendDirect = async (
     },
     include: { weekend: true },
   });
+
+  await deleteCacheByPattern("apartment:*");
 
   return updated;
 };

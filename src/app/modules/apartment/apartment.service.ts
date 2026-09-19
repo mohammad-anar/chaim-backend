@@ -103,6 +103,7 @@ const createApartment = async (
       unavailable: payload.unavailable !== undefined ? Boolean(payload.unavailable) : false,
       receiveRequestWhenUnavailable: payload.receiveRequestWhenUnavailable !== undefined ? Boolean(payload.receiveRequestWhenUnavailable) : false,
       isActive: payload.isActive !== undefined ? Boolean(payload.isActive) : true,
+      inactiveNote: payload.inactiveNote,
       additionalDetails: payload.additionalDetails,
       status: "PENDING",
     },
@@ -989,6 +990,7 @@ const updateApartment = async (
   if (payload.unavailable !== undefined) updateData.unavailable = Boolean(payload.unavailable);
   if (payload.receiveRequestWhenUnavailable !== undefined) updateData.receiveRequestWhenUnavailable = Boolean(payload.receiveRequestWhenUnavailable);
   if (payload.isActive !== undefined) updateData.isActive = Boolean(payload.isActive);
+  if (payload.inactiveNote !== undefined) updateData.inactiveNote = payload.inactiveNote;
 
   if (payload.amenities !== undefined) {
     if (Array.isArray(payload.amenities)) {
@@ -1182,6 +1184,12 @@ const getAdminApartmentDetails = async (idOrPropertyId: string) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Apartment not found");
   }
 
+  const upcomingWeekends = await getUpcomingWeekends();
+  const upcomingAvailability = computeUpcomingAvailability(
+    apartment.availabilities,
+    upcomingWeekends,
+  );
+
   const totalReviews = apartment.reviews.length;
   const avgRating =
     totalReviews > 0
@@ -1193,6 +1201,7 @@ const getAdminApartmentDetails = async (idOrPropertyId: string) => {
   return {
     ...apartment,
     marker,
+    upcomingAvailability,
     averageRating: Number(avgRating.toFixed(1)),
     totalReviews,
   };
@@ -1385,6 +1394,370 @@ const sendAvailabilityReminder = async (payload: {
   };
 };
 
+const recordApartmentView = async (userId: string, apartmentId: string) => {
+  const apartment = await prisma.apartment.findUnique({
+    where: { id: apartmentId },
+    select: { id: true, status: true, isActive: true },
+  });
+
+  if (!apartment) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Apartment not found");
+  }
+
+  const result = await prisma.apartmentViewHistory.upsert({
+    where: {
+      userId_apartmentId: {
+        userId,
+        apartmentId,
+      },
+    },
+    create: {
+      userId,
+      apartmentId,
+    },
+    update: {
+      updatedAt: new Date(),
+    },
+  });
+
+  return result;
+};
+
+const getPopularCities = async (limit: number = 5) => {
+  const cacheKey = `apartment:popular-cities:${limit}`;
+  const cachedData = await getCache<any>(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
+  const popularCitiesRaw = await prisma.$queryRaw<
+    Array<{ city: string; viewCount: bigint | number }>
+  >`
+    SELECT a.city, COUNT(v.id)::int AS "viewCount"
+    FROM apartment_view_histories v
+    JOIN apartments a ON v.apartment_id = a.id
+    WHERE a.status = 'CONFIRMED' AND a.is_active = true AND a.city IS NOT NULL AND a.city != ''
+    GROUP BY a.city
+    ORDER BY "viewCount" DESC
+    LIMIT ${limit}
+  `;
+
+  const foundCities = popularCitiesRaw.map((r) => ({
+    city: r.city,
+    viewCount: Number(r.viewCount),
+  }));
+
+  const foundCityNames = new Set(foundCities.map((c) => c.city.toLowerCase()));
+
+  if (foundCities.length < limit) {
+    const additionalCitiesRaw = await prisma.apartment.groupBy({
+      by: ["city"],
+      where: {
+        status: ApartmentStatus.CONFIRMED,
+        isActive: true,
+        city: { not: "" },
+      },
+      _count: {
+        id: true,
+      },
+      orderBy: {
+        _count: {
+          id: "desc",
+        },
+      },
+    });
+
+    for (const item of additionalCitiesRaw) {
+      if (!foundCityNames.has(item.city.toLowerCase())) {
+        foundCities.push({
+          city: item.city,
+          viewCount: 0,
+        });
+        foundCityNames.add(item.city.toLowerCase());
+        if (foundCities.length >= limit) break;
+      }
+    }
+  }
+
+  const result = await Promise.all(
+    foundCities.map(async (cityItem) => {
+      const [apartmentCount, topApartment] = await Promise.all([
+        prisma.apartment.count({
+          where: {
+            city: { equals: cityItem.city, mode: "insensitive" },
+            status: ApartmentStatus.CONFIRMED,
+            isActive: true,
+          },
+        }),
+        prisma.apartment.findFirst({
+          where: {
+            city: { equals: cityItem.city, mode: "insensitive" },
+            status: ApartmentStatus.CONFIRMED,
+            isActive: true,
+            OR: [
+              { coverImage: { not: null } },
+              { images: { isEmpty: false } },
+            ],
+          },
+          select: {
+            coverImage: true,
+            images: true,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        }),
+      ]);
+
+      const image =
+        topApartment?.coverImage ||
+        (topApartment?.images && topApartment.images.length > 0
+          ? topApartment.images[0]
+          : null);
+
+      return {
+        city: cityItem.city,
+        viewCount: cityItem.viewCount,
+        apartmentCount,
+        image,
+      };
+    }),
+  );
+
+  await setCache(cacheKey, result, 300);
+
+  return result;
+};
+
+const getRecentlyViewedApartments = async (
+  userId: string,
+  options: IPaginationOptions,
+) => {
+  const { page, limit, skip, sortBy, sortOrder } =
+    paginationHelper.calculatePagination(options);
+
+  const whereConditions: Prisma.ApartmentViewHistoryWhereInput = {
+    userId,
+    apartment: {
+      status: ApartmentStatus.CONFIRMED,
+      isActive: true,
+    },
+  };
+
+  const [total, views, upcomingWeekends] = await Promise.all([
+    prisma.apartmentViewHistory.count({ where: whereConditions }),
+    prisma.apartmentViewHistory.findMany({
+      where: whereConditions,
+      skip,
+      take: limit,
+      orderBy: {
+        updatedAt: "desc",
+      },
+      include: {
+        apartment: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                phone: true,
+                profileImage: true,
+              },
+            },
+            availabilities: {
+              include: {
+                weekend: true,
+              },
+            },
+            reviews: {
+              select: {
+                rating: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+    getUpcomingWeekends(),
+  ]);
+
+  const data = views.map((item) => {
+    const apt = item.apartment;
+    const totalReviews = apt.reviews.length;
+    const avgRating =
+      totalReviews > 0
+        ? apt.reviews.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews
+        : 0;
+
+    const upcomingAvailability = computeUpcomingAvailability(
+      apt.availabilities,
+      upcomingWeekends,
+    );
+
+    const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(
+      apt,
+      NEIGHBORHOOD_CENTROIDS,
+    );
+    const marker = resolveApartmentMarker(apt);
+
+    return {
+      ...apt,
+      viewedAt: item.updatedAt,
+      marker,
+      averageRating: Number(avgRating.toFixed(1)),
+      totalReviews,
+      upcomingAvailability,
+      availabilityMessage: upcomingAvailability.availabilityMessage,
+      walkingDistanceToNeighborhood,
+    };
+  });
+
+  return {
+    meta: {
+      page,
+      limit,
+      total,
+      totalPage: Math.ceil(total / limit),
+    },
+    data,
+  };
+};
+
+const clearRecentlyViewedHistory = async (userId: string) => {
+  await prisma.apartmentViewHistory.deleteMany({
+    where: { userId },
+  });
+
+  return {
+    message: "Recently viewed history cleared successfully",
+  };
+};
+
+const getApartmentsByCities = async (
+  query: {
+    cityLimit?: number;
+    limitPerCity?: number;
+    cities?: string;
+  },
+  userId?: string,
+) => {
+  const cacheKey = `apartment:by-cities:${JSON.stringify(query)}:${userId || "anon"}`;
+  const cachedData = await getCache<any>(cacheKey);
+  if (cachedData) {
+    return cachedData;
+  }
+
+  const cityLimit = query.cityLimit ? Number(query.cityLimit) : 3;
+  const limitPerCity = query.limitPerCity ? Number(query.limitPerCity) : 4;
+
+  let targetCities: string[] = [];
+
+  if (query.cities) {
+    targetCities = query.cities
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean);
+  } else {
+    const popularCities = await getPopularCities(cityLimit);
+    targetCities = (popularCities as Array<{ city: string }>).map((c) => c.city);
+  }
+
+  const upcomingWeekends = await getUpcomingWeekends();
+
+  const cityGroups = await Promise.all(
+    targetCities.map(async (cityName) => {
+      const cityWhere: Prisma.ApartmentWhereInput = {
+        city: { equals: cityName, mode: "insensitive" },
+        status: ApartmentStatus.CONFIRMED,
+        isActive: true,
+      };
+
+      const [totalApartments, apartments] = await Promise.all([
+        prisma.apartment.count({
+          where: cityWhere,
+        }),
+        prisma.apartment.findMany({
+          where: cityWhere,
+          take: limitPerCity,
+          orderBy: {
+            createdAt: "desc",
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                phone: true,
+                profileImage: true,
+              },
+            },
+            availabilities: {
+              include: {
+                weekend: true,
+              },
+            },
+            reviews: {
+              select: {
+                rating: true,
+              },
+            },
+            ...(userId && {
+              wishlists: {
+                where: { userId },
+                select: { id: true },
+              },
+            }),
+          },
+        }),
+      ]);
+
+      const formattedApartments = apartments.map((apt) => {
+        const totalReviews = apt.reviews.length;
+        const avgRating =
+          totalReviews > 0
+            ? apt.reviews.reduce((acc, curr) => acc + curr.rating, 0) /
+              totalReviews
+            : 0;
+
+        const upcomingAvailability = computeUpcomingAvailability(
+          apt.availabilities,
+          upcomingWeekends,
+        );
+
+        const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(
+          apt,
+          NEIGHBORHOOD_CENTROIDS,
+        );
+        const marker = resolveApartmentMarker(apt);
+        const isWishlisted = Boolean((apt as any).wishlists?.length);
+
+        return {
+          ...apt,
+          marker,
+          isWishlisted,
+          averageRating: Number(avgRating.toFixed(1)),
+          totalReviews,
+          upcomingAvailability,
+          availabilityMessage: upcomingAvailability.availabilityMessage,
+          walkingDistanceToNeighborhood,
+        };
+      });
+
+      return {
+        city: cityName,
+        totalApartments,
+        apartments: formattedApartments,
+      };
+    }),
+  );
+
+  await setCache(cacheKey, cityGroups, 300);
+
+  return cityGroups;
+};
+
 export const ApartmentServices = {
   createApartment,
   getMyAppartment,
@@ -1395,6 +1768,11 @@ export const ApartmentServices = {
   updateApartmentStatus,
   blockApartment,
   sendAvailabilityReminder,
+  recordApartmentView,
+  getPopularCities,
+  getRecentlyViewedApartments,
+  clearRecentlyViewedHistory,
+  getApartmentsByCities,
   logCitySearch,
   deleteApartment,
 };

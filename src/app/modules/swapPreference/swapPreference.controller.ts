@@ -29,9 +29,25 @@ const getMySwapPreference = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const swapPreferenceFilterFields = [
+  "city",
+  "neighborhood",
+  "rooms",
+  "minBedrooms",
+  "beds",
+  "minBeds",
+  "weekend",
+  "targetDestination",
+  "searchTerm",
+  "isEnabled",
+  "destLat",
+  "destLng",
+  "walkingMinutes",
+];
+
 const getAllSwapPreferences = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
-  const filters = pick(req.query, ["city", "neighborhood", "rooms", "beds", "isEnabled", "destLat", "destLng", "walkingMinutes"]);
+  const filters = pick(req.query, swapPreferenceFilterFields);
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
 
   const result = await SwapPreferenceServices.getAllSwapPreferences(
@@ -52,8 +68,12 @@ const getAllSwapPreferences = catchAsync(async (req: Request, res: Response) => 
 const getMatchedSwapableProperties = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
-  const filters = pick(req.query, ["destLat", "destLng", "walkingMinutes"]);
-  const result = await SwapPreferenceServices.getMatchedSwapableProperties(userId, options as any, filters as any);
+  const filters = pick(req.query, swapPreferenceFilterFields);
+  const result = await SwapPreferenceServices.getMatchedSwapableProperties(
+    userId,
+    options as any,
+    filters as any,
+  );
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -63,6 +83,7 @@ const getMatchedSwapableProperties = catchAsync(async (req: Request, res: Respon
     data: result,
   });
 });
+
 
 export const SwapPreferenceController = {
   createOrUpdateSwapPreference,

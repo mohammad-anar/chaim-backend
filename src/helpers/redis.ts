@@ -64,6 +64,7 @@ export const deleteCacheByPattern = async (pattern: string): Promise<void> => {
     const keys = await redisClient.keys(pattern);
     if (keys && keys.length > 0) {
       await redisClient.del(keys);
+      console.log(`[Redis] Cleared ${keys.length} cache key(s) matching "${pattern}"`);
     }
   } catch (err) {
     console.error(`Redis deleteCacheByPattern error for pattern ${pattern}:`, err);

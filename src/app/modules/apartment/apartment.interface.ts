@@ -29,6 +29,7 @@ export type ICreateApartment = {
   unavailable?: boolean;
   receiveRequestWhenUnavailable?: boolean;
   isActive?: boolean;
+  inactiveNote?: string;
   additionalDetails?: string;
   referralCode?: string;
 };

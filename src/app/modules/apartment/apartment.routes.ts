@@ -54,6 +54,41 @@ router.post(
 );
 
 router.get(
+  "/popular-cities",
+  ApartmentController.getPopularCities,
+);
+
+router.get(
+  "/by-cities",
+  optionalAuth(),
+  ApartmentController.getApartmentsByCities,
+);
+
+router.get(
+  "/recently-viewed",
+  auth(),
+  ApartmentController.getRecentlyViewedApartments,
+);
+
+router.delete(
+  "/recently-viewed",
+  auth(),
+  ApartmentController.clearRecentlyViewedHistory,
+);
+
+router.post(
+  "/view-history/:apartmentId",
+  auth(),
+  ApartmentController.recordApartmentView,
+);
+
+router.post(
+  "/view-history",
+  auth(),
+  ApartmentController.recordApartmentView,
+);
+
+router.get(
   "/:id",
   ApartmentController.getApartmentById,
 );

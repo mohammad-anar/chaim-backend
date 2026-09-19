@@ -2,34 +2,37 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package manifest
-COPY package.json ./
+# Install OpenSSL and necessary build tools for Prisma & native packages
+RUN apk add --no-cache openssl libc6-compat
 
-# Copy Prisma schema & configuration
+# Copy package manifests
+COPY package.json package-lock.json* pnpm-lock.yaml* ./
+
+# Copy Prisma schema, migrations, and TypeScript configs
 COPY prisma ./prisma/
 COPY prisma.config.ts tsconfig.json ./
 
-# Set build-time DATABASE_URL for Prisma Client generation
-ENV DATABASE_URL="postgresql://postgres:password@localhost:5432/chaim_db?schema=public"
+# Dummy DATABASE_URL for Prisma client compilation during build
+ENV DATABASE_URL="postgresql://postgres:12345678@localhost:5432/chaim_db?schema=public"
 
-# Install dependencies with npm
-RUN npm install --ignore-scripts
+# Install all dependencies
+RUN npm install
 
-# Generate Prisma Client
+# Generate Prisma Client from multi-file schemas
 RUN npx prisma generate
 
-# Copy source code
+# Copy application source code
 COPY src ./src
 
-# Build TypeScript code
+# Build TypeScript to JavaScript in /dist
 RUN npm run build
 
-# Expose API Port
-EXPOSE 5000
+# Expose server port (Render will inject PORT at runtime)
+EXPOSE 8000
 
-# Environment Defaults
+# Default environment configuration
 ENV NODE_ENV=production
-ENV PORT=5000
+ENV PORT=8000
 
-# Start production server
+# Start server
 CMD ["node", "dist/server.js"]

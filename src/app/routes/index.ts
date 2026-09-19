@@ -39,6 +39,10 @@ const moduleRoutes = [
     route: ApartmentRoutes,
   },
   {
+    path: "/apartments",
+    route: ApartmentRoutes,
+  },
+  {
     path: "/weekend-calendar",
     route: WeekendCalendarRoutes,
   },

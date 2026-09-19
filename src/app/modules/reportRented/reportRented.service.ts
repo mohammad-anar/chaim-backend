@@ -6,6 +6,7 @@ import { verifyNedarimTransaction } from "../../../helpers/nedarim.js";
 import { notifyAdminOnReportRented } from "../../../helpers/notificationHelper.js";
 import { parseFlexibleDate } from "../../../helpers/parseDate.js";
 import { prisma } from "../../../helpers/prisma.js";
+import { deleteCacheByPattern } from "../../../helpers/redis.js";
 import {
   ICreateReportRentedIntent,
   IPayAllReportRentedDuesPayload,
@@ -153,26 +154,39 @@ const createReportRentedIntent = async (
     }
   }
 
-  let weekendDate = new Date();
-  if (payload.weekend) {
-    const d = parseFlexibleDate(payload.weekend);
-    if (d) {
-      weekendDate = d;
-    }
+  const rawWeekends: string[] = [];
+  if (Array.isArray(payload.weekends) && payload.weekends.length > 0) {
+    rawWeekends.push(...payload.weekends.map((w) => (w instanceof Date ? w.toISOString() : String(w))));
+  } else if (payload.weekend) {
+    rawWeekends.push(payload.weekend instanceof Date ? payload.weekend.toISOString() : String(payload.weekend));
+  } else {
+    rawWeekends.push(new Date().toISOString());
+  }
+
+  const parsedWeekendDates: Date[] = rawWeekends
+    .map((w) => parseFlexibleDate(w) || new Date(w))
+    .filter((d) => !isNaN(d.getTime()));
+
+  if (parsedWeekendDates.length === 0) {
+    parsedWeekendDates.push(new Date());
   }
 
   const amountInILS = config.fees.report_rented_fee || 50;
 
-  let reportRented: any = null;
-  let paymentRecord: any = null;
-
   if (reportType === "SWAP" && resolvedTargetApartmentId) {
-    // Check if a report for this user's apartment already exists for this swap
-    const existingReport = await prisma.reportRented.findFirst({
+    const weekendDate = parsedWeekendDates[0];
+    const startOfDay = new Date(weekendDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(weekendDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Check if a report for this user's apartment already exists for this swap on this weekend
+    let existingReport = await prisma.reportRented.findFirst({
       where: {
         apartmentId: apartment.id,
         targetApartmentId: resolvedTargetApartmentId,
         reportType: "SWAP",
+        weekend: { gte: startOfDay, lte: endOfDay },
       },
       include: {
         payment: true,
@@ -187,13 +201,10 @@ const createReportRentedIntent = async (
       },
     });
 
-    if (existingReport) {
-      reportRented = existingReport;
-      if (existingReport.payment) {
-        paymentRecord = existingReport.payment;
-      }
-    } else {
-      // Create user's swap report
+    let reportRented: any = existingReport;
+    let paymentRecord: any = existingReport?.payment || null;
+
+    if (!reportRented) {
       reportRented = await prisma.reportRented.create({
         data: {
           apartmentId: apartment.id,
@@ -214,12 +225,27 @@ const createReportRentedIntent = async (
       });
     }
 
-    // Ensure a mirrored report and pending payment exist for the counterpart owner (target apartment)
+    if (!paymentRecord) {
+      paymentRecord = await prisma.reportRentedPayment.create({
+        data: {
+          reportRentedId: reportRented.id,
+          apartmentId: apartment.id,
+          payerId: userId,
+          amount: amountInILS,
+          currency: "ILS",
+          paymentMethod: "NEDARIM_PLUS",
+          status: "PENDING",
+        },
+      });
+    }
+
+    // Ensure a mirrored report and pending payment exist for the counterpart owner
     const counterpartExistingReport = await prisma.reportRented.findFirst({
       where: {
         apartmentId: resolvedTargetApartmentId,
         targetApartmentId: apartment.id,
         reportType: "SWAP",
+        weekend: { gte: startOfDay, lte: endOfDay },
       },
       include: { payment: true },
     });
@@ -272,16 +298,43 @@ const createReportRentedIntent = async (
         status: SwapStatus.APPROVED,
       },
     });
-  } else {
-    // Standard RENT report
-    reportRented = await prisma.reportRented.create({
-      data: {
+
+    return [
+      {
+        reportRentedId: reportRented.id,
+        paymentId: paymentRecord.id,
+        reportType: reportRented.reportType,
+        weekend: reportRented.weekend,
+        targetApartment: reportRented.targetApartment,
+        amount: amountInILS,
+        currency: "ILS",
+        paymentStatus: paymentRecord.status,
+        mosadId: config.nedarim.mosad_id || "",
+        paymentType: "REPORT_RENTED",
+        clientName: apartment.user.username,
+        clientEmail: apartment.user.email || "",
+        clientPhone: apartment.user.phone || "",
+      },
+    ];
+  }
+
+  // Standard RENT mode: process each weekend in array
+  const results: any[] = [];
+
+  for (const weekendDate of parsedWeekendDates) {
+    const startOfDay = new Date(weekendDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(weekendDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    let existingReport = await prisma.reportRented.findFirst({
+      where: {
         apartmentId: apartment.id,
-        targetApartmentId: resolvedTargetApartmentId,
         reportType: "RENT",
-        weekend: weekendDate,
+        weekend: { gte: startOfDay, lte: endOfDay },
       },
       include: {
+        payment: true,
         targetApartment: {
           select: {
             id: true,
@@ -292,37 +345,63 @@ const createReportRentedIntent = async (
         },
       },
     });
-  }
 
-  // Create payment record for the current user if not present
-  if (!paymentRecord) {
-    paymentRecord = await prisma.reportRentedPayment.create({
-      data: {
-        reportRentedId: reportRented.id,
-        apartmentId: apartment.id,
-        payerId: userId,
-        amount: amountInILS,
-        currency: "ILS",
-        paymentMethod: "NEDARIM_PLUS",
-        status: "PENDING",
-      },
+    let reportRented: any = existingReport;
+    let paymentRecord: any = existingReport?.payment || null;
+
+    if (!reportRented) {
+      reportRented = await prisma.reportRented.create({
+        data: {
+          apartmentId: apartment.id,
+          targetApartmentId: resolvedTargetApartmentId,
+          reportType: "RENT",
+          weekend: weekendDate,
+        },
+        include: {
+          targetApartment: {
+            select: {
+              id: true,
+              propertyId: true,
+              title: true,
+              city: true,
+            },
+          },
+        },
+      });
+    }
+
+    if (!paymentRecord) {
+      paymentRecord = await prisma.reportRentedPayment.create({
+        data: {
+          reportRentedId: reportRented.id,
+          apartmentId: apartment.id,
+          payerId: userId,
+          amount: amountInILS,
+          currency: "ILS",
+          paymentMethod: "NEDARIM_PLUS",
+          status: "PENDING",
+        },
+      });
+    }
+
+    results.push({
+      reportRentedId: reportRented.id,
+      paymentId: paymentRecord.id,
+      reportType: reportRented.reportType,
+      weekend: reportRented.weekend,
+      targetApartment: reportRented.targetApartment,
+      amount: amountInILS,
+      currency: "ILS",
+      paymentStatus: paymentRecord.status,
+      mosadId: config.nedarim.mosad_id || "",
+      paymentType: "REPORT_RENTED",
+      clientName: apartment.user.username,
+      clientEmail: apartment.user.email || "",
+      clientPhone: apartment.user.phone || "",
     });
   }
 
-  return {
-    reportRentedId: reportRented.id,
-    paymentId: paymentRecord.id,
-    reportType: reportRented.reportType,
-    targetApartment: reportRented.targetApartment,
-    amount: amountInILS,
-    currency: "ILS",
-    paymentStatus: paymentRecord.status,
-    mosadId: config.nedarim.mosad_id || "",
-    paymentType: "REPORT_RENTED",
-    clientName: apartment.user.username,
-    clientEmail: apartment.user.email || "",
-    clientPhone: apartment.user.phone || "",
-  };
+  return results;
 };
 
 const getMyReportedRented = async (userId: string) => {
@@ -623,6 +702,8 @@ const paySingleReportRented = async (
     console.error("[Notification] Error notifying admin on report rented:", notifErr);
   }
 
+  await deleteCacheByPattern("apartment:*");
+
   return {
     success: true,
     message: `Rental report paid successfully via ${payload.paymentMethod}`,
@@ -737,6 +818,8 @@ const payAllReportRentedDues = async (
       await processAmbassadorRentalCommission(tx, apartment.id, report.id, now);
     }
   });
+
+  await deleteCacheByPattern("apartment:*");
 
   return {
     success: true,

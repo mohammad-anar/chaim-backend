@@ -1,40 +1,85 @@
 services:
+  # PostgreSQL Database Service
+  postgres:
+    image: postgres:16-alpine
+    container_name: chaim_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345678
+      POSTGRES_DB: chaim_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d chaim_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chaim_network
+
+  # Redis Cache & Queue Service
+  redis:
+    image: redis:7-alpine
+    container_name: chaim_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - chaim_network
+
+  # Backend Express API Service
   api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: chaim_api
     restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     ports:
-      - "5000:5000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    env_file:
-      - .env
+      - "8000:8000"
     environment:
       - NODE_ENV=production
-      - PORT=5000
-      - DATABASE_URL=postgresql://postgres:postgres@chaim_postgres:5432/chaim_db?schema=public
+      - PORT=8000
+      - DATABASE_URL=postgresql://postgres:12345678@postgres:5432/chaim_db?schema=public
       - REDIS_URL=redis://redis:6379
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - JWT_SECRET=supersecretkey_chaim_backend_2026
-      - JWT_EXPIRE_IN=7d
-      - JWT_REFRESH_EXPIRE_IN=30d
       - BCRYPT_SALT_ROUND=10
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - APARTMENT_LISTING_FEE=28
-      - REPORT_RENTED_FEE=50
+      - BACKEND_URL=http://localhost:8000
+      - CORS_ORIGIN=http://localhost:3000, https://shabbos-rent-website.vercel.app
+      - FRONTEND_URL=http://localhost:3000, https://shabbos-rent-website.vercel.app
+      - JWT_SECRET=supersecretkey_chaim_backend_2026
+      - JWT_EXPIRE_IN=1d
+      - JWT_REFRESH_EXPIRE_IN=30d
       - EMAIL_HOST=smtp.gmail.com
       - EMAIL_PORT=587
       - EMAIL_USER=bdc.anrul@gmail.com
       - EMAIL_FROM=bdc.anrul@gmail.com
-      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_PASS=${EMAIL_PASS:-wmpgtevaekmxnztv}
+      - APARTMENT_LISTING_FEE=28
+      - SWAP_REQUEST_FEE=50
+      - REPORT_RENTED_FEE=50
+      - NEDARIM_MOSAD_ID=7018212
+      - NEDARIM_API_VALID=VFQA2KkYd7
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-your_twilio_account_sid}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-your_twilio_auth_token}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-+1234567890}
     networks:
-      - default
+      - chaim_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
 
 networks:
-  default:
-    name: chaim-backend_default
-    external: true
-
+  chaim_network:
+    driver: bridge

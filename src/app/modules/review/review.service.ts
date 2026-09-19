@@ -2,6 +2,7 @@ import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiError.js";
 import { notifyAdminOnReviewCreated } from "../../../helpers/notificationHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
+import { deleteCacheByPattern } from "../../../helpers/redis.js";
 import { ICreateReview } from "./review.interface.js";
 
 const createReview = async (userId: string, payload: ICreateReview) => {
@@ -99,6 +100,8 @@ const deleteReview = async (userId: string, reviewId: string, isAdmin: boolean =
     where: { id: reviewId },
   });
 
+  await deleteCacheByPattern("apartment:*");
+
   return { message: "Review deleted successfully" };
 };
 
@@ -127,10 +130,14 @@ const updateReviewStatusAdmin = async (id: string, status: any) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "Review not found");
   }
 
-  return await prisma.review.update({
+  const result = await prisma.review.update({
     where: { id },
     data: { status },
   });
+
+  await deleteCacheByPattern("apartment:*");
+
+  return result;
 };
 
 export const ReviewServices = {

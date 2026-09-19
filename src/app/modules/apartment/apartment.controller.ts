@@ -259,6 +259,82 @@ const sendAvailabilityReminder = catchAsync(
   },
 );
 
+const recordApartmentView = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const apartmentId = (req.params.apartmentId || req.params.id || req.body.apartmentId) as string;
+
+  const result = await ApartmentServices.recordApartmentView(userId, apartmentId);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Apartment view recorded successfully",
+    data: result,
+  });
+});
+
+const getPopularCities = catchAsync(async (req: Request, res: Response) => {
+  const limit = req.query.limit ? Number(req.query.limit) : 5;
+  const result = await ApartmentServices.getPopularCities(limit);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Popular cities retrieved successfully",
+    data: result,
+  });
+});
+
+const getRecentlyViewedApartments = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user.id;
+    const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
+
+    const result = await ApartmentServices.getRecentlyViewedApartments(
+      userId,
+      options as any,
+    );
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: "Recently viewed apartments retrieved successfully",
+      meta: result.meta,
+      data: result.data,
+    });
+  },
+);
+
+const clearRecentlyViewedHistory = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user.id;
+    const result = await ApartmentServices.clearRecentlyViewedHistory(userId);
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: "Recently viewed history cleared successfully",
+      data: result,
+    });
+  },
+);
+
+const getApartmentsByCities = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    const query = pick(req.query, ["cityLimit", "limitPerCity", "cities"]);
+
+    const result = await ApartmentServices.getApartmentsByCities(query, userId);
+
+    sendResponse(res, {
+      statusCode: StatusCodes.OK,
+      success: true,
+      message: "Apartments by cities retrieved successfully",
+      data: result,
+    });
+  },
+);
+
 export const ApartmentController = {
   createApartment,
   getMyAppartment,
@@ -270,5 +346,10 @@ export const ApartmentController = {
   updateApartmentStatus,
   blockApartment,
   sendAvailabilityReminder,
+  recordApartmentView,
+  getPopularCities,
+  getRecentlyViewedApartments,
+  clearRecentlyViewedHistory,
+  getApartmentsByCities,
   deleteApartment,
 };

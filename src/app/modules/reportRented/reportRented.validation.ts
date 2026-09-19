@@ -6,6 +6,7 @@ const createReportRentedIntentZodSchema = z
     reportType: z.enum(["RENT", "SWAP"]).optional(),
     targetApartmentId: z.string().optional(),
     weekend: z.string().optional(),
+    weekends: z.array(z.string()).optional(),
   })
   .refine(
     (data) => {
@@ -17,6 +18,18 @@ const createReportRentedIntentZodSchema = z
     {
       message: "targetApartmentId is required when reportType is SWAP",
       path: ["targetApartmentId"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.reportType === "SWAP" && data.weekends && data.weekends.length > 1) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Multiple weekends cannot be selected for SWAP reports. Please select a single weekend.",
+      path: ["weekends"],
     },
   );
 
