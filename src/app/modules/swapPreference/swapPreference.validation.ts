@@ -3,15 +3,16 @@ import { z } from "zod";
 const createOrUpdateSwapPreferenceZodSchema = z.object({
   apartmentId: z.string().optional(),
   isEnabled: z.boolean().optional(),
-  city: z.string().optional(),
-  neighborhood: z.string().optional(),
-  rooms: z.coerce.number().int().optional(),
-  beds: z.coerce.number().int().optional(),
-  weekend: z.string().optional(),
-  whatsApp: z.string().optional(),
-  email: z.string().email("Invalid email format").optional(),
+  city: z.string().optional().nullable(),
+  neighborhood: z.string().optional().nullable(),
+  rooms: z.coerce.number().int().optional().nullable(),
+  beds: z.coerce.number().int().optional().nullable(),
+  weekend: z.string().optional().nullable(),
+  whatsApp: z.string().optional().nullable(),
+  email: z.string().email("Invalid email format").optional().nullable().or(z.literal("")),
 });
 
 export const SwapPreferenceValidation = {
   createOrUpdateSwapPreferenceZodSchema,
 };
+

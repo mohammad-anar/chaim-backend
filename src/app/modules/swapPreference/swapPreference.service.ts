@@ -74,35 +74,39 @@ const createOrUpdateSwapPreference = async (
       ? payload.isEnabled
       : (existingPreference?.isEnabled ?? true);
 
-  let parsedWeekend: Date | undefined = undefined;
-  if (payload.weekend) {
-    const d = parseFlexibleDate(payload.weekend);
-    if (!d) {
-      throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid weekend date format");
-    }
+  let parsedWeekend: Date | null | undefined = undefined;
+  if (payload.weekend !== undefined) {
+    if (payload.weekend && String(payload.weekend).trim() !== "") {
+      const d = parseFlexibleDate(payload.weekend);
+      if (!d) {
+        throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid weekend date format");
+      }
 
-    const startOfDay = new Date(d);
-    startOfDay.setUTCHours(0, 0, 0, 0);
-    const endOfDay = new Date(d);
-    endOfDay.setUTCHours(23, 59, 59, 999);
+      const startOfDay = new Date(d);
+      startOfDay.setUTCHours(0, 0, 0, 0);
+      const endOfDay = new Date(d);
+      endOfDay.setUTCHours(23, 59, 59, 999);
 
-    const weekendCalendarRecord = await prisma.weekendCalendar.findFirst({
-      where: {
-        date: {
-          gte: startOfDay,
-          lte: endOfDay,
+      const weekendCalendarRecord = await prisma.weekendCalendar.findFirst({
+        where: {
+          date: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
         },
-      },
-    });
+      });
 
-    if (!weekendCalendarRecord) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        "The selected weekend date does not exist in the Weekend Calendar. Please select a valid weekend from the calendar.",
-      );
+      if (!weekendCalendarRecord) {
+        throw new ApiError(
+          StatusCodes.BAD_REQUEST,
+          "The selected weekend date does not exist in the Weekend Calendar. Please select a valid weekend from the calendar.",
+        );
+      }
+
+      parsedWeekend = weekendCalendarRecord.date;
+    } else {
+      parsedWeekend = null;
     }
-
-    parsedWeekend = weekendCalendarRecord.date;
   }
 
   const result = await prisma.swapPreference.upsert({
@@ -118,6 +122,7 @@ const createOrUpdateSwapPreference = async (
       whatsApp: payload.whatsApp,
       email: payload.email,
     },
+
 
     update: {
       ...(payload.isEnabled !== undefined && { isEnabled: payload.isEnabled }),

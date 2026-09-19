@@ -11,26 +11,28 @@ let connection: any = {
   maxRetriesPerRequest: null,
   enableOfflineQueue: false,
   retryStrategy(times: number) {
-    if (times > 3) {
-      return null; // Stop reconnection attempts after 3 failures
+    if (times > 5) {
+      return null; // Stop reconnection attempts after 5 failures
     }
-    return Math.min(times * 500, 2000);
+    return Math.min(times * 500, 3000);
   },
 };
 
-if (redisUrl && redisUrl.startsWith("redis")) {
+if (redisUrl && (redisUrl.startsWith("redis://") || redisUrl.startsWith("rediss://"))) {
   try {
     const parsed = new URL(redisUrl);
+    const isTls = redisUrl.startsWith("rediss://");
     connection = {
       host: parsed.hostname,
       port: Number(parsed.port) || 6379,
       password: parsed.password || undefined,
       username: parsed.username || undefined,
+      tls: isTls ? { rejectUnauthorized: false } : undefined,
       maxRetriesPerRequest: null,
       enableOfflineQueue: false,
       retryStrategy(times: number) {
-        if (times > 3) return null;
-        return Math.min(times * 500, 2000);
+        if (times > 5) return null;
+        return Math.min(times * 500, 3000);
       },
     };
   } catch (e) {
@@ -52,8 +54,12 @@ export const emailQueue = new Queue("emailQueue", {
 });
 
 emailQueue.on("error", (err: any) => {
-  // Silent fallback error logging
-  if (err?.code !== "ECONNREFUSED") {
+  if (
+    err?.code !== "ECONNREFUSED" &&
+    err?.code !== "ECONNRESET" &&
+    err?.code !== "ETIMEDOUT" &&
+    !err?.message?.includes("ECONNRESET")
+  ) {
     console.error("[EmailQueue] Error:", err?.message || err);
   }
 });
@@ -90,7 +96,12 @@ export const emailWorker = new Worker(
 );
 
 emailWorker.on("error", (err: any) => {
-  if (err?.code !== "ECONNREFUSED") {
+  if (
+    err?.code !== "ECONNREFUSED" &&
+    err?.code !== "ECONNRESET" &&
+    err?.code !== "ETIMEDOUT" &&
+    !err?.message?.includes("ECONNRESET")
+  ) {
     console.error("[EmailWorker] Error:", err?.message || err);
   }
 });
@@ -117,7 +128,12 @@ export const excelImportQueue = new Queue("excelImportQueue", {
 });
 
 excelImportQueue.on("error", (err: any) => {
-  if (err?.code !== "ECONNREFUSED") {
+  if (
+    err?.code !== "ECONNREFUSED" &&
+    err?.code !== "ECONNRESET" &&
+    err?.code !== "ETIMEDOUT" &&
+    !err?.message?.includes("ECONNRESET")
+  ) {
     console.error("[ExcelImportQueue] Error:", err?.message || err);
   }
 });
@@ -137,7 +153,12 @@ export const excelImportWorker = new Worker(
 );
 
 excelImportWorker.on("error", (err: any) => {
-  if (err?.code !== "ECONNREFUSED") {
+  if (
+    err?.code !== "ECONNREFUSED" &&
+    err?.code !== "ECONNRESET" &&
+    err?.code !== "ETIMEDOUT" &&
+    !err?.message?.includes("ECONNRESET")
+  ) {
     console.error("[ExcelImportWorker] Error:", err?.message || err);
   }
 });
