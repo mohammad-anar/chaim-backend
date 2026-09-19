@@ -1,20 +1,32 @@
 import { createClient } from "redis";
 import config from "../config/index.js";
 
+const redisUrl = config.redis_url || process.env.REDIS_URL || "redis://localhost:6379";
+
 const redisClient = createClient({
-  url: config.redis_url || process.env.REDIS_URL || "redis://localhost:6379",
+  url: redisUrl,
+  socket: {
+    reconnectStrategy(retries) {
+      if (retries > 3) {
+        return false; // Stop retrying after 3 attempts
+      }
+      return Math.min(retries * 500, 2000);
+    },
+  },
 });
 
 let isConnected = false;
 
 redisClient.on("error", (err) => {
-  console.error("Redis Client Error:", err?.message || err);
+  if (isConnected) {
+    console.warn("[Redis] Client Error:", err?.message || err);
+  }
   isConnected = false;
 });
 
 redisClient.on("connect", () => {
   isConnected = true;
-  console.log("Redis client connected successfully");
+  console.log("[Redis] Client connected successfully");
 });
 
 (async () => {
@@ -22,7 +34,10 @@ redisClient.on("connect", () => {
     await redisClient.connect();
     isConnected = true;
   } catch (err: any) {
-    console.warn("Redis connection failed. Continuing without caching:", err?.message || err);
+    console.warn(
+      "[Redis] Connection failed. Running in fallback mode without Redis caching:",
+      err?.message || err,
+    );
     isConnected = false;
   }
 })();
@@ -33,19 +48,22 @@ export const getCache = async <T>(key: string): Promise<T | null> => {
     const data = await redisClient.get(key);
     return data ? JSON.parse(data) : null;
   } catch (err) {
-    console.error(`Redis getCache error for key ${key}:`, err);
     return null;
   }
 };
 
-export const setCache = async (key: string, data: any, ttlSeconds: number = 300): Promise<void> => {
+export const setCache = async (
+  key: string,
+  data: any,
+  ttlSeconds: number = 300,
+): Promise<void> => {
   if (!isConnected) return;
   try {
     await redisClient.set(key, JSON.stringify(data), {
       EX: ttlSeconds,
     });
   } catch (err) {
-    console.error(`Redis setCache error for key ${key}:`, err);
+    // Ignore cache set error in fallback mode
   }
 };
 
@@ -54,7 +72,7 @@ export const deleteCache = async (key: string): Promise<void> => {
   try {
     await redisClient.del(key);
   } catch (err) {
-    console.error(`Redis deleteCache error for key ${key}:`, err);
+    // Ignore cache delete error in fallback mode
   }
 };
 
@@ -67,7 +85,7 @@ export const deleteCacheByPattern = async (pattern: string): Promise<void> => {
       console.log(`[Redis] Cleared ${keys.length} cache key(s) matching "${pattern}"`);
     }
   } catch (err) {
-    console.error(`Redis deleteCacheByPattern error for pattern ${pattern}:`, err);
+    // Ignore cache delete error in fallback mode
   }
 };
 

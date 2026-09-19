@@ -29,6 +29,7 @@ const getMyProfile = async (userId: string) => {
         include: {
           availabilities: true,
           listingPayment: true,
+          swapPreference: true,
         },
       },
       marketingEmail: true,
@@ -39,8 +40,17 @@ const getMyProfile = async (userId: string) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "User profile not found");
   }
 
-  return user;
+  const primaryApartment = user.apartments?.[0];
+  const swapPref = primaryApartment?.swapPreference || null;
+  const isSwapEnabled = Boolean(swapPref?.isEnabled);
+
+  return {
+    ...user,
+    isSwapEnabled,
+    swapPreference: swapPref,
+  };
 };
+
 
 const updateMyProfile = async (userId: string, payload: IUpdateProfile) => {
   const user = await prisma.user.findUnique({

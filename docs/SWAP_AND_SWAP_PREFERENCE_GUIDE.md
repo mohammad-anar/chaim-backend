@@ -6,11 +6,13 @@ This guide documents the API endpoints, query parameters, request bodies, popula
 
 ## 1. System Overview & Core Business Rules
 
-1. **Listing & Swap Requirement**:
-   - To access swappable listings or perform a swap search, a user **must** have listed at least one apartment and turned on their **Swap Preference** (`isEnabled: true`) with a selected Shabbat weekend from the `WeekendCalendar`.
+1. **Free Swap Toggle & Optional Fields**:
+   - The user can toggle their swap preference **ON** or **OFF** (`isEnabled: true` / `isEnabled: false`) anytime freely without requiring any other field (all fields: `city`, `neighborhood`, `rooms`, `beds`, `weekend`, `whatsApp`, `email` are 100% optional).
+   - Only when a user has `isEnabled: true` can they view/search swappable properties.
+   - When fetching the user profile via `GET /api/v1/user/me`, the response includes `isSwapEnabled: boolean` and `swapPreference`.
 2. **Matching & Scoring**:
    - `GET /api/v1/swap-preference/matched-swaps` ranks swappable apartments based on compatibility with the user's desired destination:
-     - **Weekend availability match**: `+15 pts`
+     - **Weekend availability match**: `+15 pts` (if weekend is selected)
      - **Destination city match**: `+10 pts`
      - **Neighborhood match**: `+5 pts`
      - **Min bedrooms match**: `+3 pts`
@@ -24,6 +26,7 @@ This guide documents the API endpoints, query parameters, request bodies, popula
      - `walkingDistanceToDestination` (in minutes, when `destLat`/`destLng` are supplied)
      - `distanceKmToDestination` (in km, when `destLat`/`destLng` are supplied)
    - Frontend renders the interactive Leaflet map, marker pins, and walking route polylines (via OSRM / Leaflet Routing Machine).
+
 
 ---
 

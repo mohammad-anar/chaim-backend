@@ -2,11 +2,41 @@ import { Queue, Worker, Job } from "bullmq";
 import config from "../config/index.js";
 import { emailHelper } from "./emailHelper.js";
 
-const connection = {
-  host: process.env.REDIS_HOST || "localhost",
+const redisUrl = config.redis_url || process.env.REDIS_URL;
+
+let connection: any = {
+  host: process.env.REDIS_HOST || "127.0.0.1",
   port: Number(process.env.REDIS_PORT) || 6379,
   password: process.env.REDIS_PASSWORD || undefined,
+  maxRetriesPerRequest: null,
+  enableOfflineQueue: false,
+  retryStrategy(times: number) {
+    if (times > 3) {
+      return null; // Stop reconnection attempts after 3 failures
+    }
+    return Math.min(times * 500, 2000);
+  },
 };
+
+if (redisUrl && redisUrl.startsWith("redis")) {
+  try {
+    const parsed = new URL(redisUrl);
+    connection = {
+      host: parsed.hostname,
+      port: Number(parsed.port) || 6379,
+      password: parsed.password || undefined,
+      username: parsed.username || undefined,
+      maxRetriesPerRequest: null,
+      enableOfflineQueue: false,
+      retryStrategy(times: number) {
+        if (times > 3) return null;
+        return Math.min(times * 500, 2000);
+      },
+    };
+  } catch (e) {
+    // fallback
+  }
+}
 
 export const emailQueue = new Queue("emailQueue", {
   connection,
@@ -19,6 +49,13 @@ export const emailQueue = new Queue("emailQueue", {
     removeOnComplete: true,
     removeOnFail: 100,
   },
+});
+
+emailQueue.on("error", (err: any) => {
+  // Silent fallback error logging
+  if (err?.code !== "ECONNREFUSED") {
+    console.error("[EmailQueue] Error:", err?.message || err);
+  }
 });
 
 export const emailWorker = new Worker(
@@ -52,6 +89,12 @@ export const emailWorker = new Worker(
   { connection },
 );
 
+emailWorker.on("error", (err: any) => {
+  if (err?.code !== "ECONNREFUSED") {
+    console.error("[EmailWorker] Error:", err?.message || err);
+  }
+});
+
 emailWorker.on("completed", (job: any) => {
   console.log(`Job ${job.id} (${job.name}) completed successfully`);
 });
@@ -73,6 +116,12 @@ export const excelImportQueue = new Queue("excelImportQueue", {
   },
 });
 
+excelImportQueue.on("error", (err: any) => {
+  if (err?.code !== "ECONNREFUSED") {
+    console.error("[ExcelImportQueue] Error:", err?.message || err);
+  }
+});
+
 export const excelImportWorker = new Worker(
   "excelImportQueue",
   async (job: Job) => {
@@ -87,6 +136,12 @@ export const excelImportWorker = new Worker(
   { connection },
 );
 
+excelImportWorker.on("error", (err: any) => {
+  if (err?.code !== "ECONNREFUSED") {
+    console.error("[ExcelImportWorker] Error:", err?.message || err);
+  }
+});
+
 excelImportWorker.on("completed", (job: any) => {
   console.log(`Excel Import Job ${job.id} (${job.name}) completed successfully`);
 });
@@ -94,4 +149,3 @@ excelImportWorker.on("completed", (job: any) => {
 excelImportWorker.on("failed", (job: any, err: any) => {
   console.error(`Excel Import Job ${job?.id} (${job?.name}) failed:`, err?.message || err);
 });
-

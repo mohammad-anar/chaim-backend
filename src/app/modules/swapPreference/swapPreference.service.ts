@@ -105,16 +105,6 @@ const createOrUpdateSwapPreference = async (
     parsedWeekend = weekendCalendarRecord.date;
   }
 
-  if (willBeEnabled) {
-    const finalWeekend = parsedWeekend || existingPreference?.weekend;
-    if (!finalWeekend) {
-      throw new ApiError(
-        StatusCodes.BAD_REQUEST,
-        "A valid weekend date from the Weekend Calendar is required when enabling swap preference.",
-      );
-    }
-  }
-
   const result = await prisma.swapPreference.upsert({
     where: { apartmentId: apartment.id },
     create: {
@@ -128,6 +118,7 @@ const createOrUpdateSwapPreference = async (
       whatsApp: payload.whatsApp,
       email: payload.email,
     },
+
     update: {
       ...(payload.isEnabled !== undefined && { isEnabled: payload.isEnabled }),
       ...(payload.city !== undefined && { city: payload.city }),
@@ -433,12 +424,6 @@ const getMatchedSwapableProperties = async (
   }
 
   const activeWeekend = filters?.weekend || pref.weekend;
-  if (!activeWeekend) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "You must select a weekend in your swap preference before you can view swappable properties",
-    );
-  }
 
   // Active criteria: filter override or saved preference
   const targetCity = filters?.city && filters.city !== "any" ? filters.city : pref.city;
@@ -453,23 +438,31 @@ const getMatchedSwapableProperties = async (
   const parsedWalkingMinutes = filters?.walkingMinutes !== undefined ? Number(filters.walkingMinutes) : NaN;
   const isDestinationMode = !isNaN(parsedDestLat) && !isNaN(parsedDestLng) && !isNaN(parsedWalkingMinutes);
 
-  const userWeekendDate = new Date(activeWeekend);
-  const startOfDay = new Date(userWeekendDate);
-  startOfDay.setUTCHours(0, 0, 0, 0);
-  const endOfDay = new Date(userWeekendDate);
-  endOfDay.setUTCHours(23, 59, 59, 999);
+  let startOfDay: Date | undefined = undefined;
+  let endOfDay: Date | undefined = undefined;
+
+  if (activeWeekend) {
+    const userWeekendDate = new Date(activeWeekend);
+    startOfDay = new Date(userWeekendDate);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    endOfDay = new Date(userWeekendDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+  }
 
   const whereClause: Prisma.SwapPreferenceWhereInput = {
     isEnabled: true,
     apartmentId: { not: userApartment.id },
-    weekend: {
-      gte: startOfDay,
-      lte: endOfDay,
-    },
+    ...(startOfDay && endOfDay && {
+      weekend: {
+        gte: startOfDay,
+        lte: endOfDay,
+      },
+    }),
     ...(isDestinationMode && {
       apartment: { lat: { not: null }, lng: { not: null } },
     }),
   };
+
 
   const allPreferences = await prisma.swapPreference.findMany({
     where: whereClause,
