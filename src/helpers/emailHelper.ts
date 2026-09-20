@@ -7,10 +7,19 @@ export type ISendEmail = {
   html: string;
 };
 
+const isGmail =
+  config.email.host?.includes("gmail.com") ||
+  config.email.user?.includes("@gmail.com");
+const port = Number(config.email.port) || 587;
+
 const transporter = nodemailer.createTransport({
-  host: config.email.host,
-  port: Number(config.email.port),
-  secure: false,
+  ...(isGmail
+    ? { service: "gmail" }
+    : {
+        host: config.email.host,
+        port,
+        secure: port === 465,
+      }),
   auth: {
     user: config.email.user,
     pass: config.email.pass,
@@ -18,8 +27,11 @@ const transporter = nodemailer.createTransport({
   tls: {
     rejectUnauthorized: false,
   },
-  logger: true,
-  debug: true,
+  connectionTimeout: 8000, // 8s max connection timeout
+  greetingTimeout: 5000,   // 5s max greeting timeout
+  socketTimeout: 10000,    // 10s max socket timeout
+  logger: false,
+  debug: false,
 });
 
 const sendEmail = async (values: ISendEmail) => {
@@ -31,8 +43,8 @@ const sendEmail = async (values: ISendEmail) => {
       html: values.html,
     });
     return info;
-  } catch (error) {
-    console.error("Email sending error:", error);
+  } catch (error: any) {
+    console.error("[Email] Sending error:", error?.message || error);
     throw error;
   }
 };

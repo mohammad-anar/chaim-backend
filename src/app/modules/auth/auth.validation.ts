@@ -24,10 +24,11 @@ const loginZodSchema = z
     identifier: z.string().optional(),
     email: z.string().optional(),
     phone: z.string().optional(),
+    username: z.string().optional(),
     password: z.string().min(1, "Password is required"),
   })
-  .refine((data) => data.identifier || data.email || data.phone, {
-    message: "Email, phone number, or identifier is required",
+  .refine((data) => data.identifier || data.email || data.phone || data.username, {
+    message: "Email, phone number, username, or identifier is required",
     path: ["identifier"],
   });
 

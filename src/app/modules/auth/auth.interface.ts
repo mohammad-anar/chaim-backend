@@ -10,9 +10,10 @@ export type IRegisterUser = {
 };
 
 export type ILoginUser = {
-  identifier?: string; // email or phone
+  identifier?: string; // email, phone, or username
   email?: string;
   phone?: string;
+  username?: string;
   password: string;
 };
 

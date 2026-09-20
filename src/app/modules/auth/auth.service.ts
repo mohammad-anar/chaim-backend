@@ -26,6 +26,9 @@ import {
 // Helper: resolve a user record by email, username, or phone identifier
 // ---------------------------------------------------------------------------
 const findUserByIdentifier = async (identifier: string) => {
+  if (!identifier || typeof identifier !== "string" || identifier.trim() === "") {
+    return null;
+  }
   const raw = identifier.trim();
   const normalizedEmail = raw.toLowerCase();
   const phoneOnly = raw.replace(/\D/g, "");
@@ -58,7 +61,7 @@ const deliverOtp = async (
           : emailTemplate.resetPassword({ email: user.email, otp });
       await emailHelper.sendEmail(emailTpl);
     } catch (err: any) {
-      console.error("Failed to send OTP email:", err?.message || err);
+      console.error("[Auth] Failed to send OTP email:", err?.message || err);
     }
   } else if (user.phone) {
     try {
@@ -67,7 +70,7 @@ const deliverOtp = async (
         body: `Your Chaim verification code is: ${otp}. Valid for 10 minutes.`,
       });
     } catch (err: any) {
-      console.error("Failed to send OTP SMS:", err?.message || err);
+      console.error("[Auth] Failed to send OTP SMS:", err?.message || err);
     }
   }
 };
@@ -207,52 +210,56 @@ const registerUser = async (payload: IRegisterUser) => {
     return newUser;
   });
 
-  // Deliver OTP via email or SMS
-  await deliverOtp(
+  // Deliver OTP via email or SMS non-blockingly so registration never hangs
+  deliverOtp(
     { email: result.email, phone: result.phone, username: result.username },
     otp,
     "createAccount",
-  );
+  ).catch((err) => {
+    console.error("[Auth] Background OTP delivery error:", err?.message || err);
+  });
 
-  // Handle ambassador referral code attribution on registration
+  // Handle ambassador referral code attribution on registration in background
   if (payload.referralCode && payload.referralCode.trim() !== "") {
-    try {
-      const ambassador = await prisma.ambassador.findUnique({
-        where: { referralCode: payload.referralCode.trim().toUpperCase() },
-      });
+    (async () => {
+      try {
+        const ambassador = await prisma.ambassador.findUnique({
+          where: { referralCode: payload.referralCode!.trim().toUpperCase() },
+        });
 
-      if (ambassador && ambassador.status === "ACTIVE") {
-        // Track user-level referral attribution
-        await prisma.ambassadorAttribution.create({
-          data: {
+        if (ambassador && ambassador.status === "ACTIVE") {
+          // Track user-level referral attribution
+          await prisma.ambassadorAttribution.create({
+            data: {
+              ambassadorId: ambassador.id,
+              apartmentId: null,
+              apartmentTitle: "(Pending — user registered via referral link)",
+              ownerName: result.username,
+              ownerPhone: (result.phone || "").replace(/\D/g, "") || "unknown",
+              ownerEmail: result.email || null,
+              model: null,
+              modelDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+              method: "LINK",
+              status: "ACTIVE",
+              listingCreatedAt: new Date(),
+            },
+          });
+
+          // Notify admin + ambassador
+          await notifyOnUserRegisteredViaAmbassador({
             ambassadorId: ambassador.id,
-            apartmentId: null,
-            apartmentTitle: "(Pending — user registered via referral link)",
-            ownerName: result.username,
-            ownerPhone: (result.phone || "").replace(/\D/g, "") || "unknown",
-            ownerEmail: result.email || null,
-            model: null,
-            modelDeadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            method: "LINK",
-            status: "ACTIVE",
-            listingCreatedAt: new Date(),
-          },
-        });
-
-        // Notify admin + ambassador
-        await notifyOnUserRegisteredViaAmbassador({
-          ambassadorId: ambassador.id,
-          ambassadorName: ambassador.name,
-          referralCode: ambassador.referralCode || payload.referralCode,
-          newUserId: result.id,
-          newUserName: result.username,
-          newUserEmail: result.email || undefined,
-          newUserPhone: result.phone || undefined,
-        });
+            ambassadorName: ambassador.name,
+            referralCode: ambassador.referralCode || payload.referralCode!,
+            newUserId: result.id,
+            newUserName: result.username,
+            newUserEmail: result.email || undefined,
+            newUserPhone: result.phone || undefined,
+          });
+        }
+      } catch (refErr) {
+        console.error("[AmbassadorReferral] Error attributing user registration:", refErr);
       }
-    } catch (refErr) {
-      console.error("[AmbassadorReferral] Error attributing user registration:", refErr);
-    }
+    })();
   }
 
   return result;
@@ -260,8 +267,12 @@ const registerUser = async (payload: IRegisterUser) => {
 
 const loginUser = async (payload: ILoginUser) => {
   const rawIdentifier =
-    payload.identifier || payload.email || payload.phone || "";
+    payload.identifier || payload.email || payload.phone || payload.username || "";
   const { password } = payload;
+
+  if (!rawIdentifier || !rawIdentifier.trim()) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, "Email, phone number, or username is required");
+  }
 
   const user = await findUserByIdentifier(rawIdentifier);
 
@@ -506,11 +517,13 @@ const resendOtp = async (payload: { identifier: string }) => {
     data: { otp, otpExpiry },
   });
 
-  await deliverOtp(
+  deliverOtp(
     { email: user.email, phone: user.phone, username: user.username },
     otp,
     "createAccount",
-  );
+  ).catch((err) => {
+    console.error("[Auth] Background resend OTP error:", err?.message || err);
+  });
 
   return {
     message: "OTP resent successfully",
