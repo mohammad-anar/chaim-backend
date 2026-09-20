@@ -54,9 +54,14 @@ export const flushAllCache = async (): Promise<void> => {
   }
 };
 
-export const getCache = async <T>(_key: string): Promise<T | null> => {
-  // Invalidated / bypassed for now so all requests fetch fresh database records
-  return null;
+export const getCache = async <T>(key: string): Promise<T | null> => {
+  if (!isConnected) return null;
+  try {
+    const data = await redisClient.get(key);
+    return data ? JSON.parse(data) : null;
+  } catch (err) {
+    return null;
+  }
 };
 
 export const setCache = async (
