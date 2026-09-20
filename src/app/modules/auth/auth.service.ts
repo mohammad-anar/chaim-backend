@@ -176,9 +176,6 @@ const registerUser = async (payload: IRegisterUser) => {
   const saltRound = config.bcrypt_salt_round || 10;
   const hashedPassword = await bcrypt.hash(payload.password, saltRound);
 
-  const otp = generateOTP();
-  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
-
   const result = await prisma.$transaction(async (tx) => {
     const newUser = await tx.user.create({
       data: {
@@ -189,8 +186,9 @@ const registerUser = async (payload: IRegisterUser) => {
         profileImage: payload.profileImage,
         marketingPlatformId,
         role: UserRole.USER,
-        otp,
-        otpExpiry,
+        isVerified: true,
+        otp: null,
+        otpExpiry: null,
       },
       select: {
         id: true,
@@ -208,15 +206,6 @@ const registerUser = async (payload: IRegisterUser) => {
     });
 
     return newUser;
-  });
-
-  // Deliver OTP via email or SMS non-blockingly so registration never hangs
-  deliverOtp(
-    { email: result.email, phone: result.phone, username: result.username },
-    otp,
-    "createAccount",
-  ).catch((err) => {
-    console.error("[Auth] Background OTP delivery error:", err?.message || err);
   });
 
   // Handle ambassador referral code attribution on registration in background
