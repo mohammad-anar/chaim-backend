@@ -145,13 +145,6 @@ const createSwapRequest = async (userId: string, payload: ICreateSwapRequest) =>
     );
   }
 
-  if (!fromPref.weekend) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "You must select a weekend in your swap preference before sending a swap request",
-    );
-  }
-
   if (fromApartment.id === payload.toAppId) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "You cannot swap with your own apartment");
   }
@@ -170,27 +163,24 @@ const createSwapRequest = async (userId: string, payload: ICreateSwapRequest) =>
     throw new ApiError(StatusCodes.BAD_REQUEST, "The target apartment has not enabled swap");
   }
 
-  if (!toPref.weekend) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "The target apartment has not selected an active swap weekend",
-    );
+  // If both apartments have selected a weekend, verify they match
+  if (fromPref.weekend && toPref.weekend) {
+    const fromDate = new Date(fromPref.weekend);
+    const toDate = new Date(toPref.weekend);
+    const isSameWeekend =
+      fromDate.getUTCFullYear() === toDate.getUTCFullYear() &&
+      fromDate.getUTCMonth() === toDate.getUTCMonth() &&
+      fromDate.getUTCDate() === toDate.getUTCDate();
+
+    if (!isSameWeekend) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Cannot swap: Both apartments have selected different weekends for swap",
+      );
+    }
   }
 
-  // Exact weekend match verification
-  const fromDate = new Date(fromPref.weekend);
-  const toDate = new Date(toPref.weekend);
-  const isSameWeekend =
-    fromDate.getUTCFullYear() === toDate.getUTCFullYear() &&
-    fromDate.getUTCMonth() === toDate.getUTCMonth() &&
-    fromDate.getUTCDate() === toDate.getUTCDate();
-
-  if (!isSameWeekend) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      "Cannot swap: Both apartments must have selected the exact same weekend for swap",
-    );
-  }
+  const swapWeekend = fromPref.weekend || toPref.weekend || null;
 
   // Preference match checks: verify toApartment satisfies requester's (fromPref) criteria
   if (fromPref.city && fromPref.city !== "any") {
@@ -243,7 +233,7 @@ const createSwapRequest = async (userId: string, payload: ICreateSwapRequest) =>
     data: {
       fromAppId: fromApartment.id,
       toAppId: payload.toAppId,
-      weekend: fromPref.weekend,
+      weekend: swapWeekend,
       swapCode,
       status: SwapStatus.PENDING,
     },

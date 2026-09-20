@@ -33,6 +33,8 @@ redisClient.on("connect", () => {
   try {
     await redisClient.connect();
     isConnected = true;
+    await redisClient.flushAll();
+    console.log("[Redis] All cache keys flushed on startup");
   } catch (err: any) {
     console.warn(
       "[Redis] Connection failed. Running in fallback mode without Redis caching:",
@@ -42,14 +44,19 @@ redisClient.on("connect", () => {
   }
 })();
 
-export const getCache = async <T>(key: string): Promise<T | null> => {
-  if (!isConnected) return null;
+export const flushAllCache = async (): Promise<void> => {
+  if (!isConnected) return;
   try {
-    const data = await redisClient.get(key);
-    return data ? JSON.parse(data) : null;
+    await redisClient.flushAll();
+    console.log("[Redis] Successfully flushed all cache keys");
   } catch (err) {
-    return null;
+    // Ignore in fallback mode
   }
+};
+
+export const getCache = async <T>(_key: string): Promise<T | null> => {
+  // Invalidated / bypassed for now so all requests fetch fresh database records
+  return null;
 };
 
 export const setCache = async (
