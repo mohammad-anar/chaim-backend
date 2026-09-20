@@ -2,6 +2,7 @@ import config from "../../config/index.js";
 import ApiError from "../../errors/ApiError.js";
 import { NextFunction, Request, Response } from "express";
 import { jwtHelper } from "../../helpers/jwtHelper.js";
+import { prisma } from "../../helpers/prisma.js";
 import { StatusCodes } from "http-status-codes";
 import { Secret } from "jsonwebtoken";
 
@@ -52,11 +53,31 @@ const auth =
         config.jwt.jwt_secret as Secret,
       );
 
+      // Verify user exists in database
+      const user = await prisma.user.findUnique({
+        where: { id: verifyUser.id },
+        select: { id: true, isDeleted: true, status: true, role: true },
+      });
+
+      if (!user || user.isDeleted) {
+        throw new ApiError(
+          StatusCodes.UNAUTHORIZED,
+          "User does not exist or has been deleted. Please log in again.",
+        );
+      }
+
+      if (user.status === "BLOCKED" || user.status === "SUSPENDED") {
+        throw new ApiError(
+          StatusCodes.FORBIDDEN,
+          `Your account is ${user.status.toLowerCase()}`,
+        );
+      }
+
       // Set user into request
       req.user = verifyUser;
 
       // Check if user has required role (e.g. SUPER_ADMIN)
-      if (roles.length && !roles.includes(verifyUser.role)) {
+      if (roles.length && !roles.includes(user.role)) {
         throw new ApiError(
           StatusCodes.FORBIDDEN,
           "You don't have permission to access this api",
