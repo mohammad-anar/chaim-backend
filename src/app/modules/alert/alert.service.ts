@@ -12,6 +12,8 @@ const createAlert = async (payload: ICreateAlertPayload) => {
       message: payload.message,
       type: payload.type || AlertType.INFO,
       targetRole: payload.targetRole || null,
+      targetUserId: payload.targetUserId || null,
+      link: payload.link || null,
       isActive: payload.isActive !== undefined ? payload.isActive : true,
     },
   });

@@ -14,17 +14,19 @@ model News {
 }
 
 model Advertisement {
-  id        String                @id @default(uuid())
-  title     String
-  image     String
-  targetUrl String?               @map("target_url")
-  position  AdvertisementPosition @default(HOME_TOP)
-  isActive  Boolean               @default(true) @map("is_active")
-  clicks    Int                   @default(0)
-  startDate DateTime?             @map("start_date")
-  endDate   DateTime?             @map("end_date")
-  createdAt DateTime              @default(now()) @map("created_at")
-  updatedAt DateTime              @updatedAt @map("updated_at")
+  id          String                @id @default(uuid())
+  companyName String?               @map("company_name")
+  title       String
+  subtitle    String?
+  image       String
+  url         String?
+  position    AdvertisementPosition @default(HOME_TOP)
+  isActive    Boolean               @default(true) @map("is_active")
+  clicks      Int                   @default(0)
+  startDate   DateTime?             @map("start_date")
+  endDate     DateTime?             @map("end_date")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
 
   @@map("advertisements")
 }
@@ -43,3 +45,12 @@ model Alert {
 
   @@map("alerts")
 }
+
+model AppSetting {
+  key       String   @id @default("yearly_fee_on_sale")
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+

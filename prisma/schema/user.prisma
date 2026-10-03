@@ -1,6 +1,6 @@
 model User {
   id           String     @id @default(uuid())
-  username     String     @unique
+  username     String     
   role         UserRole   @default(USER)
   email        String?    @unique
   phone        String?    @unique
@@ -19,6 +19,7 @@ model User {
 
   marketingEmail                MarketingEmail?
   ownerNotificationPreference   OwnerNotificationPreference?
+  howOftenWantToRent       String?
   apartments                    Apartment[]
   notifyRequestsSent     NotifyRequest[]           @relation("NotifyRequestUser")
   notifyRequestsRecv     NotifyRequest[]           @relation("NotifyRequestOwner")
@@ -33,6 +34,7 @@ model User {
   callsMade              CallLog[]                 @relation("CallsMade")
   callsReceived          CallLog[]                 @relation("CallsReceived")
   apartmentViewHistories ApartmentViewHistory[]
+
 
   @@map("users")
 }

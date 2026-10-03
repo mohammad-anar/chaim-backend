@@ -9,20 +9,20 @@ const router = express.Router();
 
 router.get(
   "/me/notification-pref",
-  auth(UserRole.USER, UserRole.SUPER_ADMIN),
+  auth(UserRole.USER, UserRole.OWNER, UserRole.SUPER_ADMIN),
   OwnerController.getMyNotificationPref,
 );
 
 router.patch(
   "/me/notification-pref",
-  auth(UserRole.USER, UserRole.SUPER_ADMIN),
+  auth(UserRole.USER, UserRole.OWNER, UserRole.SUPER_ADMIN),
   validateRequest(OwnerValidation.upsertOwnerNotificationPrefZodSchema),
   OwnerController.upsertMyNotificationPref,
 );
 
 router.post(
   "/me/test-reminder",
-  auth(UserRole.USER, UserRole.SUPER_ADMIN),
+  auth(UserRole.USER, UserRole.OWNER, UserRole.SUPER_ADMIN),
   OwnerController.testReminderNow,
 );
 

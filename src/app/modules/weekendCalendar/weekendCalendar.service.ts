@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import XLSX from "xlsx";
 import ApiError from "../../../errors/ApiError.js";
-import { excelImportQueue } from "../../../helpers/bullQueue.js";
+import { excelImportQueue, isQueueAvailable } from "../../../helpers/bullQueue.js";
 import { paginationHelper } from "../../../helpers/paginationHelper.js";
 import { parseFlexibleDate } from "../../../helpers/parseDate.js";
 import { prisma } from "../../../helpers/prisma.js";
@@ -49,21 +49,40 @@ const createWeekendCalendar = async (payload: ICreateWeekendCalendar) => {
 };
 
 const processExcelFile = async (filePath: string) => {
-  const relativePath = filePath.startsWith("/") ? filePath.slice(1) : filePath;
-  const absolutePath = path.join(process.cwd(), "uploads", relativePath);
-
-  if (!fs.existsSync(absolutePath)) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "Uploaded Excel file not found");
-  }
-
   let workbook: XLSX.WorkBook;
-  try {
-    workbook = XLSX.readFile(absolutePath, { cellDates: true, raw: false });
-  } catch (err: any) {
-    throw new ApiError(
-      StatusCodes.BAD_REQUEST,
-      `Failed to parse Excel file: ${err.message || err}`,
-    );
+  const isRemote = filePath.startsWith("http://") || filePath.startsWith("https://");
+
+  if (isRemote) {
+    try {
+      const response = await fetch(filePath);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      workbook = XLSX.read(buffer, { type: "buffer", cellDates: true, raw: false });
+    } catch (err: any) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Failed to download/parse remote Excel file: ${err.message || err}`,
+      );
+    }
+  } else {
+    const relativePath = filePath.startsWith("/") ? filePath.slice(1) : filePath;
+    const absolutePath = path.join(process.cwd(), "uploads", relativePath);
+
+    if (!fs.existsSync(absolutePath)) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "Uploaded Excel file not found");
+    }
+
+    try {
+      workbook = XLSX.readFile(absolutePath, { cellDates: true, raw: false });
+    } catch (err: any) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        `Failed to parse Excel file: ${err.message || err}`,
+      );
+    }
   }
 
   const sheetNames = workbook.SheetNames;
@@ -143,12 +162,16 @@ const processExcelFile = async (filePath: string) => {
     insertedCount++;
   }
 
-  try {
-    if (fs.existsSync(absolutePath)) {
-      fs.unlinkSync(absolutePath);
+  if (!isRemote) {
+    try {
+      const relativePath = filePath.startsWith("/") ? filePath.slice(1) : filePath;
+      const absolutePath = path.join(process.cwd(), "uploads", relativePath);
+      if (fs.existsSync(absolutePath)) {
+        fs.unlinkSync(absolutePath);
+      }
+    } catch (err) {
+      console.error("Failed to delete temp Excel file:", err);
     }
-  } catch (err) {
-    console.error("Failed to delete temp Excel file:", err);
   }
 
   console.log(`[ExcelImport] Complete. Total: ${rows.length}, Inserted: ${insertedCount}, Skipped: ${skippedCount}`);
@@ -165,7 +188,7 @@ const processExcelFile = async (filePath: string) => {
 };
 
 const uploadExcel = async (filePath: string, isSync: boolean = false) => {
-  if (isSync) {
+  if (isSync || !isQueueAvailable() || !excelImportQueue) {
     const result = await processExcelFile(filePath);
     return {
       queued: false,

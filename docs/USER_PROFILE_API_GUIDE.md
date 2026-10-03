@@ -34,6 +34,7 @@ This document outlines the API endpoints, TypeScript types, validation rules, en
 ```typescript
 export enum UserRole {
   USER = "USER",
+  OWNER = "OWNER",
   SUPER_ADMIN = "SUPER_ADMIN",
 }
 

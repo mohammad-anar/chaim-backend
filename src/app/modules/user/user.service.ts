@@ -62,8 +62,8 @@ const updateMyProfile = async (userId: string, payload: IUpdateProfile) => {
   }
 
   if (payload.username && payload.username !== user.username) {
-    const existing = await prisma.user.findUnique({
-      where: { username: payload.username },
+    const existing = await prisma.user.findFirst({
+      where: { username: payload.username, isDeleted: false },
     });
     if (existing) {
       throw new ApiError(StatusCodes.CONFLICT, "Username already taken");
@@ -307,7 +307,12 @@ const getAllOwnersAdmin = async (
 
   const andConditions: Prisma.UserWhereInput[] = [
     { isDeleted: false },
-    { apartments: { some: {} } },
+    {
+      OR: [
+        { role: ("OWNER" as any) },
+        { apartments: { some: {} } },
+      ],
+    },
   ];
 
   if (filters.searchTerm) {

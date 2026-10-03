@@ -4,11 +4,13 @@ import fs from "fs";
 import { StatusCodes } from "http-status-codes";
 import multer, { FileFilterCallback } from "multer";
 import path from "path";
+import { isCloudinaryConfigured, uploadToCloudinary } from "../../helpers/cloudinaryHelper.js";
+import { isSupabaseConfigured, uploadToSupabaseStorage } from "../../helpers/supabaseStorageHelper.js";
 
 const fileUploadHandler = () => {
   const baseUploadDir = path.join(process.cwd(), "uploads");
   if (!fs.existsSync(baseUploadDir)) {
-    fs.mkdirSync(baseUploadDir);
+    fs.mkdirSync(baseUploadDir, { recursive: true });
   }
 
   const createDir = (dirPath: string) => {
@@ -177,7 +179,77 @@ const fileUploadHandler = () => {
     { name: "csv", maxCount: 10 },
   ]);
 
-  return upload;
+  return (req: Request, res: Response, next: NextFunction) => {
+    upload(req, res, async (err: any) => {
+      if (err) {
+        return next(err);
+      }
+
+      // Handle persistent storage upload (Supabase Storage preferred, Cloudinary fallback)
+      if (req.files && (isSupabaseConfigured() || isCloudinaryConfigured())) {
+        try {
+          const filesObj = req.files as Record<string, Express.Multer.File[]>;
+          const uploadPromises: Promise<void>[] = [];
+
+          for (const [field, fileList] of Object.entries(filesObj)) {
+            if (Array.isArray(fileList)) {
+              for (const file of fileList) {
+                if (file && file.path && fs.existsSync(file.path)) {
+                  let subfolder = "image";
+                  const lowerField = field.toLowerCase();
+                  if (["media", "video", "audio"].includes(lowerField)) {
+                    subfolder = "media";
+                  } else if (
+                    ["doc", "docs", "document", "csv", "file", "files"].includes(lowerField)
+                  ) {
+                    subfolder = "doc";
+                  }
+
+                  if (isSupabaseConfigured()) {
+                    uploadPromises.push(
+                      (async () => {
+                        const uploadRes = await uploadToSupabaseStorage(
+                          file.path,
+                          subfolder,
+                          file.originalname,
+                        );
+                        if (uploadRes?.publicUrl) {
+                          (file as any).supabaseUrl = uploadRes.publicUrl;
+                          (file as any).storageUrl = uploadRes.publicUrl;
+                          file.filename = uploadRes.publicUrl;
+                          file.path = uploadRes.publicUrl;
+                        }
+                      })(),
+                    );
+                  } else if (isCloudinaryConfigured()) {
+                    uploadPromises.push(
+                      (async () => {
+                        const uploadRes = await uploadToCloudinary(file.path, subfolder);
+                        if (uploadRes?.secure_url) {
+                          (file as any).cloudinaryUrl = uploadRes.secure_url;
+                          (file as any).cloudinaryPublicId = uploadRes.public_id;
+                          file.filename = uploadRes.secure_url;
+                          file.path = uploadRes.secure_url;
+                        }
+                      })(),
+                    );
+                  }
+                }
+              }
+            }
+          }
+
+          await Promise.all(uploadPromises);
+        } catch (uploadErr) {
+          console.error("[fileUploadHandler] Storage auto-upload error:", uploadErr);
+          return next(uploadErr);
+        }
+      }
+
+      next();
+    });
+  };
 };
 
 export default fileUploadHandler;
+

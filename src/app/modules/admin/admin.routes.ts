@@ -4,6 +4,7 @@ import auth from "../../middlewares/auth.js";
 import validateRequest from "../../middlewares/validateRequest.js";
 import { AdminController } from "./admin.controller.js";
 import { AdminValidation } from "./admin.validation.js";
+import { PaymentController } from "../payment/payment.controller.js";
 
 const router = express.Router();
 
@@ -34,11 +35,13 @@ router.get(
 router.get(
   "/dashboard/city-search-demand",
   auth(UserRole.SUPER_ADMIN),
+  validateRequest(AdminValidation.getCitySearchDemandQueryZodSchema),
   AdminController.getCitySearchDemand,
 );
 router.get(
   "/search-demand",
   auth(UserRole.SUPER_ADMIN),
+  validateRequest(AdminValidation.getCitySearchDemandQueryZodSchema),
   AdminController.getCitySearchDemand,
 );
 
@@ -70,6 +73,24 @@ router.get(
   "/call-logs",
   auth(UserRole.SUPER_ADMIN),
   AdminController.getAllCallLogs,
+);
+
+router.patch(
+  "/settings/yearly-fee-sale",
+  auth(UserRole.SUPER_ADMIN),
+  PaymentController.setYearlyFeeSaleStatus,
+);
+
+router.patch(
+  "/yearly-fee-sale",
+  auth(UserRole.SUPER_ADMIN),
+  PaymentController.setYearlyFeeSaleStatus,
+);
+
+router.get(
+  "/settings/yearly-fee-sale",
+  auth(UserRole.SUPER_ADMIN),
+  PaymentController.getListingFeeStatus,
 );
 
 export const AdminRoutes = router;

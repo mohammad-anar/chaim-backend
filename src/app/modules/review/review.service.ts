@@ -2,7 +2,7 @@ import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiError.js";
 import { notifyAdminOnReviewCreated } from "../../../helpers/notificationHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
-import { deleteCacheByPattern } from "../../../helpers/redis.js";
+import { deleteApartmentCache } from "../../../helpers/redis.js";
 import { ICreateReview } from "./review.interface.js";
 
 const createReview = async (userId: string, payload: ICreateReview) => {
@@ -33,6 +33,8 @@ const createReview = async (userId: string, payload: ICreateReview) => {
       },
     },
   });
+
+  await deleteApartmentCache(apartment.id, apartment.propertyId);
 
   // Notify Admin of New Review to Moderate
   await notifyAdminOnReviewCreated({
@@ -83,9 +85,10 @@ const getApartmentReviews = async (apartmentId: string) => {
   };
 };
 
-const deleteReview = async (userId: string, reviewId: string, isAdmin: boolean = false) => {
+const deleteReview = async (userId: string, reviewId: string, isAdmin = false) => {
   const review = await prisma.review.findUnique({
     where: { id: reviewId },
+    include: { apartment: true },
   });
 
   if (!review) {
@@ -100,7 +103,7 @@ const deleteReview = async (userId: string, reviewId: string, isAdmin: boolean =
     where: { id: reviewId },
   });
 
-  await deleteCacheByPattern("apartment:*");
+  await deleteApartmentCache(review.apartmentId, review.apartment?.propertyId);
 
   return { message: "Review deleted successfully" };
 };
@@ -125,7 +128,10 @@ const getAllReviewsAdmin = async (query: { status?: any; apartmentId?: string })
 };
 
 const updateReviewStatusAdmin = async (id: string, status: any) => {
-  const review = await prisma.review.findUnique({ where: { id } });
+  const review = await prisma.review.findUnique({
+    where: { id },
+    include: { apartment: true },
+  });
   if (!review) {
     throw new ApiError(StatusCodes.NOT_FOUND, "Review not found");
   }
@@ -135,7 +141,7 @@ const updateReviewStatusAdmin = async (id: string, status: any) => {
     data: { status },
   });
 
-  await deleteCacheByPattern("apartment:*");
+  await deleteApartmentCache(review.apartmentId, review.apartment?.propertyId);
 
   return result;
 };

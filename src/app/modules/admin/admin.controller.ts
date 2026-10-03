@@ -28,8 +28,11 @@ const getMonthlyRevenue = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getCitySearchDemand = catchAsync(async (req: Request, res: Response) => {
-  const limit = req.query.limit ? Number(req.query.limit) : 10;
-  const result = await AdminServices.getCitySearchDemand(limit);
+  const limit = req.query.limit ? Number(req.query.limit) : 5;
+  const year = req.query.year ? Number(req.query.year) : undefined;
+  const month = req.query.month ? Number(req.query.month) : undefined;
+
+  const result = await AdminServices.getCitySearchDemand(limit, year, month);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
@@ -39,13 +42,17 @@ const getCitySearchDemand = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getRecentActivity = catchAsync(async (req: Request, res: Response) => {
-  const limit = req.query.limit ? Number(req.query.limit) : 20;
-  const result = await AdminServices.getRecentActivity(limit);
+  const page = req.query.page ? Number(req.query.page) : 1;
+  const limit = req.query.limit ? Number(req.query.limit) : 10;
+  const type = req.query.type as string | undefined;
+
+  const result = await AdminServices.getRecentActivity({ page, limit, type });
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
     message: "Recent activities retrieved successfully",
-    data: result,
+    meta: result.meta,
+    data: result.data,
   });
 });
 

@@ -1,6 +1,7 @@
 import express from "express";
 import { UserRole } from "@prisma/client";
 import auth from "../../middlewares/auth.js";
+import fileUploadHandler from "../../middlewares/fileUploadHandler.js";
 import validateRequest from "../../middlewares/validateRequest.js";
 import { AdvertisementController } from "./advertisement.controller.js";
 import { AdvertisementValidation } from "./advertisement.validation.js";
@@ -20,6 +21,7 @@ router.post("/:id/click", AdvertisementController.recordClick);
 router.post(
   "/",
   auth(UserRole.SUPER_ADMIN),
+  fileUploadHandler(),
   validateRequest(AdvertisementValidation.createAdvertisementZodSchema),
   AdvertisementController.createAdvertisement,
 );
@@ -28,6 +30,7 @@ router.post(
 router.patch(
   "/:id",
   auth(UserRole.SUPER_ADMIN),
+  fileUploadHandler(),
   validateRequest(AdvertisementValidation.updateAdvertisementZodSchema),
   AdvertisementController.updateAdvertisement,
 );

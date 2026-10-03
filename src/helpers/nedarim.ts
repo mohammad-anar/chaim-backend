@@ -52,7 +52,7 @@ export const verifyNedarimTransaction = async (
     const response = await fetch(url.toString(), {
       method: "GET",
       headers: {
-        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
       },
     });
 
@@ -64,7 +64,13 @@ export const verifyNedarimTransaction = async (
       };
     }
 
-    const data: any = await response.json();
+    const rawText = await response.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      data = { rawText };
+    }
 
     // Nedarim Plus returns Status: "1" or Status: 1 or "OK" for successful transactions
     const isSuccess =

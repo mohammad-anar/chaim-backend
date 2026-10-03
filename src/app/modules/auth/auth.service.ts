@@ -176,6 +176,11 @@ const registerUser = async (payload: IRegisterUser) => {
   const saltRound = config.bcrypt_salt_round || 10;
   const hashedPassword = await bcrypt.hash(payload.password, saltRound);
 
+  const requestedRole =
+    payload.role && payload.role.toUpperCase() === "OWNER"
+      ? ("OWNER" as UserRole)
+      : UserRole.USER;
+
   const result = await prisma.$transaction(async (tx) => {
     const newUser = await tx.user.create({
       data: {
@@ -185,7 +190,7 @@ const registerUser = async (payload: IRegisterUser) => {
         password: hashedPassword,
         profileImage: payload.profileImage,
         marketingPlatformId,
-        role: UserRole.USER,
+        role: requestedRole,
         isVerified: true,
         otp: null,
         otpExpiry: null,
@@ -251,7 +256,31 @@ const registerUser = async (payload: IRegisterUser) => {
     })();
   }
 
-  return result;
+  const jwtPayload = {
+    id: result.id,
+    username: result.username,
+    email: result.email,
+    role: result.role,
+  };
+
+  const accessToken = jwtHelper.createToken(
+    jwtPayload,
+    config.jwt.jwt_secret as Secret,
+    config.jwt.jwt_expire_in as any,
+  );
+
+  const refreshToken = jwtHelper.createToken(
+    jwtPayload,
+    config.jwt.jwt_secret as Secret,
+    config.jwt.jwt_refresh_expire_in as any,
+  );
+
+  return {
+    ...result,
+    user: result,
+    accessToken,
+    refreshToken,
+  };
 };
 
 const loginUser = async (payload: ILoginUser) => {
@@ -381,26 +410,51 @@ const forgotPassword = async (payload: IForgotPassword) => {
   }
 
   const user = await findUserByIdentifier(identifier);
-  if (!user || !user.email) {
-    throw new ApiError(StatusCodes.NOT_FOUND, "User not found with this email");
+  if (!user || (!user.email && !user.phone)) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "User not found with this email or phone number");
   }
 
-  const resetToken = jwtHelper.createToken(
-    { id: user.id, email: user.email, role: user.role },
-    config.jwt.jwt_secret as Secret,
-    "15m",
-  );
+  const otp = generateOTP();
+  const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-  const emailTpl = emailTemplate.forgetPassword({
-    email: user.email,
-    token: resetToken,
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { otp, otpExpiry },
   });
 
-  await emailHelper.sendEmail(emailTpl);
+  if (user.email) {
+    try {
+      const emailTpl = emailTemplate.resetPassword({
+        email: user.email,
+        otp,
+      });
+      await emailHelper.sendEmail(emailTpl);
+    } catch (err: any) {
+      console.error("[Auth] Forgot password OTP email dispatch error:", err?.message || err);
+      throw new ApiError(
+        StatusCodes.SERVICE_UNAVAILABLE,
+        "Unable to send reset password OTP email at this moment. Please try again later.",
+      );
+    }
+  } else if (user.phone) {
+    try {
+      await smsHelper.sendSms({
+        to: user.phone.startsWith("+") ? user.phone : `+${user.phone}`,
+        body: `Your Shabbos Rent password reset code is: ${otp}. Valid for 15 minutes.`,
+      });
+    } catch (err: any) {
+      console.error("[Auth] Forgot password OTP SMS error:", err?.message || err);
+      throw new ApiError(
+        StatusCodes.SERVICE_UNAVAILABLE,
+        "Unable to send reset password OTP SMS at this moment.",
+      );
+    }
+  }
 
   return {
-    message: "Password reset link sent to your email successfully",
-    resetToken,
+    message: "Password reset OTP sent successfully",
+    email: user.email,
+    phone: user.phone,
   };
 };
 
@@ -411,13 +465,19 @@ const verifyOtp = async (payload: IVerifyOtp) => {
     throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
   }
 
-  if (!user.otp || user.otp !== payload.otp) {
+  if (!user.otp || user.otp !== Number(payload.otp)) {
     throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid OTP");
   }
 
   if (!user.otpExpiry || user.otpExpiry < new Date()) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, "OTP has expired");
+    throw new ApiError(StatusCodes.BAD_REQUEST, "OTP has expired. Please request a new code.");
   }
+
+  const resetToken = jwtHelper.createToken(
+    { id: user.id, email: user.email, role: user.role },
+    config.jwt.jwt_secret as Secret,
+    "15m",
+  );
 
   await prisma.user.update({
     where: { id: user.id },
@@ -428,7 +488,10 @@ const verifyOtp = async (payload: IVerifyOtp) => {
     },
   });
 
-  return { message: "OTP verified successfully" };
+  return {
+    message: "OTP verified successfully",
+    resetToken,
+  };
 };
 
 const resetPassword = async (
@@ -445,33 +508,52 @@ const resetPassword = async (
     throw new ApiError(StatusCodes.BAD_REQUEST, "Passwords do not match");
   }
 
-  if (!tokenFromHeaderOrParam) {
+  const rawToken =
+    tokenFromHeaderOrParam || payload.token;
+
+  let targetUserId: string | null = null;
+
+  if (rawToken) {
+    const token = rawToken.startsWith("Bearer ")
+      ? rawToken.split(" ")[1]
+      : rawToken;
+
+    let decoded: any;
+    try {
+      decoded = jwtHelper.verifyToken(token, config.jwt.jwt_secret as Secret);
+    } catch (err: any) {
+      throw new ApiError(
+        StatusCodes.UNAUTHORIZED,
+        "Invalid or expired password reset token",
+      );
+    }
+
+    if (!decoded || !decoded.id) {
+      throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid token payload");
+    }
+    targetUserId = decoded.id;
+  } else if (payload.identifier && payload.otp) {
+    // Direct OTP reset fallback
+    const user = await findUserByIdentifier(payload.identifier);
+    if (!user) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+    }
+    if (!user.otp || user.otp !== Number(payload.otp)) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "Invalid OTP");
+    }
+    if (!user.otpExpiry || user.otpExpiry < new Date()) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, "OTP has expired");
+    }
+    targetUserId = user.id;
+  } else {
     throw new ApiError(
       StatusCodes.UNAUTHORIZED,
-      "Reset token is required in Authorization header",
+      "Reset token is required to reset password",
     );
-  }
-
-  const token = tokenFromHeaderOrParam.startsWith("Bearer ")
-    ? tokenFromHeaderOrParam.split(" ")[1]
-    : tokenFromHeaderOrParam;
-
-  let decoded: any;
-  try {
-    decoded = jwtHelper.verifyToken(token, config.jwt.jwt_secret as Secret);
-  } catch (err: any) {
-    throw new ApiError(
-      StatusCodes.UNAUTHORIZED,
-      "Invalid or expired password reset token",
-    );
-  }
-
-  if (!decoded || !decoded.id) {
-    throw new ApiError(StatusCodes.UNAUTHORIZED, "Invalid token payload");
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: decoded.id },
+    where: { id: targetUserId! },
   });
 
   if (!user) {
@@ -485,6 +567,8 @@ const resetPassword = async (
     where: { id: user.id },
     data: {
       password: hashedPassword,
+      otp: null,
+      otpExpiry: null,
     },
   });
 
@@ -499,20 +583,37 @@ const resendOtp = async (payload: { identifier: string }) => {
   }
 
   const otp = generateOTP();
-  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  const otpExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
   await prisma.user.update({
     where: { id: user.id },
     data: { otp, otpExpiry },
   });
 
-  deliverOtp(
-    { email: user.email, phone: user.phone, username: user.username },
-    otp,
-    "createAccount",
-  ).catch((err) => {
-    console.error("[Auth] Background resend OTP error:", err?.message || err);
-  });
+  if (user.email) {
+    try {
+      const emailTpl = emailTemplate.resetPassword({
+        email: user.email,
+        otp,
+      });
+      await emailHelper.sendEmail(emailTpl);
+    } catch (err: any) {
+      console.error("[Auth] Resend OTP email error:", err?.message || err);
+      throw new ApiError(
+        StatusCodes.SERVICE_UNAVAILABLE,
+        "Unable to resend OTP at this moment. Please try again later.",
+      );
+    }
+  } else if (user.phone) {
+    try {
+      await smsHelper.sendSms({
+        to: user.phone.startsWith("+") ? user.phone : `+${user.phone}`,
+        body: `Your Shabbos Rent verification code is: ${otp}. Valid for 15 minutes.`,
+      });
+    } catch (err: any) {
+      console.error("[Auth] Resend OTP SMS error:", err?.message || err);
+    }
+  }
 
   return {
     message: "OTP resent successfully",

@@ -53,35 +53,50 @@ const getMyAppartment = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const APARTMENT_FILTERABLE_FIELDS = [
+  "searchTerm",
+  "city",
+  "neighborhood",
+  "propertyType",
+  "minPrice",
+  "maxPrice",
+  "bedrooms",
+  "rooms",
+  "bathrooms",
+  "maxGuest",
+  "guestCount",
+  "guests",
+  "seats",
+  "weekendId",
+  "weekend",
+  "date",
+  "amenities",
+  "maxWalkingMinutes",
+  "walkingMinutes",
+  "walkingTime",
+  "maxWalkingTime",
+  "walkingDistance",
+  "neighborhoodWalkingMinutes",
+  "status",
+  "lat",
+  "lng",
+  "latitude",
+  "longitude",
+  "destLat",
+  "destLng",
+  "dest_lat",
+  "dest_lng",
+  "targetDestination",
+  "shulAddress",
+  "destination",
+  "place",
+  "address",
+  "shul",
+  "synagogue",
+];
+
 const getAllApartments = catchAsync(async (req: Request, res: Response) => {
-  const filters = pick(req.query, [
-    "searchTerm",
-    "city",
-    "neighborhood",
-    "propertyType",
-    "minPrice",
-    "maxPrice",
-    "bedrooms",
-    "rooms",
-    "bathrooms",
-    "maxGuest",
-    "guestCount",
-    "guests",
-    "seats",
-    "weekendId",
-    "weekend",
-    "date",
-    "amenities",
-    "maxWalkingMinutes",
-    "walkingMinutes",
-    "walkingTime",
-    "status",
-    "destLat",
-    "destLng",
-    "targetDestination",
-    "shulAddress",
-    "destination",
-  ]);
+  const filters = pick(req.query, APARTMENT_FILTERABLE_FIELDS);
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
   const isUserAdmin = req.user?.role === "SUPER_ADMIN";
 
@@ -102,34 +117,7 @@ const getAllApartments = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllApartmentsAdmin = catchAsync(async (req: Request, res: Response) => {
-  const filters = pick(req.query, [
-    "searchTerm",
-    "city",
-    "neighborhood",
-    "propertyType",
-    "minPrice",
-    "maxPrice",
-    "bedrooms",
-    "rooms",
-    "bathrooms",
-    "maxGuest",
-    "guestCount",
-    "guests",
-    "seats",
-    "weekendId",
-    "weekend",
-    "date",
-    "amenities",
-    "maxWalkingMinutes",
-    "walkingMinutes",
-    "walkingTime",
-    "status",
-    "destLat",
-    "destLng",
-    "targetDestination",
-    "shulAddress",
-    "destination",
-  ]);
+  const filters = pick(req.query, APARTMENT_FILTERABLE_FIELDS);
   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
 
   const result = await ApartmentServices.getAllApartments(
@@ -150,7 +138,25 @@ const getAllApartmentsAdmin = catchAsync(async (req: Request, res: Response) => 
 
 const getApartmentById = catchAsync(async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const result = await ApartmentServices.getApartmentById(id);
+  const destinationOptions = pick(req.query, [
+    "destLat",
+    "destLng",
+    "lat",
+    "lng",
+    "latitude",
+    "longitude",
+    "dest_lat",
+    "dest_lng",
+    "targetDestination",
+    "shulAddress",
+    "destination",
+    "place",
+    "address",
+    "shul",
+    "synagogue",
+  ]);
+
+  const result = await ApartmentServices.getApartmentById(id, destinationOptions as any);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -335,6 +341,29 @@ const getApartmentsByCities = catchAsync(
   },
 );
 
+const getListedCities = catchAsync(async (req: Request, res: Response) => {
+  const result = await ApartmentServices.getListedCities();
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Listed cities retrieved successfully",
+    data: result,
+  });
+});
+
+const getListedNeighborhoods = catchAsync(async (req: Request, res: Response) => {
+  const city = req.query.city as string;
+  const result = await ApartmentServices.getListedNeighborhoods(city);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Listed neighborhoods retrieved successfully",
+    data: result,
+  });
+});
+
 export const ApartmentController = {
   createApartment,
   getMyAppartment,
@@ -351,5 +380,9 @@ export const ApartmentController = {
   getRecentlyViewedApartments,
   clearRecentlyViewedHistory,
   getApartmentsByCities,
+  getListedCities,
+  getListedNeighborhoods,
   deleteApartment,
 };
+
+

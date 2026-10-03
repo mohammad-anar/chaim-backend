@@ -22,7 +22,7 @@ This guide documents the Admin API endpoint for retrieving all registered users,
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `searchTerm` | `string` | No | — | Case-insensitive search matching against `username`, `email`, or `phone`. |
-| `role` | `string` | No | — | Filter by user role (`USER`, `SUPER_ADMIN`). |
+| `role` | `string` | No | — | Filter by user role (`USER`, `OWNER`, `SUPER_ADMIN`). |
 | `status` | `string` | No | — | Filter by account status (`ACTIVE`, `BLOCKED`, `SUSPENDED`). |
 | `page` | `number` | No | `1` | Page number for pagination. |
 | `limit` | `number` | No | `10` | Number of items per page. |
@@ -34,7 +34,8 @@ This guide documents the Admin API endpoint for retrieving all registered users,
 ## 3. Supported Enums
 
 ### UserRole
-- `USER`
+- `USER` (Renter)
+- `OWNER` (Apartment Owner / Host)
 - `SUPER_ADMIN`
 
 ### UserStatus

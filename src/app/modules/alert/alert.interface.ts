@@ -5,6 +5,8 @@ export interface ICreateAlertPayload {
   message: string;
   type?: AlertType;
   targetRole?: UserRole;
+  targetUserId?: string;
+  link?: string;
   isActive?: boolean;
 }
 
@@ -13,5 +15,7 @@ export interface IUpdateAlertPayload {
   message?: string;
   type?: AlertType;
   targetRole?: UserRole;
+  targetUserId?: string;
+  link?: string;
   isActive?: boolean;
 }

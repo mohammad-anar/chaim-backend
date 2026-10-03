@@ -5,6 +5,8 @@ const createAlertZodSchema = z.object({
   message: z.string().min(2, "Message is required"),
   type: z.enum(["INFO", "WARNING", "SUCCESS", "URGENT"]).optional(),
   targetRole: z.enum(["USER", "AMBASSADOR", "SUPER_ADMIN"]).optional(),
+  targetUserId: z.string().uuid().optional(),
+  link: z.string().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -13,6 +15,8 @@ const updateAlertZodSchema = z.object({
   message: z.string().min(2).optional(),
   type: z.enum(["INFO", "WARNING", "SUCCESS", "URGENT"]).optional(),
   targetRole: z.enum(["USER", "AMBASSADOR", "SUPER_ADMIN"]).optional(),
+  targetUserId: z.string().uuid().optional(),
+  link: z.string().optional(),
   isActive: z.boolean().optional(),
 });
 

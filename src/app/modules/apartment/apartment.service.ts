@@ -1,7 +1,12 @@
 import { ApartmentStatus, PropertyType, Prisma, AlertType } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiError.js";
-import { getCache, setCache, deleteCacheByPattern } from "../../../helpers/redis.js";
+import {
+  getCache,
+  setCache,
+  deleteCacheByPattern,
+  deleteApartmentCache,
+} from "../../../helpers/redis.js";
 import { paginationHelper } from "../../../helpers/paginationHelper.js";
 import { prisma } from "../../../helpers/prisma.js";
 import { IPaginationOptions } from "../../../types/pagination.js";
@@ -12,13 +17,19 @@ import {
 } from "../../../helpers/notificationHelper.js";
 import { emailHelper } from "../../../helpers/emailHelper.js";
 import { smsHelper } from "../../../helpers/smsHelper.js";
-import { walkingMinutesToDestination, walkingMinutesToNeighborhood } from "../../../helpers/distance.js";
+import {
+  distanceKmToDestination,
+  distanceKmToNeighborhood,
+  walkingMinutesToDestination,
+  walkingMinutesToNeighborhood,
+} from "../../../helpers/distance.js";
 import { NEIGHBORHOOD_CENTROIDS } from "../../../config/neighborhoodCentroids.js";
 import {
   IApartmentFilterRequest,
   ICreateApartment,
   IUpdateApartment,
 } from "./apartment.interface.js";
+import { id } from "zod/v4/locales";
 
 const generatePropertyId = async (): Promise<string> => {
   const count = await prisma.apartment.count();
@@ -71,6 +82,8 @@ const createApartment = async (
     }
   }
 
+  const weekendIds = payload.weekendIds;
+
   const apartment = await prisma.apartment.create({
     data: {
       userId,
@@ -119,6 +132,42 @@ const createApartment = async (
       },
     },
   });
+
+  await prisma.user.update({
+    where: {
+      id: userId,
+    },
+    data: {
+      howOftenWantToRent: payload?.howOftenWantToRent
+    }
+  });
+
+  if (Array.isArray(weekendIds) && weekendIds.length > 0) {
+    const weekendCreateData = weekendIds.map((weekendId) => ({
+      apartmentId: apartment.id,
+      weekendId,
+    }));
+    await prisma.apartmentAvailability.createMany({
+      data: weekendCreateData,
+      skipDuplicates: true,
+    });
+  }
+
+  // Auto-upgrade user role to OWNER if they are currently a regular USER (Renter)
+  try {
+    const creatorUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (creatorUser && (creatorUser.role as string) === "USER") {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { role: "OWNER" as any },
+      });
+    }
+  } catch (upgradeErr) {
+    console.error("[ApartmentService] Auto-upgrading user role to OWNER error:", upgradeErr);
+  }
 
   // Handle Ambassador Attribution
   try {
@@ -209,9 +258,29 @@ const createApartment = async (
     console.error("[AmbassadorAttribution] Error linking apartment to ambassador:", ambassadorErr);
   }
 
-  await deleteCacheByPattern("apartment:*");
+  await deleteApartmentCache(apartment.id, apartment.propertyId);
 
-  return apartment;
+  const fullApartment = await prisma.apartment.findUnique({
+    where: { id: apartment.id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          phone: true,
+          profileImage: true,
+        },
+      },
+      availabilities: {
+        include: {
+          weekend: true,
+        },
+      },
+    },
+  });
+
+  return fullApartment || apartment;
 };
 
 const getMyAppartment = async (userId: string) => {
@@ -249,6 +318,9 @@ const getMyAppartment = async (userId: string) => {
     const upcomingAvailability = computeUpcomingAvailability(
       apartment.availabilities,
       upcomingWeekends,
+      undefined,
+      apartment.unavailable,
+      apartment.receiveRequestWhenUnavailable,
     );
 
     const isListingActive = Boolean(
@@ -363,6 +435,8 @@ const computeUpcomingAvailability = (
   availabilities: any[] = [],
   upcomingWeekends: Array<{ id: string; title: string; date: Date }>,
   filteredWeekendId?: string,
+  unavailable?: boolean,
+  receiveRequestWhenUnavailable?: boolean,
 ) => {
   if (!upcomingWeekends || upcomingWeekends.length === 0) {
     return {
@@ -376,21 +450,38 @@ const computeUpcomingAvailability = (
     };
   }
 
+  // If apartment is set to unavailable and not accepting requests when unavailable
+  if (unavailable === true && !receiveRequestWhenUnavailable) {
+    return {
+      nextWeekend: upcomingWeekends[0] ? { ...upcomingWeekends[0], isAvailable: false } : null,
+      followingWeekend: upcomingWeekends[1] ? { ...upcomingWeekends[1], isAvailable: false } : null,
+      isAvailableNextWeekend: false,
+      isAvailableSecondWeekend: false,
+      isAvailableNextTwoWeekends: false,
+      ...(filteredWeekendId !== undefined && { isAvailableForFilteredWeekend: false }),
+      availabilityMessage: "Unavailable for next weekend and next two weekends",
+      canNotify: true,
+      canMakeOffer: false,
+    };
+  }
+
   const nextWeekend = upcomingWeekends[0];
   const secondWeekend = upcomingWeekends[1] || null;
 
   const isNextAvail = availabilities.some(
     (a) =>
       a.weekendId === nextWeekend.id ||
-      (a.weekend && a.weekend.id === nextWeekend.id),
+      (a.weekend && a.weekend.id === nextWeekend.id) ||
+      (a.weekend?.title && nextWeekend.title && a.weekend.title.trim().toLowerCase() === nextWeekend.title.trim().toLowerCase()),
   );
 
   const isSecondAvail = secondWeekend
     ? availabilities.some(
-        (a) =>
-          a.weekendId === secondWeekend.id ||
-          (a.weekend && a.weekend.id === secondWeekend.id),
-      )
+      (a) =>
+        a.weekendId === secondWeekend.id ||
+        (a.weekend && a.weekend.id === secondWeekend.id) ||
+        (a.weekend?.title && secondWeekend.title && a.weekend.title.trim().toLowerCase() === secondWeekend.title.trim().toLowerCase()),
+    )
     : false;
 
   let isFilteredWeekendAvail: boolean | undefined = undefined;
@@ -398,7 +489,8 @@ const computeUpcomingAvailability = (
     isFilteredWeekendAvail = availabilities.some(
       (a) =>
         a.weekendId === filteredWeekendId ||
-        (a.weekend && a.weekend.id === filteredWeekendId),
+        (a.weekend && a.weekend.id === filteredWeekendId) ||
+        (a.weekend?.title && a.weekend.title.trim().toLowerCase() === filteredWeekendId.trim().toLowerCase()),
     );
   }
 
@@ -426,9 +518,9 @@ const computeUpcomingAvailability = (
     },
     followingWeekend: secondWeekend
       ? {
-          ...secondWeekend,
-          isAvailable: isSecondAvail,
-        }
+        ...secondWeekend,
+        isAvailable: isSecondAvail,
+      }
       : null,
     isAvailableNextWeekend: isNextAvail,
     isAvailableSecondWeekend: isSecondAvail,
@@ -510,24 +602,57 @@ const getAllApartments = async (
     maxWalkingMinutes,
     walkingMinutes,
     walkingTime,
+    maxWalkingTime,
+    walkingDistance,
+    neighborhoodWalkingMinutes,
     status,
+    lat,
+    lng,
+    latitude,
+    longitude,
     destLat,
     destLng,
+    dest_lat,
+    dest_lng,
     targetDestination,
     shulAddress,
     destination,
+    place,
+    address,
+    shul,
+    synagogue,
   } = filters;
 
-  // Resolve Target Destination Coordinates
-  let parsedDestLat = destLat !== undefined && !isAnyOrEmpty(destLat) ? Number(destLat) : NaN;
-  let parsedDestLng = destLng !== undefined && !isAnyOrEmpty(destLng) ? Number(destLng) : NaN;
+  // 1. Resolve Target Destination Coordinates (numeric)
+  let parsedDestLat = NaN;
+  let parsedDestLng = NaN;
+
+  const rawLat = destLat ?? lat ?? latitude ?? dest_lat;
+  const rawLng = destLng ?? lng ?? longitude ?? dest_lng;
+
+  if (rawLat !== undefined && !isAnyOrEmpty(rawLat) && !isNaN(Number(rawLat))) {
+    parsedDestLat = Number(rawLat);
+  }
+  if (rawLng !== undefined && !isAnyOrEmpty(rawLng) && !isNaN(Number(rawLng))) {
+    parsedDestLng = Number(rawLng);
+  }
+
+  // 2. Resolve Target Destination Text (fallback to centroid if coordinates missing)
   const destText = !isAnyOrEmpty(targetDestination)
     ? String(targetDestination).trim()
     : !isAnyOrEmpty(shulAddress)
-    ? String(shulAddress).trim()
-    : !isAnyOrEmpty(destination)
-    ? String(destination).trim()
-    : "";
+      ? String(shulAddress).trim()
+      : !isAnyOrEmpty(destination)
+        ? String(destination).trim()
+        : !isAnyOrEmpty(place)
+          ? String(place).trim()
+          : !isAnyOrEmpty(address)
+            ? String(address).trim()
+            : !isAnyOrEmpty(shul)
+              ? String(shul).trim()
+              : !isAnyOrEmpty(synagogue)
+                ? String(synagogue).trim()
+                : "";
 
   if ((isNaN(parsedDestLat) || isNaN(parsedDestLng)) && destText !== "") {
     const norm = destText.toLowerCase();
@@ -536,7 +661,11 @@ const getAllApartments = async (
       NEIGHBORHOOD_CENTROIDS[norm] ??
       Object.entries(NEIGHBORHOOD_CENTROIDS).find(([k]) => {
         const kLower = k.toLowerCase();
-        return kLower === norm || norm.includes(kLower) || kLower.includes(norm);
+        return (
+          kLower === norm ||
+          norm.includes(kLower) ||
+          kLower.includes(norm)
+        );
       })?.[1];
     if (match) {
       parsedDestLat = match.lat;
@@ -544,18 +673,32 @@ const getAllApartments = async (
     }
   }
 
+  // 3. Resolve Walking Minutes / Time filter
   const rawWalkingMinutes = !isAnyOrEmpty(walkingMinutes)
     ? walkingMinutes
     : !isAnyOrEmpty(walkingTime)
-    ? walkingTime
-    : maxWalkingMinutes;
+      ? walkingTime
+      : !isAnyOrEmpty(maxWalkingMinutes)
+        ? maxWalkingMinutes
+        : !isAnyOrEmpty(maxWalkingTime)
+          ? maxWalkingTime
+          : !isAnyOrEmpty(walkingDistance)
+            ? walkingDistance
+            : !isAnyOrEmpty(neighborhoodWalkingMinutes)
+              ? neighborhoodWalkingMinutes
+              : undefined;
 
-  const parsedWalkingMinutes =
-    rawWalkingMinutes !== undefined && !isAnyOrEmpty(rawWalkingMinutes)
-      ? Number(String(rawWalkingMinutes).replace(/\D/g, ""))
-      : NaN;
+  let parsedWalkingMinutes = NaN;
+  if (rawWalkingMinutes !== undefined && !isAnyOrEmpty(rawWalkingMinutes)) {
+    const digits = String(rawWalkingMinutes).replace(/[^\d.]/g, "");
+    if (digits !== "") {
+      parsedWalkingMinutes = Number(digits);
+    }
+  }
 
-  const isDestinationMode = !isNaN(parsedDestLat) && !isNaN(parsedDestLng) && !isNaN(parsedWalkingMinutes);
+  const hasDestinationCoords = !isNaN(parsedDestLat) && !isNaN(parsedDestLng);
+  const hasWalkingFilter = !isNaN(parsedWalkingMinutes) && parsedWalkingMinutes > 0;
+  const isDestinationMode = hasDestinationCoords;
 
   const andConditions: Prisma.ApartmentWhereInput[] = [];
 
@@ -602,20 +745,15 @@ const getAllApartments = async (
     });
   }
 
-  if (isDestinationMode) {
-    // Destination mode: only fetch apartments with coordinates; city/neighborhood filters are optional/supplementary
-    andConditions.push({ lat: { not: null } });
-    andConditions.push({ lng: { not: null } });
-  } else {
-    // Standard mode: apply city and neighborhood text filters
-    if (!isAnyOrEmpty(city)) {
-      logCitySearch(String(city).trim());
-      andConditions.push({ city: { contains: String(city).trim(), mode: "insensitive" } });
-    }
+  // City filter
+  if (!isAnyOrEmpty(city)) {
+    logCitySearch(String(city).trim());
+    andConditions.push({ city: { contains: String(city).trim(), mode: "insensitive" } });
+  }
 
-    if (!isAnyOrEmpty(neighborhood)) {
-      andConditions.push({ neighborhood: { contains: String(neighborhood).trim(), mode: "insensitive" } });
-    }
+  // Neighborhood filter
+  if (!isAnyOrEmpty(neighborhood)) {
+    andConditions.push({ neighborhood: { contains: String(neighborhood).trim(), mode: "insensitive" } });
   }
 
   // Property Type Filter (supports string, array, comma-separated, case-insensitive)
@@ -676,10 +814,10 @@ const getAllApartments = async (
   const effectiveGuestCount = !isAnyOrEmpty(guestCount)
     ? guestCount
     : !isAnyOrEmpty(maxGuest)
-    ? maxGuest
-    : !isAnyOrEmpty(guests)
-    ? guests
-    : seats;
+      ? maxGuest
+      : !isAnyOrEmpty(guests)
+        ? guests
+        : seats;
   if (!isAnyOrEmpty(effectiveGuestCount) && !isNaN(Number(effectiveGuestCount))) {
     andConditions.push({ maxGuest: { gte: Number(effectiveGuestCount) } });
   }
@@ -688,8 +826,8 @@ const getAllApartments = async (
   const rawWeekend = !isAnyOrEmpty(weekendId)
     ? weekendId
     : !isAnyOrEmpty(weekend)
-    ? weekend
-    : date;
+      ? weekend
+      : date;
 
   let filteredWeekendRecordId: string | undefined = undefined;
 
@@ -704,13 +842,13 @@ const getAllApartments = async (
           { title: { equals: wStr, mode: "insensitive" } },
           ...(isDateValid
             ? [
-                {
-                  date: {
-                    gte: new Date(new Date(wStr).setHours(0, 0, 0, 0)),
-                    lte: new Date(new Date(wStr).setHours(23, 59, 59, 999)),
-                  },
+              {
+                date: {
+                  gte: new Date(new Date(wStr).setHours(0, 0, 0, 0)),
+                  lte: new Date(new Date(wStr).setHours(23, 59, 59, 999)),
                 },
-              ]
+              },
+            ]
             : []),
         ],
       },
@@ -768,7 +906,155 @@ const getAllApartments = async (
   const whereConditions: Prisma.ApartmentWhereInput =
     andConditions.length > 0 ? { AND: andConditions } : {};
 
-  const [result, upcomingWeekends] = await Promise.all([
+  const isCustomDistanceSort =
+    sortBy === "distance" ||
+    sortBy === "walkingMinutes" ||
+    sortBy === "walkingTime" ||
+    sortBy === "walkingDistanceToNeighborhood" ||
+    sortBy === "neighborhoodWalkingMinutes";
+
+  const needsCandidateFetch = hasDestinationCoords || hasWalkingFilter || isCustomDistanceSort;
+
+  if (needsCandidateFetch) {
+    const [candidates, upcomingWeekends] = await Promise.all([
+      prisma.apartment.findMany({
+        where: whereConditions,
+        orderBy: isCustomDistanceSort ? { createdAt: "desc" } : { [sortBy]: sortOrder },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              phone: true,
+              profileImage: true,
+            },
+          },
+          availabilities: {
+            include: {
+              weekend: true,
+            },
+          },
+          reviews: {
+            select: {
+              rating: true,
+            },
+          },
+        },
+      }),
+      getUpcomingWeekends(),
+    ]);
+
+    let enrichedData = candidates.map((apt) => {
+      const totalReviews = apt.reviews.length;
+      const avgRating =
+        totalReviews > 0
+          ? apt.reviews.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews
+          : 0;
+
+      const upcomingAvailability = computeUpcomingAvailability(
+        apt.availabilities,
+        upcomingWeekends,
+        filteredWeekendRecordId,
+        apt.unavailable,
+        apt.receiveRequestWhenUnavailable,
+      );
+
+      const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
+      const distanceKmNeighborhood = distanceKmToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
+      const walkingDistanceToDestination = hasDestinationCoords
+        ? walkingMinutesToDestination(apt, parsedDestLat, parsedDestLng)
+        : undefined;
+      const distanceKmDest = hasDestinationCoords
+        ? distanceKmToDestination(apt, parsedDestLat, parsedDestLng)
+        : undefined;
+
+      const marker = resolveApartmentMarker(apt);
+
+      return {
+        ...apt,
+        marker,
+        averageRating: Number(avgRating.toFixed(1)),
+        totalReviews,
+        upcomingAvailability,
+        availabilityMessage: upcomingAvailability.availabilityMessage,
+        walkingDistanceToNeighborhood,
+        distanceKmToNeighborhood: distanceKmNeighborhood,
+        ...(hasDestinationCoords && {
+          walkingDistanceToDestination,
+          distanceKmToDestination: distanceKmDest,
+        }),
+      };
+    });
+
+    // Filter by walking distance
+    if (hasDestinationCoords && hasWalkingFilter) {
+      enrichedData = enrichedData.filter(
+        (apt) =>
+          apt.walkingDistanceToDestination !== null &&
+          apt.walkingDistanceToDestination !== undefined &&
+          apt.walkingDistanceToDestination <= parsedWalkingMinutes,
+      );
+    } else if (!hasDestinationCoords && hasWalkingFilter) {
+      enrichedData = enrichedData.filter(
+        (apt) =>
+          apt.walkingDistanceToNeighborhood !== null &&
+          apt.walkingDistanceToNeighborhood !== undefined &&
+          apt.walkingDistanceToNeighborhood <= parsedWalkingMinutes,
+      );
+    }
+
+    // Sort
+    if (hasDestinationCoords) {
+      if (
+        !options.sortBy ||
+        options.sortBy === "distance" ||
+        options.sortBy === "walkingMinutes" ||
+        options.sortBy === "walkingTime" ||
+        options.sortBy === "createdAt"
+      ) {
+        enrichedData.sort((a, b) => {
+          const distA = a.walkingDistanceToDestination ?? Infinity;
+          const distB = b.walkingDistanceToDestination ?? Infinity;
+          return distA - distB;
+        });
+      }
+    } else if (
+      options.sortBy === "walkingDistanceToNeighborhood" ||
+      options.sortBy === "neighborhoodWalkingMinutes" ||
+      options.sortBy === "walkingMinutes" ||
+      options.sortBy === "distance"
+    ) {
+      enrichedData.sort((a, b) => {
+        const distA = a.walkingDistanceToNeighborhood ?? Infinity;
+        const distB = b.walkingDistanceToNeighborhood ?? Infinity;
+        return sortOrder === "desc" ? distB - distA : distA - distB;
+      });
+    }
+
+    const total = enrichedData.length;
+    const paginatedData = enrichedData.slice(skip, skip + limit);
+    const markers = enrichedData
+      .map((apt) => apt.marker)
+      .filter((m): m is NonNullable<typeof m> => m !== null);
+
+    const responseData = {
+      meta: {
+        page,
+        limit,
+        total,
+        totalPage: Math.ceil(total / limit) || 1,
+      },
+      markers,
+      data: paginatedData,
+    };
+
+    await setCache(cacheKey, responseData, 300);
+    return responseData;
+  }
+
+  // Standard database query when no destination, walking filter, or distance sort is requested
+  const [result, upcomingWeekends, total] = await Promise.all([
     prisma.apartment.findMany({
       where: whereConditions,
       skip,
@@ -797,13 +1083,12 @@ const getAllApartments = async (
       },
     }),
     getUpcomingWeekends(),
+    prisma.apartment.count({
+      where: whereConditions,
+    }),
   ]);
 
-  const total = await prisma.apartment.count({
-    where: whereConditions,
-  });
-
-  let dataWithRating = result.map((apt) => {
+  const dataWithRating = result.map((apt) => {
     const totalReviews = apt.reviews.length;
     const avgRating =
       totalReviews > 0
@@ -814,13 +1099,12 @@ const getAllApartments = async (
       apt.availabilities,
       upcomingWeekends,
       filteredWeekendRecordId,
+      apt.unavailable,
+      apt.receiveRequestWhenUnavailable,
     );
 
     const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
-    const walkingDistanceToDestination = isDestinationMode
-      ? walkingMinutesToDestination(apt, parsedDestLat, parsedDestLng)
-      : undefined;
-
+    const distanceKmNeighborhood = distanceKmToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
     const marker = resolveApartmentMarker(apt);
 
     return {
@@ -831,19 +1115,9 @@ const getAllApartments = async (
       upcomingAvailability,
       availabilityMessage: upcomingAvailability.availabilityMessage,
       walkingDistanceToNeighborhood,
-      ...(isDestinationMode && { walkingDistanceToDestination }),
+      distanceKmToNeighborhood: distanceKmNeighborhood,
     };
   });
-
-  // In destination mode: in-memory filter by walking distance (excludes apts without lat/lng)
-  if (isDestinationMode) {
-    dataWithRating = dataWithRating.filter(
-      (apt) =>
-        apt.walkingDistanceToDestination !== null &&
-        apt.walkingDistanceToDestination !== undefined &&
-        apt.walkingDistanceToDestination <= parsedWalkingMinutes,
-    );
-  }
 
   const markers = dataWithRating
     .map((apt) => apt.marker)
@@ -853,7 +1127,8 @@ const getAllApartments = async (
     meta: {
       page,
       limit,
-      total: isDestinationMode ? dataWithRating.length : total,
+      total,
+      totalPage: Math.ceil(total / limit) || 1,
     },
     markers,
     data: dataWithRating,
@@ -864,8 +1139,27 @@ const getAllApartments = async (
   return responseData;
 };
 
-const getApartmentById = async (idOrPropertyId: string) => {
-  const cacheKey = `apartment:detail:${idOrPropertyId}`;
+const getApartmentById = async (
+  idOrPropertyId: string,
+  destinationOptions?: {
+    destLat?: number | string;
+    destLng?: number | string;
+    lat?: number | string;
+    lng?: number | string;
+    latitude?: number | string;
+    longitude?: number | string;
+    dest_lat?: number | string;
+    dest_lng?: number | string;
+    targetDestination?: string;
+    shulAddress?: string;
+    destination?: string;
+    place?: string;
+    address?: string;
+    shul?: string;
+    synagogue?: string;
+  },
+) => {
+  const cacheKey = `apartment:detail:${idOrPropertyId}:${JSON.stringify(destinationOptions || {})}`;
   const cached = await getCache<any>(cacheKey);
   if (cached) {
     return cached;
@@ -929,11 +1223,80 @@ const getApartmentById = async (idOrPropertyId: string) => {
   const upcomingAvailability = computeUpcomingAvailability(
     apartment.availabilities,
     upcomingWeekends,
+    undefined,
+    apartment.unavailable,
+    apartment.receiveRequestWhenUnavailable,
   );
 
   const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(apartment, NEIGHBORHOOD_CENTROIDS);
+  const distanceKmNeighborhood = distanceKmToNeighborhood(apartment, NEIGHBORHOOD_CENTROIDS);
 
   const marker = resolveApartmentMarker(apartment);
+
+  let parsedDestLat = NaN;
+  let parsedDestLng = NaN;
+  if (destinationOptions) {
+    const rawLat =
+      destinationOptions.destLat ??
+      destinationOptions.lat ??
+      destinationOptions.latitude ??
+      destinationOptions.dest_lat;
+    const rawLng =
+      destinationOptions.destLng ??
+      destinationOptions.lng ??
+      destinationOptions.longitude ??
+      destinationOptions.dest_lng;
+
+    if (rawLat !== undefined && !isAnyOrEmpty(rawLat) && !isNaN(Number(rawLat))) {
+      parsedDestLat = Number(rawLat);
+    }
+    if (rawLng !== undefined && !isAnyOrEmpty(rawLng) && !isNaN(Number(rawLng))) {
+      parsedDestLng = Number(rawLng);
+    }
+
+    const destText = !isAnyOrEmpty(destinationOptions.targetDestination)
+      ? String(destinationOptions.targetDestination).trim()
+      : !isAnyOrEmpty(destinationOptions.shulAddress)
+        ? String(destinationOptions.shulAddress).trim()
+        : !isAnyOrEmpty(destinationOptions.destination)
+          ? String(destinationOptions.destination).trim()
+          : !isAnyOrEmpty(destinationOptions.place)
+            ? String(destinationOptions.place).trim()
+            : !isAnyOrEmpty(destinationOptions.address)
+              ? String(destinationOptions.address).trim()
+              : !isAnyOrEmpty(destinationOptions.shul)
+                ? String(destinationOptions.shul).trim()
+                : !isAnyOrEmpty(destinationOptions.synagogue)
+                  ? String(destinationOptions.synagogue).trim()
+                  : "";
+
+    if ((isNaN(parsedDestLat) || isNaN(parsedDestLng)) && destText !== "") {
+      const norm = destText.toLowerCase();
+      const match =
+        NEIGHBORHOOD_CENTROIDS[destText] ??
+        NEIGHBORHOOD_CENTROIDS[norm] ??
+        Object.entries(NEIGHBORHOOD_CENTROIDS).find(([k]) => {
+          const kLower = k.toLowerCase();
+          return (
+            kLower === norm ||
+            norm.includes(kLower) ||
+            kLower.includes(norm)
+          );
+        })?.[1];
+      if (match) {
+        parsedDestLat = match.lat;
+        parsedDestLng = match.lng;
+      }
+    }
+  }
+
+  const hasDestinationCoords = !isNaN(parsedDestLat) && !isNaN(parsedDestLng);
+  const walkingDistanceToDestination = hasDestinationCoords
+    ? walkingMinutesToDestination(apartment, parsedDestLat, parsedDestLng)
+    : undefined;
+  const distanceKmDest = hasDestinationCoords
+    ? distanceKmToDestination(apartment, parsedDestLat, parsedDestLng)
+    : undefined;
 
   const result = {
     ...apartment,
@@ -943,6 +1306,13 @@ const getApartmentById = async (idOrPropertyId: string) => {
     upcomingAvailability,
     availabilityMessage: upcomingAvailability.availabilityMessage,
     walkingDistanceToNeighborhood,
+    distanceKmToNeighborhood: distanceKmNeighborhood,
+    ...(hasDestinationCoords && {
+      walkingDistanceToDestination,
+      distanceKmToDestination: distanceKmDest,
+      destLat: parsedDestLat,
+      destLng: parsedDestLng,
+    }),
   };
 
   await setCache(cacheKey, result, 600);
@@ -968,6 +1338,10 @@ const updateApartment = async (
   }
 
   const updateData: any = { ...payload };
+  const weekendIds = updateData.weekendIds;
+  delete updateData.weekendIds;
+  delete updateData.referralCode;
+  delete updateData.availabilities;
 
   const toFloatOrNull = (val: any) =>
     val !== undefined && val !== null && val !== "" && !isNaN(Number(val)) ? Number(val) : null;
@@ -1012,6 +1386,23 @@ const updateApartment = async (
     }
   }
 
+  if (Array.isArray(weekendIds)) {
+    await prisma.$transaction(async (tx) => {
+      await tx.apartmentAvailability.deleteMany({
+        where: { apartmentId },
+      });
+      if (weekendIds.length > 0) {
+        await tx.apartmentAvailability.createMany({
+          data: weekendIds.map((wId: string) => ({
+            apartmentId,
+            weekendId: wId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    });
+  }
+
   const result = await prisma.apartment.update({
     where: { id: apartmentId },
     data: updateData,
@@ -1023,11 +1414,24 @@ const updateApartment = async (
           profileImage: true,
         },
       },
-      availabilities: true,
+      availabilities: {
+        include: {
+          weekend: true,
+        },
+      },
     },
   });
 
-  await deleteCacheByPattern("apartment:*");
+  await prisma.user.update({
+    where: {
+      id: userId,
+    },
+    data: {
+      howOftenWantToRent: payload?.howOftenWantToRent
+    }
+  });
+
+  await deleteApartmentCache(result.id, result.propertyId);
 
   return result;
 };
@@ -1049,7 +1453,7 @@ const updateApartmentStatus = async (
     data: { status },
   });
 
-  await deleteCacheByPattern("apartment:*");
+  await deleteApartmentCache(apartment.id, apartment.propertyId);
 
   return result;
 };
@@ -1080,7 +1484,7 @@ const deleteApartment = async (
     where: { id: apartment.id },
   });
 
-  await deleteCacheByPattern("apartment:*");
+  await deleteApartmentCache(apartment.id, apartment.propertyId);
 
   return { message: "Apartment deleted successfully" };
 };
@@ -1188,6 +1592,9 @@ const getAdminApartmentDetails = async (idOrPropertyId: string) => {
   const upcomingAvailability = computeUpcomingAvailability(
     apartment.availabilities,
     upcomingWeekends,
+    undefined,
+    apartment.unavailable,
+    apartment.receiveRequestWhenUnavailable,
   );
 
   const totalReviews = apartment.reviews.length;
@@ -1244,7 +1651,7 @@ const blockApartment = async (
     data: { status: updatedStatus },
   });
 
-  await deleteCacheByPattern("apartment:*");
+  await deleteApartmentCache(apartment.id, apartment.propertyId);
 
   // Notify owner
   await dispatchNotification({
@@ -1368,7 +1775,7 @@ const sendAvailabilityReminder = async (payload: {
             subject: `Update Availability for ${weekendName}`,
             html: `<p>Dear ${apt.user.username},</p><p>${finalMsg}</p><p><a href="https://shabbos-rent-website.vercel.app/user-dashboard">Go to Dashboard</a></p>`,
           })
-          .catch(() => {});
+          .catch(() => { });
       }
 
       // SMS
@@ -1379,7 +1786,7 @@ const sendAvailabilityReminder = async (payload: {
             to: phone,
             body: `ShabbosRent: ${finalMsg}`,
           })
-          .catch(() => {});
+          .catch(() => { });
       }
 
       sentCount++;
@@ -1593,6 +2000,9 @@ const getRecentlyViewedApartments = async (
     const upcomingAvailability = computeUpcomingAvailability(
       apt.availabilities,
       upcomingWeekends,
+      undefined,
+      apt.unavailable,
+      apt.receiveRequestWhenUnavailable,
     );
 
     const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(
@@ -1718,12 +2128,15 @@ const getApartmentsByCities = async (
         const avgRating =
           totalReviews > 0
             ? apt.reviews.reduce((acc, curr) => acc + curr.rating, 0) /
-              totalReviews
+            totalReviews
             : 0;
 
         const upcomingAvailability = computeUpcomingAvailability(
           apt.availabilities,
           upcomingWeekends,
+          undefined,
+          apt.unavailable,
+          apt.receiveRequestWhenUnavailable,
         );
 
         const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(
@@ -1758,6 +2171,92 @@ const getApartmentsByCities = async (
   return cityGroups;
 };
 
+const getListedCities = async (): Promise<string[]> => {
+  const cacheKey = "apartment:listed_cities";
+  const cached = await getCache<string[]>(cacheKey);
+  if (cached) return cached;
+
+  const result = await prisma.apartment.groupBy({
+    by: ["city"],
+    where: {
+      status: ApartmentStatus.CONFIRMED,
+      isActive: true,
+      city: { not: "" },
+    },
+    _count: {
+      id: true,
+    },
+    orderBy: {
+      _count: {
+        id: "desc",
+      },
+    },
+  });
+
+  const cities = result
+    .map((item) => item.city?.trim())
+    .filter((city): city is string => Boolean(city));
+
+  const uniqueCities: string[] = [];
+  const seen = new Set<string>();
+  for (const c of cities) {
+    const lower = c.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      uniqueCities.push(c);
+    }
+  }
+
+  await setCache(cacheKey, uniqueCities, 300);
+  return uniqueCities;
+};
+
+const getListedNeighborhoods = async (city?: string): Promise<string[]> => {
+  const cacheKey = `apartment:listed_neighborhoods:${(city || "all").toLowerCase().trim()}`;
+  const cached = await getCache<string[]>(cacheKey);
+  if (cached) return cached;
+
+  const whereCondition: Prisma.ApartmentWhereInput = {
+    status: ApartmentStatus.CONFIRMED,
+    isActive: true,
+    neighborhood: { not: "" },
+  };
+
+  if (city && city.trim()) {
+    whereCondition.city = { equals: city.trim(), mode: "insensitive" };
+  }
+
+  const result = await prisma.apartment.groupBy({
+    by: ["neighborhood"],
+    where: whereCondition,
+    _count: {
+      id: true,
+    },
+    orderBy: {
+      _count: {
+        id: "desc",
+      },
+    },
+  });
+
+  const neighborhoods = result
+    .map((item) => item.neighborhood?.trim())
+    .filter((n): n is string => Boolean(n));
+
+  const uniqueNeighborhoods: string[] = [];
+  const seen = new Set<string>();
+  for (const n of neighborhoods) {
+    const lower = n.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      uniqueNeighborhoods.push(n);
+    }
+  }
+
+  await setCache(cacheKey, uniqueNeighborhoods, 300);
+  return uniqueNeighborhoods;
+};
+
 export const ApartmentServices = {
   createApartment,
   getMyAppartment,
@@ -1773,6 +2272,10 @@ export const ApartmentServices = {
   getRecentlyViewedApartments,
   clearRecentlyViewedHistory,
   getApartmentsByCities,
+  getListedCities,
+  getListedNeighborhoods,
   logCitySearch,
   deleteApartment,
 };
+
+

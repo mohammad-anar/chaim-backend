@@ -48,6 +48,19 @@ router.get(
   PaymentController.handleNedarimCallback,
 );
 
+// Listing fee status (promo or standard ₪28) — public read
+router.get(
+  "/listing-fee-status",
+  PaymentController.getListingFeeStatus,
+);
+
+// Free listing activation (only works when promo is ON)
+router.post(
+  "/activate-free-listing",
+  auth(),
+  PaymentController.activateFreeListing,
+);
+
 // Admin: View all platform payment transactions
 router.get(
   "/admin/all-transactions",
@@ -55,4 +68,12 @@ router.get(
   PaymentController.getAdminAllTransactions,
 );
 
+// Admin: Toggle yearly listing fee promotion
+router.patch(
+  "/admin/yearly-fee-sale",
+  auth(UserRole.SUPER_ADMIN),
+  PaymentController.setYearlyFeeSaleStatus,
+);
+
 export const PaymentRoutes = router;
+

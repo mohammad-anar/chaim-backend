@@ -1,5 +1,5 @@
 import { prisma } from "../../../helpers/prisma.js";
-import { emailQueue } from "../../../helpers/bullQueue.js";
+import { emailQueue, isQueueAvailable } from "../../../helpers/bullQueue.js";
 import { emailHelper } from "../../../helpers/emailHelper.js";
 import config from "../../../config/index.js";
 import { ICreateContact } from "./contact.interface.js";
@@ -15,10 +15,7 @@ const createContact = async (payload: ICreateContact) => {
     },
   });
 
-  try {
-    await emailQueue.add("sendContactAdminEmail", payload);
-  } catch (queueErr) {
-    console.warn("BullMQ queue add failed, attempting direct async email fallback:", queueErr);
+  const sendDirectAdminEmail = () => {
     const adminEmail = config.admin.email || config.email.user || "admin@example.com";
     const html = `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
@@ -33,11 +30,23 @@ const createContact = async (payload: ICreateContact) => {
         </div>
       </div>
     `;
-    emailHelper.sendEmail({
-      to: adminEmail,
-      subject: `[Contact Us] ${payload.subject || "New Message"} from ${payload.name}`,
-      html,
-    }).catch((err) => console.error("Fallback email send error:", err));
+    emailHelper
+      .sendEmail({
+        to: adminEmail,
+        subject: `[Contact Us] ${payload.subject || "New Message"} from ${payload.name}`,
+        html,
+      })
+      .catch((err) => console.error("Direct fallback email send error:", err));
+  };
+
+  if (isQueueAvailable() && emailQueue) {
+    try {
+      await emailQueue.add("sendContactAdminEmail", payload);
+    } catch (queueErr) {
+      sendDirectAdminEmail();
+    }
+  } else {
+    sendDirectAdminEmail();
   }
 
   return result;

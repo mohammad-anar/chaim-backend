@@ -1,11 +1,28 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import catchAsync from "../../shared/catchAsync.js";
+import { getSingleFilePath } from "../../shared/getFilePath.js";
 import sendResponse from "../../shared/sendResponse.js";
 import { AdvertisementService } from "./advertisement.service.js";
 
 const createAdvertisement = catchAsync(async (req: Request, res: Response) => {
-  const result = await AdvertisementService.createAdvertisement(req.body);
+  const uploadedImage =
+    getSingleFilePath(req.files, "image") ||
+    getSingleFilePath((req as any).file ? { image: [(req as any).file] } : undefined, "image");
+
+  const imageString =
+    typeof req.body.image === "string" && req.body.image.trim() !== ""
+      ? req.body.image
+      : undefined;
+
+  const finalImage = uploadedImage || imageString;
+
+  const payload = {
+    ...req.body,
+    ...(finalImage && { image: finalImage }),
+  };
+
+  const result = await AdvertisementService.createAdvertisement(payload);
 
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
@@ -52,7 +69,23 @@ const recordClick = catchAsync(async (req: Request, res: Response) => {
 
 const updateAdvertisement = catchAsync(async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const result = await AdvertisementService.updateAdvertisement(id, req.body);
+  const uploadedImage =
+    getSingleFilePath(req.files, "image") ||
+    getSingleFilePath((req as any).file ? { image: [(req as any).file] } : undefined, "image");
+
+  const imageString =
+    typeof req.body.image === "string" && req.body.image.trim() !== ""
+      ? req.body.image
+      : undefined;
+
+  const finalImage = uploadedImage || imageString;
+
+  const payload = {
+    ...req.body,
+    ...(finalImage && { image: finalImage }),
+  };
+
+  const result = await AdvertisementService.updateAdvertisement(id, payload);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,

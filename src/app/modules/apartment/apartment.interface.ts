@@ -32,6 +32,8 @@ export type ICreateApartment = {
   inactiveNote?: string;
   additionalDetails?: string;
   referralCode?: string;
+  weekendIds?: string[];
+  howOftenWantToRent?: string;
 };
 
 export type IUpdateApartment = Partial<ICreateApartment>;
@@ -57,14 +59,29 @@ export type IApartmentFilterRequest = {
   maxWalkingMinutes?: number | string;
   walkingMinutes?: number | string;
   walkingTime?: number | string;
+  maxWalkingTime?: number | string;
+  walkingDistance?: number | string;
+  neighborhoodWalkingMinutes?: number | string;
   status?: ApartmentStatus;
   isActive?: boolean | string;
   unavailable?: boolean | string;
   receiveRequestWhenUnavailable?: boolean | string;
-  // Targeted destination search
+  // Targeted destination coordinates & aliases
+  lat?: number | string;
+  lng?: number | string;
+  latitude?: number | string;
+  longitude?: number | string;
   destLat?: number | string;
   destLng?: number | string;
+  dest_lat?: number | string;
+  dest_lng?: number | string;
+  // Target destination text & aliases
   targetDestination?: string;
   shulAddress?: string;
   destination?: string;
+  place?: string;
+  address?: string;
+  shul?: string;
+  synagogue?: string;
 };
+

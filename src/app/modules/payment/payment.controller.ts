@@ -88,6 +88,42 @@ const processDirectCardPayment = catchAsync(async (req: Request, res: Response) 
   });
 });
 
+const getListingFeeStatus = catchAsync(async (req: Request, res: Response) => {
+  const result = await PaymentServices.getListingFeeStatus();
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: "Listing fee status retrieved successfully",
+    data: result,
+  });
+});
+
+const activateFreeListing = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const { apartmentId } = req.body;
+  const result = await PaymentServices.activateFreeListing(userId, apartmentId);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.message,
+    data: result,
+  });
+});
+
+const setYearlyFeeSaleStatus = catchAsync(async (req: Request, res: Response) => {
+  const { isOnSale } = req.body;
+  const result = await PaymentServices.setYearlyFeeSaleStatus(Boolean(isOnSale));
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: `Yearly fee promotion ${result.isOnSale ? "enabled" : "disabled"} successfully`,
+    data: result,
+  });
+});
+
 export const PaymentController = {
   createListingPaymentIntent,
   createSwapPaymentIntent,
@@ -96,4 +132,8 @@ export const PaymentController = {
   handleNedarimCallback,
   processDirectCardPayment,
   getAdminAllTransactions,
+  getListingFeeStatus,
+  activateFreeListing,
+  setYearlyFeeSaleStatus,
 };
+

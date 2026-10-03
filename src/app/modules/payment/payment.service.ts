@@ -94,8 +94,18 @@ const createSwapPaymentIntent = async (userId: string, swapId: string) => {
   const swap = await prisma.swap.findUnique({
     where: { id: swapId },
     include: {
-      fromApartment: { include: { user: true } },
-      toApartment: { include: { user: true } },
+      fromApartment: {
+        include: {
+          user: true,
+          listingPayment: true,
+        },
+      },
+      toApartment: {
+        include: {
+          user: true,
+          listingPayment: true,
+        },
+      },
     },
   });
 
@@ -112,6 +122,27 @@ const createSwapPaymentIntent = async (userId: string, swapId: string) => {
       "You are not a participant in this swap request",
     );
   }
+
+  // Guard: both apartments must have an active (non-expired) listing payment
+  const now = new Date();
+  const checkListingActive = (apt: any, label: string) => {
+    const lp = apt.listingPayment;
+    if (!lp || lp.status !== "COMPLETED") {
+      throw new ApiError(
+        StatusCodes.PAYMENT_REQUIRED,
+        `${label} does not have an active listing subscription. Please pay the listing fee first.`,
+      );
+    }
+    if (lp.expiresAt && new Date(lp.expiresAt) <= now) {
+      throw new ApiError(
+        StatusCodes.PAYMENT_REQUIRED,
+        `${label} listing subscription has expired. Please renew the annual listing fee (₪28) before proceeding with a swap.`,
+      );
+    }
+  };
+
+  checkListingActive(swap.fromApartment, "Your apartment");
+  checkListingActive(swap.toApartment, "The other apartment");
 
   const feeAmount = config.fees.swap_request_fee || 50;
 
@@ -157,17 +188,37 @@ const createSwapPaymentIntent = async (userId: string, swapId: string) => {
   };
 };
 
+
 const createReportRentedPaymentIntent = async (
   userId: string,
   payload: ICreateReportRentedPaymentPayload,
 ) => {
   const apartment = await prisma.apartment.findFirst({
     where: { userId },
-    include: { user: { select: { username: true, email: true, phone: true } } },
+    include: {
+      user: { select: { username: true, email: true, phone: true } },
+      listingPayment: true,
+    },
   });
 
   if (!apartment) {
     throw new ApiError(StatusCodes.NOT_FOUND, "You do not have an active apartment listing");
+  }
+
+  // Guard: apartment listing payment must be active and not expired
+  const now = new Date();
+  const lp = apartment.listingPayment;
+  if (!lp || lp.status !== "COMPLETED") {
+    throw new ApiError(
+      StatusCodes.PAYMENT_REQUIRED,
+      "You must pay the annual listing fee (₪28) before reporting a rental.",
+    );
+  }
+  if (lp.expiresAt && new Date(lp.expiresAt) <= now) {
+    throw new ApiError(
+      StatusCodes.PAYMENT_REQUIRED,
+      "Your annual listing subscription has expired. Please renew (₪28) before reporting a rental.",
+    );
   }
 
   const feeAmount = config.fees.report_rented_fee || 50;
@@ -225,6 +276,7 @@ const createReportRentedPaymentIntent = async (
     clientPhone: apartment.user.phone || "",
   };
 };
+
 
 const verifyAndConfirmNedarimPayment = async (
   userId: string,
@@ -565,36 +617,60 @@ const handleNedarimCallback = async (payload: any) => {
     payload.TransId ||
     payload.ConfirmationCode;
 
-  const paymentType =
-    payload.Param1 ||
-    payload.param1 ||
-    payload.paymentType;
+  const param1 = payload.Param1 || payload.param1;
+  const param2 = payload.Param2 || payload.param2;
 
-  const paymentRecordId =
-    payload.Param2 ||
-    payload.param2 ||
-    payload.paymentRecordId;
-
-  if (transactionId && paymentType && paymentRecordId) {
-    try {
-      await verifyAndConfirmNedarimPayment("SYSTEM", {
-        transactionId: String(transactionId),
-        paymentType: String(paymentType) as any,
-        paymentRecordId: String(paymentRecordId),
-      });
-      console.log(`[NedarimCallback] Successfully processed transaction: ${transactionId}`);
-    } catch (err: any) {
-      console.error(`[NedarimCallback] Error processing callback for txn ${transactionId}:`, err?.message || err);
-    }
-  } else {
-    console.warn("[NedarimCallback] Incomplete parameters in callback payload:", {
-      transactionId,
-      paymentType,
-      paymentRecordId,
-    });
+  if (!transactionId) {
+    console.warn("[NedarimCallback] Missing transactionId in payload");
+    return { received: true, error: "Missing transactionId" };
   }
 
-  return { received: true };
+  try {
+    // Determine payment context from params or database
+    let resolvedPaymentType: "APARTMENT_LISTING" | "SWAP_REQUEST" | "REPORT_RENTED" = "APARTMENT_LISTING";
+    let resolvedApartmentId: string | undefined;
+    let resolvedPaymentRecordId: string | undefined;
+
+    // Check if Param1 or Param2 is a UUID matching an apartment or payment record
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (param1 === "APARTMENT_LISTING" || param1 === "SWAP_REQUEST" || param1 === "REPORT_RENTED") {
+      resolvedPaymentType = param1;
+      if (param2 && uuidRegex.test(param2)) {
+        resolvedPaymentRecordId = param2;
+      }
+    } else if (param1 && uuidRegex.test(param1)) {
+      // Param1 is likely an apartmentId, swapId, or paymentRecordId
+      const apt = await prisma.apartment.findUnique({ where: { id: param1 } });
+      if (apt) {
+        resolvedPaymentType = "APARTMENT_LISTING";
+        resolvedApartmentId = apt.id;
+      } else {
+        const swap = await prisma.swap.findUnique({ where: { id: param1 } });
+        if (swap) {
+          resolvedPaymentType = "SWAP_REQUEST";
+        } else {
+          const report = await prisma.reportRented.findUnique({ where: { id: param1 } });
+          if (report) {
+            resolvedPaymentType = "REPORT_RENTED";
+          }
+        }
+      }
+    }
+
+    await verifyAndConfirmNedarimPayment("SYSTEM", {
+      transactionId: String(transactionId),
+      paymentType: resolvedPaymentType,
+      apartmentId: resolvedApartmentId,
+      paymentRecordId: resolvedPaymentRecordId,
+    });
+
+    console.log(`[NedarimCallback] Successfully processed transaction: ${transactionId}`);
+    return { received: true, success: true, transactionId };
+  } catch (err: any) {
+    console.error(`[NedarimCallback] Error processing callback for txn ${transactionId}:`, err?.message || err);
+    return { received: true, error: err?.message };
+  }
 };
 
 const processDirectCardPayment = async (userId: string, payload: IDirectCardPaymentPayload) => {
@@ -1030,6 +1106,87 @@ const getAdminAllTransactions = async () => {
   };
 };
 
+// ─── Admin: Yearly Fee Promo / Listing Fee Status ───────────────────────────
+
+const APP_SETTING_SALE_KEY = "yearly_fee_on_sale";
+
+const getListingFeeStatus = async () => {
+  const row = await prisma.appSetting.findUnique({ where: { key: APP_SETTING_SALE_KEY } });
+  const isOnSale = row?.value === "true";
+  const standardFee = Number(config.fees?.apartment_listing_fee) || 28;
+  return {
+    standardFee,
+    isOnSale,
+    effectiveFee: isOnSale ? 0 : standardFee,
+    currency: "ILS",
+  };
+};
+
+const setYearlyFeeSaleStatus = async (isOnSale: boolean) => {
+  await prisma.appSetting.upsert({
+    where: { key: APP_SETTING_SALE_KEY },
+    create: { key: APP_SETTING_SALE_KEY, value: String(isOnSale) },
+    update: { value: String(isOnSale) },
+  });
+  return { isOnSale };
+};
+
+const activateFreeListing = async (userId: string, apartmentId: string) => {
+  // Verify promo is actually active
+  const row = await prisma.appSetting.findUnique({ where: { key: APP_SETTING_SALE_KEY } });
+  if (!row || row.value !== "true") {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      "Yearly fee promotion is not currently active. Please pay the standard listing fee.",
+    );
+  }
+
+  const apartment = await prisma.apartment.findFirst({ where: { id: apartmentId, userId } });
+  if (!apartment) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Apartment not found or you do not own it");
+  }
+
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+  const freeTransactionId = `PROMO-FREE-${Date.now()}-${apartmentId.slice(0, 8)}`;
+
+  await prisma.$transaction([
+    prisma.apartmentListingPayment.upsert({
+      where: { apartmentId },
+      create: {
+        apartmentId,
+        userId,
+        amount: 0,
+        currency: "ILS",
+        paymentMethod: "NEDARIM_PLUS",
+        transactionId: freeTransactionId,
+        status: "COMPLETED",
+        paidAt: now,
+        expiresAt,
+      },
+      update: {
+        amount: 0,
+        status: "COMPLETED",
+        transactionId: freeTransactionId,
+        paidAt: now,
+        expiresAt,
+      },
+    }),
+    prisma.apartment.update({
+      where: { id: apartmentId },
+      data: { status: "CONFIRMED", isActive: true },
+    }),
+  ]);
+
+  return {
+    success: true,
+    message: "Listing activated for free under current promotion",
+    apartmentId,
+    expiresAt: expiresAt.toISOString(),
+    transactionId: freeTransactionId,
+  };
+};
+
 export const PaymentServices = {
   createListingPaymentIntent,
   createSwapPaymentIntent,
@@ -1038,4 +1195,8 @@ export const PaymentServices = {
   handleNedarimCallback,
   processDirectCardPayment,
   getAdminAllTransactions,
+  getListingFeeStatus,
+  setYearlyFeeSaleStatus,
+  activateFreeListing,
 };
+

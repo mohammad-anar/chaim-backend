@@ -7,14 +7,16 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch ./src/server.ts",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "postinstall": "prisma generate",
-    "test": "tsx test_system_sync.ts",
-    "start:prod": "node dist/server.js"
+    "start": "node dist/server.js",
+    "start:prod": "node dist/server.js",
+    "test": "echo \"No test specified\""
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.1.0",
     "@prisma/client": "^6.19.2",
+    "@supabase/supabase-js": "^2.116.0",
     "@types/colors": "^1.2.4",
     "@types/http-status": "^1.1.2",
     "@types/http-status-codes": "^1.2.0",
@@ -25,6 +27,7 @@
     "@types/socket.io": "^3.0.2",
     "bcryptjs": "^3.0.3",
     "bullmq": "^6.0.6",
+    "cloudinary": "^2.11.0",
     "colors": "^1.4.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",

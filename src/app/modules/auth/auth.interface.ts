@@ -5,6 +5,7 @@ export type IRegisterUser = {
   password: string;
   confirmPassword?: string;
   profileImage?: string;
+  role?: "USER" | "OWNER" | "SUPER_ADMIN";
   referralCode?: string | null;
   marketingPlatformId?: string | null;
 };
@@ -37,6 +38,9 @@ export type IVerifyOtp = {
 };
 
 export type IResetPassword = {
+  token?: string;
+  identifier?: string;
+  otp?: number;
   newPassword: string;
   confirmPassword?: string;
   confirmNewPassword?: string;

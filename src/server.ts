@@ -2,6 +2,7 @@ import app from "./app.js";
 import config from "./config/index.js";
 import { seedSuperAdmin } from "./db/seedSuperAdmin.js";
 import { initAmbassadorDeadlineScheduler } from "./helpers/ambassadorDeadlineCron.js";
+import { initListingExpiryScheduler } from "./helpers/listingExpiryCron.js";
 import { initSelfPingScheduler } from "./helpers/selfPingCron.js";
 import { initSocket } from "./helpers/socketHelper.js";
 import "./helpers/bullQueue.js";
@@ -27,6 +28,9 @@ async function bootstrap() {
 
     // ambassador deadline cron runner
     initAmbassadorDeadlineScheduler();
+
+    // listing expiry cron: suspends expired apartments + sends renewal emails
+    initListingExpiryScheduler();
 
     // keep-alive self-ping cron runner (pings "/" every 14-15 minutes)
     initSelfPingScheduler();

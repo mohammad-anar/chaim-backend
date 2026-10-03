@@ -1,5 +1,6 @@
 enum UserRole {
   USER
+  OWNER
   SUPER_ADMIN
 }
 

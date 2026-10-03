@@ -1,7 +1,7 @@
 import { StatusCodes } from "http-status-codes";
 import ApiError from "../../../errors/ApiError.js";
 import { prisma } from "../../../helpers/prisma.js";
-import { deleteCacheByPattern } from "../../../helpers/redis.js";
+import { deleteApartmentCache } from "../../../helpers/redis.js";
 import {
   IBulkSetAvailability,
   ISetSpecialWeekend,
@@ -54,12 +54,13 @@ const addAvailability = async (userId: string, payload: IToggleAvailability) => 
           id: true,
           title: true,
           city: true,
+          propertyId: true,
         },
       },
     },
   });
 
-  await deleteCacheByPattern("apartment:*");
+  await deleteApartmentCache(apartment.id, apartment.propertyId);
 
   return result;
 };
@@ -94,7 +95,7 @@ const removeAvailability = async (userId: string, payload: IToggleAvailability) 
     where: { id: existing.id },
   });
 
-  await deleteCacheByPattern("apartment:*");
+  await deleteApartmentCache(apartment.id, apartment.propertyId);
 
   return { message: "Availability removed successfully" };
 };
@@ -133,7 +134,7 @@ const bulkSetAvailability = async (userId: string, payload: IBulkSetAvailability
     });
   });
 
-  await deleteCacheByPattern("apartment:*");
+  await deleteApartmentCache(apartment.id, apartment.propertyId);
 
   return result;
 };
@@ -178,7 +179,7 @@ const setSpecialWeekend = async (
   const availability = await prisma.apartmentAvailability.findUnique({
     where: { id: availabilityId },
     include: {
-      apartment: { select: { userId: true } },
+      apartment: { select: { id: true, userId: true, propertyId: true } },
     },
   });
 
@@ -203,7 +204,7 @@ const setSpecialWeekend = async (
     include: { weekend: true },
   });
 
-  await deleteCacheByPattern("apartment:*");
+  await deleteApartmentCache(availability.apartment.id, availability.apartment.propertyId);
 
   return updated;
 };
@@ -247,7 +248,7 @@ const setSpecialWeekendDirect = async (
     include: { weekend: true },
   });
 
-  await deleteCacheByPattern("apartment:*");
+  await deleteApartmentCache(apartment.id, apartment.propertyId);
 
   return updated;
 };

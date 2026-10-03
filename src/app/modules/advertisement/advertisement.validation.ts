@@ -1,8 +1,11 @@
 import { z } from "zod";
 
 const createAdvertisementZodSchema = z.object({
-  title: z.string().min(2, "Title is required"),
-  image: z.string().min(1, "Image URL is required").optional(),
+  companyName: z.string().optional(),
+  title: z.string().min(1, "Title is required"),
+  subtitle: z.string().optional(),
+  image: z.string().optional(),
+  url: z.string().optional(),
   targetUrl: z.string().optional(),
   position: z.enum(["HOME_TOP", "HOME_MIDDLE", "SIDEBAR", "FOOTER"]).optional(),
   isActive: z.boolean().optional(),
@@ -11,8 +14,11 @@ const createAdvertisementZodSchema = z.object({
 });
 
 const updateAdvertisementZodSchema = z.object({
-  title: z.string().min(2).optional(),
-  image: z.string().min(1).optional(),
+  companyName: z.string().optional(),
+  title: z.string().min(1).optional(),
+  subtitle: z.string().optional(),
+  image: z.string().optional(),
+  url: z.string().optional(),
   targetUrl: z.string().optional(),
   position: z.enum(["HOME_TOP", "HOME_MIDDLE", "SIDEBAR", "FOOTER"]).optional(),
   isActive: z.boolean().optional(),

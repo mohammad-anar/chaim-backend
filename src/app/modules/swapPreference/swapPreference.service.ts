@@ -326,47 +326,123 @@ const getAllSwapPreferences = async (
   const whereConditions: Prisma.SwapPreferenceWhereInput =
     andConditions.length > 0 ? { AND: andConditions } : {};
 
-  const result = await prisma.swapPreference.findMany({
-    where: whereConditions,
-    skip,
-    take: limit,
-    orderBy: { [sortBy]: sortOrder },
-    include: {
-      apartment: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              email: true,
-              phone: true,
-              profileImage: true,
+  if (isDestinationMode) {
+    const result = await prisma.swapPreference.findMany({
+      where: whereConditions,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        apartment: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                phone: true,
+                profileImage: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    });
 
-  const total = await prisma.swapPreference.count({
-    where: whereConditions,
-  });
+    let enrichedData = await Promise.all(
+      result.map((p) => attachWeekendCalendar(p)),
+    );
+
+    enrichedData = enrichedData.map((p: any) => {
+      const apt = p.apartment;
+      const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
+      const distanceKmNeighborhood = distanceKmToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
+      const walkingDistanceToDestination = !isNaN(parsedDestLat) && !isNaN(parsedDestLng)
+        ? walkingMinutesToDestination(apt, parsedDestLat, parsedDestLng)
+        : undefined;
+      const distanceKmDest = !isNaN(parsedDestLat) && !isNaN(parsedDestLng)
+        ? distanceKmToDestination(apt, parsedDestLat, parsedDestLng)
+        : undefined;
+
+      return {
+        ...p,
+        apartment: {
+          ...apt,
+          walkingDistanceToNeighborhood,
+          distanceKmToNeighborhood: distanceKmNeighborhood,
+          ...(!isNaN(parsedDestLat) && !isNaN(parsedDestLng) && {
+            walkingDistanceToDestination,
+            distanceKmToDestination: distanceKmDest,
+          }),
+        },
+      };
+    });
+
+    if (!isNaN(parsedWalkingMinutes) && parsedWalkingMinutes > 0) {
+      enrichedData = enrichedData.filter(
+        (p: any) =>
+          p.apartment.walkingDistanceToDestination !== null &&
+          p.apartment.walkingDistanceToDestination !== undefined &&
+          p.apartment.walkingDistanceToDestination <= parsedWalkingMinutes,
+      );
+    }
+
+    // Sort by walking distance by default in destination mode
+    if (!options.sortBy || options.sortBy === "distance" || options.sortBy === "walkingMinutes") {
+      enrichedData.sort((a, b) => {
+        const distA = a.apartment.walkingDistanceToDestination ?? Infinity;
+        const distB = b.apartment.walkingDistanceToDestination ?? Infinity;
+        return distA - distB;
+      });
+    }
+
+    const total = enrichedData.length;
+    const paginatedData = enrichedData.slice(skip, skip + limit);
+
+    return {
+      meta: {
+        page,
+        limit,
+        total,
+        totalPage: Math.ceil(total / limit) || 1,
+      },
+      data: paginatedData,
+    };
+  }
+
+  const [result, total] = await Promise.all([
+    prisma.swapPreference.findMany({
+      where: whereConditions,
+      skip,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        apartment: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                phone: true,
+                profileImage: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+    prisma.swapPreference.count({
+      where: whereConditions,
+    }),
+  ]);
 
   let enrichedData = await Promise.all(
     result.map((p) => attachWeekendCalendar(p)),
   );
 
-  // Attach walking distance & distance km fields to each apartment
   enrichedData = enrichedData.map((p: any) => {
     const apt = p.apartment;
     const walkingDistanceToNeighborhood = walkingMinutesToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
     const distanceKmNeighborhood = distanceKmToNeighborhood(apt, NEIGHBORHOOD_CENTROIDS);
-    const walkingDistanceToDestination = !isNaN(parsedDestLat) && !isNaN(parsedDestLng)
-      ? walkingMinutesToDestination(apt, parsedDestLat, parsedDestLng)
-      : undefined;
-    const distanceKmDest = !isNaN(parsedDestLat) && !isNaN(parsedDestLng)
-      ? distanceKmToDestination(apt, parsedDestLat, parsedDestLng)
-      : undefined;
 
     return {
       ...p,
@@ -374,29 +450,16 @@ const getAllSwapPreferences = async (
         ...apt,
         walkingDistanceToNeighborhood,
         distanceKmToNeighborhood: distanceKmNeighborhood,
-        ...(!isNaN(parsedDestLat) && !isNaN(parsedDestLng) && {
-          walkingDistanceToDestination,
-          distanceKmToDestination: distanceKmDest,
-        }),
       },
     };
   });
-
-  // In destination mode: in-memory filter by walking distance
-  if (isDestinationMode) {
-    enrichedData = enrichedData.filter(
-      (p: any) =>
-        p.apartment.walkingDistanceToDestination !== null &&
-        p.apartment.walkingDistanceToDestination !== undefined &&
-        p.apartment.walkingDistanceToDestination <= parsedWalkingMinutes,
-    );
-  }
 
   return {
     meta: {
       page,
       limit,
-      total: isDestinationMode ? enrichedData.length : total,
+      total,
+      totalPage: Math.ceil(total / limit) || 1,
     },
     data: enrichedData,
   };

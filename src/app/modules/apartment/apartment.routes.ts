@@ -59,10 +59,21 @@ router.get(
 );
 
 router.get(
+  "/cities",
+  ApartmentController.getListedCities,
+);
+
+router.get(
+  "/neighborhoods",
+  ApartmentController.getListedNeighborhoods,
+);
+
+router.get(
   "/by-cities",
   optionalAuth(),
   ApartmentController.getApartmentsByCities,
 );
+
 
 router.get(
   "/recently-viewed",
@@ -130,7 +141,7 @@ router.delete(
 
 router.delete(
   "/:id",
-  auth(UserRole.USER, UserRole.SUPER_ADMIN),
+  auth(UserRole.USER, UserRole.OWNER, UserRole.SUPER_ADMIN),
   ApartmentController.deleteApartment,
 );
 

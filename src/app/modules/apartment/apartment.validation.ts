@@ -65,6 +65,20 @@ const parseOptionalString = z.preprocess((val) => {
   return String(val);
 }, z.string().optional());
 
+const parseWeekendIds = z.preprocess((val) => {
+  if (!val || val === "" || val === "null" || val === "undefined") return undefined;
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return val.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  return undefined;
+}, z.array(z.string()).optional());
+
 const createApartmentZodSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: parseOptionalString,
@@ -95,6 +109,8 @@ const createApartmentZodSchema = z.object({
   inactiveNote: parseOptionalString,
   additionalDetails: parseOptionalString,
   referralCode: parseOptionalString,
+  weekendIds: parseWeekendIds,
+  howOftenWantToRent: z.string().optional()
 });
 
 const updateApartmentZodSchema = z.object({
@@ -126,6 +142,7 @@ const updateApartmentZodSchema = z.object({
   isActive: parseOptionalBoolean,
   inactiveNote: parseOptionalString,
   additionalDetails: parseOptionalString,
+  weekendIds: parseWeekendIds,
 });
 
 const updateApartmentStatusZodSchema = z.object({

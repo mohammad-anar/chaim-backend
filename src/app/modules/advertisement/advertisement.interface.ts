@@ -1,9 +1,12 @@
 import { AdvertisementPosition } from "@prisma/client";
 
 export interface ICreateAdvertisementPayload {
+  companyName?: string;
   title: string;
-  image: string;
-  targetUrl?: string;
+  subtitle?: string;
+  image?: string;
+  url?: string;
+  targetUrl?: string; // alias for url
   position?: AdvertisementPosition;
   isActive?: boolean;
   startDate?: string;
@@ -11,9 +14,12 @@ export interface ICreateAdvertisementPayload {
 }
 
 export interface IUpdateAdvertisementPayload {
+  companyName?: string;
   title?: string;
+  subtitle?: string;
   image?: string;
-  targetUrl?: string;
+  url?: string;
+  targetUrl?: string; // alias for url
   position?: AdvertisementPosition;
   isActive?: boolean;
   startDate?: string;

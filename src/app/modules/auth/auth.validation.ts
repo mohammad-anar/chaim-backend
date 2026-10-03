@@ -7,6 +7,7 @@ const registerZodSchema = z
     phone: z.string().optional(),
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string().min(1, "Confirm password is required"),
+    role: z.enum(["USER", "OWNER", "user", "owner"]).optional(),
     referralCode: z.string().optional().nullable(),
     marketingPlatformId: z.string().optional().nullable(),
   })
@@ -53,11 +54,22 @@ const forgotPasswordZodSchema = z
 
 const verifyOtpZodSchema = z.object({
   identifier: z.string().min(1, "Email or phone number is required"),
-  otp: z.number().int("OTP must be a number"),
+  otp: z.union([
+    z.number().int("OTP must be a number"),
+    z.string().regex(/^\d+$/, "OTP must contain digits only").transform(Number),
+  ]),
 });
 
 const resetPasswordZodSchema = z
   .object({
+    token: z.string().optional(),
+    identifier: z.string().optional(),
+    otp: z
+      .union([
+        z.number().int("OTP must be a number"),
+        z.string().regex(/^\d+$/, "OTP must contain digits only").transform(Number),
+      ])
+      .optional(),
     newPassword: z.string().min(6, "New password must be at least 6 characters"),
     confirmNewPassword: z
       .string()

@@ -337,3 +337,41 @@ export const notifyOnUserRegisteredViaAmbassador = async (data: {
     metadata: { newUserId: data.newUserId },
   });
 };
+
+/**
+ * 11. Alert Owner when their listing is about to expire (renewal reminder)
+ */
+export const notifyOwnerListingExpiringSoon = async (data: {
+  userId: string;
+  apartmentId: string;
+  apartmentTitle: string;
+  daysLeft: number;
+}) => {
+  return await dispatchNotification({
+    title: `⚠️ Listing Expires in ${data.daysLeft} Day${data.daysLeft === 1 ? "" : "s"}`,
+    message: `Your listing "${data.apartmentTitle}" will expire in ${data.daysLeft} day${data.daysLeft === 1 ? "" : "s"}. Renew now (₪28) to keep it active for rent and swap.`,
+    type: AlertType.WARNING,
+    targetUserId: data.userId,
+    link: `/my-apartment`,
+    metadata: { apartmentId: data.apartmentId },
+  });
+};
+
+/**
+ * 12. Alert Admin when an apartment is auto-suspended due to expired listing payment
+ */
+export const notifyAdminOnListingExpired = async (data: {
+  apartmentId: string;
+  apartmentTitle: string;
+  ownerName: string;
+  expiredAt: Date;
+}) => {
+  return await dispatchNotification({
+    title: "Listing Expired — Apartment Suspended",
+    message: `Apartment "${data.apartmentTitle}" (owner: ${data.ownerName}) was automatically suspended. Listing fee expired on ${data.expiredAt.toLocaleDateString()}.`,
+    type: AlertType.WARNING,
+    targetRole: "SUPER_ADMIN",
+    link: `/dashboard/apartments`,
+    metadata: { apartmentId: data.apartmentId },
+  });
+};

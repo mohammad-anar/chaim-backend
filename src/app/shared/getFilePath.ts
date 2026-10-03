@@ -25,8 +25,18 @@ const resolveSubdir = (folderName: string) => {
 export const getSingleFilePath = (files: any, folderName: IFolderName) => {
   const fileField = files && files[folderName];
   if (fileField && Array.isArray(fileField) && fileField.length > 0) {
+    const file = fileField[0];
+    if (file.supabaseUrl) return file.supabaseUrl;
+    if (file.storageUrl) return file.storageUrl;
+    if (file.cloudinaryUrl) return file.cloudinaryUrl;
+    if (typeof file.filename === "string" && (file.filename.startsWith("http://") || file.filename.startsWith("https://"))) {
+      return file.filename;
+    }
+    if (typeof file.path === "string" && (file.path.startsWith("http://") || file.path.startsWith("https://"))) {
+      return file.path;
+    }
     const subdir = resolveSubdir(folderName);
-    return `/${subdir}/${fileField[0].filename}`;
+    return `/${subdir}/${file.filename}`;
   }
 
   return undefined;
@@ -38,7 +48,18 @@ export const getMultipleFilesPath = (files: any, folderName: IFolderName) => {
   if (folderFiles) {
     if (Array.isArray(folderFiles)) {
       const subdir = resolveSubdir(folderName);
-      return folderFiles.map((file: any) => `/${subdir}/${file.filename}`);
+      return folderFiles.map((file: any) => {
+        if (file.supabaseUrl) return file.supabaseUrl;
+        if (file.storageUrl) return file.storageUrl;
+        if (file.cloudinaryUrl) return file.cloudinaryUrl;
+        if (typeof file.filename === "string" && (file.filename.startsWith("http://") || file.filename.startsWith("https://"))) {
+          return file.filename;
+        }
+        if (typeof file.path === "string" && (file.path.startsWith("http://") || file.path.startsWith("https://"))) {
+          return file.path;
+        }
+        return `/${subdir}/${file.filename}`;
+      });
     }
   }
 

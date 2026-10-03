@@ -8,11 +8,14 @@ import {
 } from "./advertisement.interface.js";
 
 const createAdvertisement = async (payload: ICreateAdvertisementPayload) => {
+  const url = payload.url !== undefined ? payload.url : payload.targetUrl;
   return await prisma.advertisement.create({
     data: {
+      companyName: payload.companyName || null,
       title: payload.title,
-      image: payload.image,
-      targetUrl: payload.targetUrl || null,
+      subtitle: payload.subtitle || null,
+      image: payload.image || "",
+      url: url || null,
       position: payload.position || AdvertisementPosition.HOME_TOP,
       isActive: payload.isActive !== undefined ? payload.isActive : true,
       startDate: payload.startDate ? new Date(payload.startDate) : null,
@@ -74,7 +77,15 @@ const updateAdvertisement = async (
     throw new ApiError(StatusCodes.NOT_FOUND, "Advertisement not found");
   }
 
-  const data: any = { ...payload };
+  const { targetUrl, ...rest } = payload;
+  const data: any = { ...rest };
+
+  if (payload.url !== undefined) {
+    data.url = payload.url;
+  } else if (targetUrl !== undefined) {
+    data.url = targetUrl;
+  }
+
   if (payload.startDate) data.startDate = new Date(payload.startDate);
   if (payload.endDate) data.endDate = new Date(payload.endDate);
 

@@ -39,12 +39,12 @@ A complete reference for frontend and backend integration covering apartment lis
 
 | Method | Endpoint | Auth Required | Content-Type | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/apartment` | `USER` / `SUPER_ADMIN` | `multipart/form-data` or `application/json` | Create a new apartment listing |
-| `PATCH` | `/api/v1/apartment/:id` | `USER` / `SUPER_ADMIN` | `multipart/form-data` or `application/json` | Update apartment details and settings |
-| `GET` | `/api/v1/apartment/my-apartment` | `USER` / `SUPER_ADMIN` | `application/json` | Get all apartments owned by the current user |
-| `GET` | `/api/v1/apartment/:id` | Optional / Public | `application/json` | Get single apartment details by ID or Property ID |
-| `GET` | `/api/v1/apartment` | Optional / Public | `application/json` | Search and list public active apartments |
-| `DELETE` | `/api/v1/apartment/:id` | `USER` / `SUPER_ADMIN` | `application/json` | Delete an apartment listing |
+| `POST` | `/api/v1/apartment` | `USER` / `OWNER` / `SUPER_ADMIN` | `multipart/form-data` or `application/json` | Create a new apartment listing (auto-upgrades `USER` to `OWNER`) |
+| `PATCH` | `/api/v1/apartment/:id` | `USER` / `OWNER` / `SUPER_ADMIN` | `multipart/form-data` or `application/json` | Update apartment details and settings |
+| `GET` | `/api/v1/apartment/my-apartment` | `USER` / `OWNER` / `SUPER_ADMIN` | `application/json` | Get all apartments owned by the current user |
+| `GET` | `/api/v1/apartment/:id` | Public (No Auth) | `application/json` | Get single apartment details by ID or Property ID |
+| `GET` | `/api/v1/apartment` | Public (No Auth) | `application/json` | Search and list public active apartments |
+| `DELETE` | `/api/v1/apartment/:id` | `USER` / `OWNER` / `SUPER_ADMIN` | `application/json` | Delete an apartment listing |
 
 ---
 
@@ -52,9 +52,9 @@ A complete reference for frontend and backend integration covering apartment lis
 
 | Method | Endpoint | Auth Required | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/owner/me/notification-pref` | `USER` / `SUPER_ADMIN` | Fetch current owner's reminder preferences and status |
-| `PATCH` | `/api/v1/owner/me/notification-pref` | `USER` / `SUPER_ADMIN` | Update/save reminder schedule, channel, and pause toggle |
-| `POST` | `/api/v1/owner/me/test-reminder` | `USER` / `SUPER_ADMIN` | Send an immediate test reminder to the owner's configured channel |
+| `GET` | `/api/v1/owner/me/notification-pref` | `USER` / `OWNER` / `SUPER_ADMIN` | Fetch current owner's reminder preferences and status |
+| `PATCH` | `/api/v1/owner/me/notification-pref` | `USER` / `OWNER` / `SUPER_ADMIN` | Update/save reminder schedule, channel, and pause toggle |
+| `POST` | `/api/v1/owner/me/test-reminder` | `USER` / `OWNER` / `SUPER_ADMIN` | Send an immediate test reminder to the owner's configured channel |
 | `POST` | `/api/v1/owner/:id/availability-reminder` | `SUPER_ADMIN` | Admin trigger to send availability reminder to owner |
 
 ---
@@ -73,6 +73,10 @@ A complete reference for frontend and backend integration covering apartment lis
 | `street2` | `String?` | `null` | No | Street address line 2 |
 | `lat` | `Float?` | `null` | No | Apartment latitude coordinate |
 | `lng` | `Float?` | `null` | No | Apartment longitude coordinate |
+| `neighborhoodLat` | `Float?` | `null` | No | Neighborhood center latitude coordinate |
+| `neighborhoodLng` | `Float?` | `null` | No | Neighborhood center longitude coordinate |
+| `neighborhoodWalkingMinutes` | `Int?` | `null` | No | Walking time to neighborhood center / main shul in minutes |
+| `neighborhoodWalkingTime` | `String?` / `Date?` | `null` | No | Optional timestamp / string for neighborhood walking time |
 | `propertyType` | `Enum` | — | **Yes** | `APARTMENT`, `VILLA`, `PENTHOUSE`, `STUDIO` |
 | `bedrooms` | `Int` | — | **Yes** | Number of bedrooms (min: 1) |
 | `bathrooms` | `Int` | — | **Yes** | Number of bathrooms (min: 1) |
@@ -91,6 +95,7 @@ A complete reference for frontend and backend integration covering apartment lis
 | `isActive` | `Boolean` | `true` | No | Owner active status switch |
 | `additionalDetails` | `String?` | `null` | No | Kosher/Kashrut or house notes |
 | `referralCode` | `String?` | `null` | No | Optional ambassador referral code |
+| `weekendIds` | `String[]` / `JSON string` | `[]` | No | Array of weekend calendar UUIDs available for booking |
 
 ---
 
